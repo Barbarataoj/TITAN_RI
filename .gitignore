@@ -1,37 +1,29 @@
-*.pyc
-*.png
-*.tar.gz
-*.zip
-.idea/
+cat << 'EOF' > .gitignore
+# Python environments
 venv/
-venv/*
-./python/
-./python/*
-venv_pypy/
-venv_pypy/*
-
+env/
+python/
+.conda/
 __pycache__/
-__pycache__/*
-.python-version
-.pytest_cache/
-.pytest_cache/*
-.mypy_cache
-.coverage
-titan.egg-info/
-titan-model.egg-info/
+*.pyc
 
-run_nycmsm_cal.sh
-
+# OS / editor
+.DS_Store
+.idea/
 .vscode/
 
-ipynb/.ipynb_checkpoints/
+# TITAN outputs / calibration
+*.csv
+*.parquet
+*.h5
+*.pkl
+*.npz
+/output/
+/results/
+/scratch/
 
-results/
-results/*.txt
-results/*/*.txt
-*log*.txt
-
-profile.prof
-site/
-
-.DS_Store
+# Slurm / logs
+*.out
+*.err
+EOF
+TITAN_repo/
