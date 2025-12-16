@@ -62,7 +62,16 @@ class Agent:
         self.location = location
         self.component = "-1"  # updated after relationships created
 
+        # OUD-related flags (baseline set in Population.create_agent)
+        self.has_oud: bool = False          # whether agent currently has OUD
+        self.is_in_remission: bool = False  # whether agent is in OUD remission
+
+
         self.sex_role = "versatile"
+
+        # ---- Exit-related attributes (for death/overdose/etc.) ----
+        self.exit_class = "none"     # default: no exit event this timestep
+        self.death_reason = None     # optional text label (e.g. "overdose")
 
         # agent-partner params
         self.relationships: Set[Relationship] = set()

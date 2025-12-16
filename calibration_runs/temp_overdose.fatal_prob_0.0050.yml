@@ -1,0 +1,747 @@
+agent_zero:
+  interaction_type: injection
+  num_partners: 0
+classes:
+  age_bins:
+    fallback_old:
+      max_age: 999
+      min_age: 45
+    fallback_young:
+      max_age: 15
+      min_age: 0
+    mid_adult:
+      max_age: 44
+      min_age: 25
+    young_adult:
+      max_age: 24
+      min_age: 16
+  enter:
+    age_in:
+      age: 16
+      age_in: true
+      enter_type: replace
+      prob: 1.0
+    new_ag:
+      enter_type: new_agent
+      prob: 1.0
+    replace:
+      enter_type: replace
+      prob: 1.0
+  exit:
+    age_out:
+      age: 999
+      exit_type: age_out
+      ignore_incar: false
+    death:
+      exit_type: death
+      ignore_incar: true
+    migrate:
+      exit_type: drop_out
+      ignore_incar: false
+    none:
+      exit_type: none
+      ignore_incar: false
+demographics:
+  black_hispanic:
+    ppl: 0.0015
+    sex_type:
+      HF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: &id001
+          init: 0.2
+        incar: &id002
+          init: 0.03
+          prob: 0.03
+        injection: &id003
+          num_acts: 10
+          unsafe_prob: 0.1
+        ppl: 0.2
+        prep: &id004
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex: &id005
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        vaccine: &id006
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      HM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MSM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MTF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.08
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      WSW:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.05
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+  black_nonhispanic:
+    ppl: 0.033
+    sex_type:
+      HF:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.2
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      HM:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MSM:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.5
+        safe_sex: *id005
+        vaccine: *id006
+      MTF:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      WSW:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.05
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+  other_hispanic:
+    ppl: 0.013
+    sex_type:
+      HF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.2
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      HM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MSM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MTF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.08
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      WSW:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.05
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+  other_nonhispanic:
+    ppl: 0.2545
+    sex_type:
+      HF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.2
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      HM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MSM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MTF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.08
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      WSW:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.05
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+  white_hispanic:
+    ppl: 0.03
+    sex_type:
+      HF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.2
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      HM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MSM:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MTF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.08
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      WSW:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.05
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+  white_nonhispanic:
+    ppl: 0.668
+    sex_type:
+      HF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.2
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      HM:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MSM:
+        drug_type:
+          Inj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+          NonInj:
+            init_active: 0.5
+            init_none: 0.3
+            init_remission: 0.2
+            oud_state: null
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection: *id003
+        ppl: 0.3
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      MTF:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.08
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+      WSW:
+        drug_type:
+          Inj:
+            ppl: 0.5
+          NonInj:
+            ppl: 0.5
+        high_risk: *id001
+        incar: *id002
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.05
+        ppl: 0.1
+        prep: *id004
+        safe_sex: *id005
+        vaccine: *id006
+exit_enter:
+  death:
+    entry_class: replace
+    exit_class: death
+exposures:
+  hiv: true
+  knowledge: true
+  monkeypox: true
+external_exposure:
+  convert_prob: 1.0
+features:
+  agent_zero: true
+  assort_mix: false
+  exit_enter: true
+  external_exposure: true
+  haart: true
+  high_risk: true
+  hiv_testing: true
+  incar: true
+  moud: true
+  oud_state: true
+  overdose: true
+  partner_tracing: true
+  prep: true
+  static_network: false
+  syringe_services: true
+  timeline_scaling: true
+  vaccine: true
+haart:
+  use_reinit: true
+hiv_testing:
+  base_prob: 0.3
+  high_risk_mult: 2.0
+  interval: 3
+  oud_mult: 1.5
+knowledge:
+  opinion:
+    prob: 0.5
+  prob: 0.3
+model:
+  locations:
+    world:
+      category: world
+      ppl: 1.0
+  network:
+    component_size:
+      max: 100
+    enable: true
+    type: scale_free
+  num_pop: 100
+  num_reps: 1
+  seed:
+    ppl: 12345
+    run: 0
+  time:
+    burn_steps: 120
+    num_steps: 120
+    steps_per_year: 12
+moud:
+  injection_scale:
+    active: 0.7
+    inactive: 1.0
+  overdose_scale:
+    active: 0.4
+    inactive: 1.0
+  start_time: 0
+  use_reinit: true
+oud:
+  transitions:
+    inject_start_rate_per_year: 0.02
+    inject_stop_rate_per_year: 0.1
+    remission_rate_per_year: 0.15
+oud_state:
+  init_active: 0.5
+  init_none: 0.3
+  init_remission: 0.2
+outputs:
+  classes:
+  - locations
+  - races
+  - sex_types
+  - components
+  - drug_types
+  network:
+    calc_component_stats: true
+overdose:
+  base_prob_inj: 0.5
+  base_prob_noninj: 0.007
+  fatal_frac: 0.12
+  fatal_prob: 0.005
+  high_risk_mult: 2.0
+  ssp_rr: 0.8
+partnership:
+  duration:
+    Inj:
+      black_hispanic: &id007
+        distribution:
+          dist_type: randint
+          mean: 1
+          vars:
+            1:
+              value: 1
+              value_type: int
+            2:
+              value: 3
+              value_type: int
+        type: distribution
+      black_nonhispanic: *id007
+      other_hispanic: *id007
+      other_nonhispanic: *id007
+      white_hispanic: *id007
+      white_nonhispanic: *id007
+    Sex:
+      black_hispanic:
+        bins:
+          1:
+            max: 4
+            min: 3
+            prob: 1.0
+        type: bins
+      black_nonhispanic:
+        bins:
+          1:
+            max: 4
+            min: 3
+            prob: 1.0
+        type: bins
+      other_hispanic:
+        distribution:
+          dist_type: poisson
+          mean: 1
+          vars:
+            1:
+              value: 1
+              value_type: float
+        type: distribution
+      other_nonhispanic:
+        distribution:
+          dist_type: poisson
+          mean: 1
+          vars:
+            1:
+              value: 1
+              value_type: float
+        type: distribution
+      white_hispanic:
+        bins:
+          1:
+            max: 2
+            min: 1
+            prob: 1.0
+        type: bins
+      white_nonhispanic:
+        bins:
+          1:
+            max: 2
+            min: 1
+            prob: 1.0
+        type: bins
+    SexInj:
+      black_hispanic: &id008
+        distribution:
+          dist_type: poisson
+          mean: 1
+          vars:
+            1:
+              value: 1
+              value_type: float
+        type: distribution
+      black_nonhispanic: *id008
+      other_hispanic: *id008
+      other_nonhispanic: *id008
+      white_hispanic: *id008
+      white_nonhispanic: *id008
+    Social:
+      black_hispanic: *id008
+      black_nonhispanic: *id008
+      other_hispanic: *id008
+      other_nonhispanic: *id008
+      white_hispanic: *id008
+      white_nonhispanic: *id008
+prep:
+  cap: 0.1
+  cap_as_prob: false
+  init: 0.7
+syringe_services:
+  timeline:
+    ssp_open:
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+      start_time: 1
+      stop_time: 120

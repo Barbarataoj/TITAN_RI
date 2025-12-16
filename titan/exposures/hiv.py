@@ -1,4 +1,5 @@
 from typing import List, Dict, Optional, Set
+import math  # NEW: for exp() in background FOI calculations
 
 from . import base_exposure
 from .. import agent
@@ -96,10 +97,16 @@ class HIV(base_exposure.BaseExposure):
 
         If the agent is hiv+ and the model time is past the hiv start_time, determine if the agent becomes diagnosed if not yet diagnosed, and if the agent has progressed to aids.
 
-        args:
-            model: the instance of TITAN currently being run
+        If the agent is hiv- and the model time is past the hiv start_time, apply background
+        risk of HIV acquisition from non-OUD partners (force-of-infection term), in addition
+        to any relationship-based exposures handled via `expose`.
         """
-        if self.active and model.time >= model.params.hiv.start_time:
+        # NEW: Do nothing before HIV modeling starts
+        if model.time < model.params.hiv.start_time:
+            return
+
+        # Case 1: agent is already HIV+  --> keep existing behavior
+        if self.active:
             if not self.dx:
                 test_prob = (
                     self.agent.location.params.demographics[self.agent.race]
@@ -115,6 +122,13 @@ class HIV(base_exposure.BaseExposure):
                     self.diagnose(model)
 
             self.progress_to_aids(model)
+            return
+
+        # Case 2: agent is HIV-  --> apply background FOI from non-OUD partners
+        p_background = self.get_background_foi_probability(model)  # NEW
+
+        if p_background > 0.0 and model.run_random.random() < p_background:
+            self.convert(model)
 
     @classmethod
     def add_agent(cls, agent: "agent.Agent"):
@@ -178,16 +192,16 @@ class HIV(base_exposure.BaseExposure):
         """
         # Agent 1 is HIV+, Agent 2 is not, Agent 2 is succept
         if rel.agent1.hiv.active and not rel.agent2.hiv.active:  # type: ignore[attr-defined]
-            agent = rel.agent1
+            agent_ = rel.agent1
             partner = rel.agent2
         # If Agent 2 is HIV and Agent 1 is not, Agent 1 is succept
         elif not rel.agent1.hiv.active and rel.agent2.hiv.active:  # type: ignore[attr-defined]
-            agent = rel.agent2
+            agent_ = rel.agent2
             partner = rel.agent1
         else:  # neither agent is HIV or both are
             return
 
-        p = agent.hiv.get_transmission_probability(  # type: ignore[attr-defined]
+        p = agent_.hiv.get_transmission_probability(  # type: ignore[attr-defined]
             model, interaction, partner, num_acts
         )
 
@@ -330,3 +344,53 @@ class HIV(base_exposure.BaseExposure):
 
         if model.run_random.random() < p * aids_prob:
             self.aids = True
+
+    # NEW: helper for background HIV risk from non-OUD partners
+    def get_background_foi_probability(self, model: "model.TITAN") -> float:
+        """
+        Compute per-timestep HIV acquisition probability from non-OUD partners
+        (background force-of-infection) for HIV-susceptible agents.
+
+        Uses parameters in location.params.hiv.background_sex. If that block is not
+        defined, returns 0.0 and has no effect.
+        """
+        # If no background_sex params defined, do nothing
+        hiv_params = self.agent.location.params.hiv
+        bg = getattr(hiv_params, "background_sex", None)
+        if bg is None:
+            return 0.0
+
+        # Average number of sex acts with non-OUD partners per timestep
+        rate_nonoud = bg.rate_nonoud_per_timestep
+
+        # HIV prevalence among those non-OUD partners
+        prev_nonoud = bg.partner_hiv_prevalence_nonoud
+
+        # Per-act transmission probability for these acts
+        p_per_act = bg.per_act_transmission_prob
+
+        # Behavior multiplier for people with injecting OUD (if you use drug_type == "Inj")
+        if getattr(self.agent, "drug_type", None) == "Inj":
+            rate_nonoud *= bg.inj_multiplier
+
+        # Expected number of acts with HIV+ non-OUD partners in this timestep
+        expected_acts_with_hiv_pos = rate_nonoud * prev_nonoud
+
+        if expected_acts_with_hiv_pos <= 0.0 or p_per_act <= 0.0:
+            return 0.0
+
+        # Force-of-infection style: probability of at least one transmission event
+        # assuming Poisson number of effective acts
+        lambda_eff = expected_acts_with_hiv_pos * p_per_act
+        p_background = 1.0 - math.exp(-lambda_eff)
+
+        # Optionally scale by acquisition calibration (to keep in line with other transmission)
+        p_background *= model.calibration.acquisition
+
+        # Clip to [0,1] for safety
+        if p_background < 0.0:
+            p_background = 0.0
+        elif p_background > 1.0:
+            p_background = 1.0
+
+        return p_background

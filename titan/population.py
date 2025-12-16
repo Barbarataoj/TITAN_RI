@@ -137,46 +137,47 @@ class Population:
     ) -> "ag.Agent":
         """
         Create a new agent with randomly assigned attributes according to population
-        demographics [params.demographics]
-
-        args:
-            loc: location the agent will live in
-            race: race of the new agent
-            time: current time step of the model
-            sex_type: sex_type of the new agent
-            drug_type: drug_type of the new agent
-            age: age of the new agent
-
-        returns:
-             a new agent
+        demographics [params.demographics].
         """
 
+        # -------------------------
+        # Assign sex type
+        # -------------------------
         if not sex_type:
             sex_type = utils.safe_random_choice(
                 loc.pop_weights[race]["values"],
                 self.pop_random,
                 weights=loc.pop_weights[race]["weights"],
             )
-            # no choice available
             if sex_type is None:
                 raise ValueError("Agent must have sex type")
 
-        # Determine drugtype
+        # -------------------------
+        # Assign drug type
+        # -------------------------
         if not drug_type:
             drug_type = utils.safe_random_choice(
                 loc.drug_weights[race][sex_type]["values"],
                 self.pop_random,
                 weights=loc.drug_weights[race][sex_type]["weights"],
             )
-            # no choice available
             if drug_type is None:
                 raise ValueError("Agent must have drug type")
 
+        # -------------------------
+        # Assign age
+        # -------------------------
         if not age:
             age = self.get_age(loc, race)
 
+        # -------------------------
+        # Create agent
+        # -------------------------
         agent = ag.Agent(sex_type, age, race, drug_type, loc)
 
+        # -------------------------
+        # Assign sexual role
+        # -------------------------
         sex_role = utils.safe_random_choice(
             loc.role_weights[race][sex_type]["values"],
             self.pop_random,
@@ -184,8 +185,7 @@ class Population:
         )
         if sex_role is None:
             raise ValueError("Agent must have sex role")
-        else:
-            agent.sex_role = sex_role
+        agent.sex_role = sex_role
 
         agent_params = (
             agent.location.params.demographics[race]
@@ -193,13 +193,19 @@ class Population:
             .drug_type[drug_type]
         )
 
+        # -------------------------
+        # Initialize exposures
+        # -------------------------
         for exposure in self.exposures:
-            agent_feature = getattr(agent, exposure.name)
-            agent_feature.init_agent(self, time)
+            getattr(agent, exposure.name).init_agent(self, time)
 
+        # -------------------------
+        # Initialize partnerships
+        # -------------------------
         for bond, bond_def in loc.params.classes.bond_types.items():
             agent.partners[bond] = set()
             dist_info = agent_params.num_partners[bond]
+
             agent.mean_num_partners[bond] = ceil(
                 utils.safe_dist(dist_info, self.np_random)
                 * utils.safe_divide(
@@ -207,19 +213,50 @@ class Population:
                     self.mean_rel_duration[bond][race],
                 )
             )
-            # so not zero if added mid-year
+
             agent.target_partners[bond] = agent.mean_num_partners[bond]
+
             if "injection" in bond_def.acts_allowed:
                 assert agent.drug_type == "Inj" or agent.mean_num_partners[bond] == 0
 
             if agent.target_partners[bond] > 0:
                 self.partnerable_agents[bond].add(agent)
 
+        # -------------------------
+        # Initialize feature-level attributes
+        # -------------------------
         for feature in self.features:
-            agent_feature = getattr(agent, feature.name)
-            agent_feature.init_agent(self, time)
+            getattr(agent, feature.name).init_agent(self, time)
+
+        # -------------------------
+        # OUD STATE INITIALIZATION (NEW)
+        # -------------------------
+        if self.params.features.get("oud_state", False):
+            init_oud = getattr(self.params, "oud_state", None)
+
+            if init_oud is None:
+                raise ValueError("features.oud_state is true, but no oud_state: section found in YAML")
+
+            r = self.pop_random.random()
+
+            # DEFAULTS
+            agent.has_oud = False
+            agent.is_in_remission = False
+
+            if r < init_oud.init_active:
+                agent.has_oud = True
+                agent.is_in_remission = False
+
+            elif r < init_oud.init_active + init_oud.init_remission:
+                agent.has_oud = True
+                agent.is_in_remission = True
+                # Remission → forced to NonInj
+                agent.drug_type = "NonInj"
+
+            # else: no OUD
 
         return agent
+
 
     def add_agent(self, agent: "ag.Agent"):
         """

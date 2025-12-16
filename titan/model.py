@@ -60,7 +60,7 @@ class TITAN:
             for feature in features.BaseFeature.__subclasses__()
             if self.params.features[feature.name]
         ]
-
+        logging.info(f"Enabled features: {[f.name for f in self.features]}")
         # set up the in-scope exposures
         self.exposures = [
             exposure

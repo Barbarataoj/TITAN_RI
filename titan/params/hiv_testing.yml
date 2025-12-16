@@ -1,0 +1,28 @@
+hiv_testing:
+  base_prob:
+    default: 0.01
+    description: Base per-timestep probability of HIV testing for an average (non-high-risk, non-OUD) agent
+    type: float
+    min: 0
+    max: 1
+
+  high_risk_mult:
+    default: 2.0
+    description: Multiplier on base_prob for agents flagged as high_risk (e.g., 2.0 doubles testing probability)
+    type: float
+    min: 0
+    max: 100
+
+  oud_mult:
+    default: 1.5
+    description: Multiplier on base_prob for agents with OUD (drug_type in {Inj, NonInj})
+    type: float
+    min: 0
+    max: 100
+
+  interval:
+    default: 1
+    description: Test only on timesteps where (time % interval == 0); 1 = every timestep, 12 = once per 12 steps, etc.
+    type: int
+    min: 1
+    max: 10000

@@ -1,0 +1,35 @@
+overdose:
+  base_prob_inj:
+    default: 0.02
+    description: Base per-timestep overdose probability for OUD agents with injecting drug use (drug_type = Inj)
+    type: float
+    min: 0
+    max: 1
+
+  base_prob_noninj:
+    default: 0.01
+    description: Base per-timestep overdose probability for OUD agents with non-injecting drug use (drug_type = NonInj)
+    type: float
+    min: 0
+    max: 1
+
+  fatal_frac:
+    default: 0.15
+    description: Fraction of overdose events that are fatal (i.e., lead to death/exit)
+    type: float
+    min: 0
+    max: 1
+
+  high_risk_mult:
+    default: 2.0
+    description: Multiplier on overdose risk for agents flagged as high_risk
+    type: float
+    min: 0
+    max: 100
+
+  ssp_rr:
+    default: 0.8
+    description: Relative overdose risk for agents actively enrolled in syringe services (ssp_rr < 1 reduces risk)
+    type: float
+    min: 0
+    max: 10

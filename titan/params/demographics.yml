@@ -1,30 +1,56 @@
 demographics:
   type: sub-dict
-  description: "Parameters controlling population race level probabilities and behaviors"
+  description: >
+    Population demographic parameters, indexed by race categories.
+    IMPORTANT:
+      - "race" here may represent a combined race+ethnicity class
+        (e.g., white_nonhispanic, white_hispanic, black_nonhispanic).
+      - Each race entry must define its own ppl share and nested behaviors.
+      - Across all races, ppl values must sum to 1.
+
   keys:
     - races
+
   default:
+
+    # -----------------------------------------------------
+    #   DEMOGRAPHIC WEIGHT WITHIN POPULATION (REQUIRED)
+    # -----------------------------------------------------
     ppl:
       default: 0.0
-      description: "Percentage of agent population with given race.  Across races this must add up to one."
+      description: >
+        Proportion of the total population belonging to this race class.
+        All race-class ppl values must sum to 1.0.
       type: float
       min: 0.0
       max: 1.0
+
+
+    # -----------------------------------------------------
+    #   DISEASE-SPECIFIC TRANSMISSION SCALING
+    # -----------------------------------------------------
     hiv:
       transmission:
         default: 1.0
-        description: Scaling factor for transmission probability
+        description: Scaling factor for HIV transmission probability.
         type: float
         min: 0
+
     monkeypox:
       transmission:
         default: 1.0
-        description: Scaling factor for transmission probability
+        description: Scaling factor for monkeypox transmission probability.
         type: float
         min: 0
+
+
+    # -----------------------------------------------------
+    #   AGE DISTRIBUTION (RACE-SPECIFIC)
+    # -----------------------------------------------------
     age:
       type: bin
-      description: Binned probabilities of ages by race, last bin should be 1 to have default
+      description: >
+        Age distribution for this race class. Probabilities must be increasing to 1.
       fields:
         prob:
           type: float
@@ -37,408 +63,181 @@ demographics:
           type: int
           min: 0
       default:
-        1:
-          prob: 0.085
-          min: 15
-          max: 24
-        2:
-          prob: 0.291
-          min: 25
-          max: 34
-        3:
-          prob: 0.511
-          min: 35
-          max: 44
-        4:
-          prob: 0.96
-          min: 45
-          max: 54
-        5:
-          prob: 1
-          min: 55
-          max: 80
+        1: {prob: 0.085, min: 15, max: 24}
+        2: {prob: 0.291, min: 25, max: 34}
+        3: {prob: 0.511, min: 35, max: 44}
+        4: {prob: 0.960, min: 45, max: 54}
+        5: {prob: 1.000, min: 55, max: 80}
+
+
+    # -----------------------------------------------------
+    #   SEX TYPE (RACE-SPECIFIC)
+    # -----------------------------------------------------
     sex_type:
       type: sub-dict
-      description: "Parameters controlling population race+sex_type level probabilities and behaviors"
+      description: >
+        Sex-type distribution and behaviors for this race class.
+        All sex_type.ppl entries must sum to 1.
       keys:
         - sex_types
+
       default:
         ppl:
           default: 0.0
-          description: "Percentage of agent population of this race with given sex_type. Across sex_types for this race this must add up to one."
+          description: >
+            Fraction of agents with this sex_type within the race class.
           type: float
           min: 0.0
           max: 1.0
+
         sex_role:
           init:
-            versatile:
-              default: 1.0
-              description: "Percentage of agents in this class with `versatile` sex role"
-              type: float
-              min: 0.0
-              max: 1.0
-            insertive:
-              default: 0.0
-              description: "Percentage of agents in this class with `insertive` sex role"
-              type: float
-              min: 0.0
-              max: 1.0
-            receptive:
-              default: 0.0
-              description: "Percentage of agents in this class with `receptive` sex role"
-              type: float
-              min: 0.0
-              max: 1.0
+            versatile: {default: 1.0, type: float, min: 0.0, max: 1.0}
+            insertive: {default: 0.0, type: float, min: 0.0, max: 1.0}
+            receptive: {default: 0.0, type: float, min: 0.0, max: 1.0}
+
         incar:
           init:
             default: 0.0
-            description: "Probability that an agent in this class is initially incarcerated"
             type: float
-            min: 0.0
-            max: 1.0
           prob:
             default: 0.0
-            description: "Probability that an agent in this class becomes incarcerated at a given time step"
             type: float
-            min: 0.0
-            max: 1.0
           duration:
             prob:
               type: bin
-              description: Binned probabilities of incarceration duration during model run
               fields:
-                prob:
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                min:
-                  type: int
-                  min: 0
-                max:
-                  type: int
-                  min: 0
+                prob: {type: float}
+                min: {type: int}
+                max: {type: int}
               default:
-                1:
-                  prob: 0.4
-                  min: 1
-                  max: 2
-                2:
-                  prob: 0.475
-                  min: 1
-                  max: 13
-                3:
-                  prob: 0.065
-                  min: 13
-                  max: 26
-                4:
-                  prob: 0.045
-                  min: 26
-                  max: 78
-                5:
-                  prob: 0.01
-                  min: 78
-                  max: 130
-                6:
-                  prob: 0.01
-                  min: 130
-                  max: 260
+                1: {prob: 0.40,  min: 1,   max: 2}
+                2: {prob: 0.475, min: 1,   max: 13}
+                3: {prob: 0.065, min: 13,  max: 26}
+                4: {prob: 0.045, min: 26,  max: 78}
+                5: {prob: 0.010, min: 78,  max: 130}
+                6: {prob: 0.010, min: 130, max: 260}
+
             init:
               type: bin
-              description: Binned probabilities of incarceration duration when initializing population
               fields:
-                prob:
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                min:
-                  type: int
-                  min: 0
-                max:
-                  type: int
-                  min: 0
+                prob: {type: float}
+                min: {type: int}
+                max: {type: int}
               default:
-                1:
-                  prob: 0.14
-                  min: 1
-                  max: 13
-                2:
-                  prob: 0.09
-                  min: 13
-                  max: 26
-                3:
-                  prob: 0.20
-                  min: 26
-                  max: 78
-                4:
-                  prob: 0.11
-                  min: 78
-                  max: 130
-                5:
-                  prob: 0.16
-                  min: 130
-                  max: 260
-                6:
-                  prob: 0.30
-                  min: 260
-                  max: 520
+                1: {prob: 0.14, min: 1,   max: 13}
+                2: {prob: 0.09, min: 13,  max: 26}
+                3: {prob: 0.20, min: 26,  max: 78}
+                4: {prob: 0.11, min: 78,  max: 130}
+                5: {prob: 0.16, min: 130, max: 260}
+                6: {prob: 0.30, min: 260, max: 520}
+
 
         injection:
-          num_acts:
-            default: 0.0
-            description: "Mean number of injection acts done within a relationship"
-            type: float
-            min: 0.0
-          unsafe_prob:
-            default: 0.0
-            description: "Probability of sharing a syringe per act"
-            type: float
-            min: 0.0
-            max: 1.0
+          num_acts:    {default: 0.0, type: float}
+          unsafe_prob: {default: 0.0, type: float, min: 0.0, max: 1.0}
+
         safe_sex:
           type: sub-dict
-          description: "Parameters controlling condom use/safe sex per sex act given bond type"
-          keys:
-            - bond_types
+          keys: [bond_types]
           default:
-            prob:
-              default: 0.0
-              type: float
-              min: 0.0
-              max: 1.0
+            prob: {default: 0.0, type: float, min: 0.0, max: 1.0}
+
         prep:
-          discontinue:
-            default: 0.0
-            description: "Probability that an agent on PrEP discontinues PrEP at a given time step"
-            type: float
-            min: 0.0
-            max: 1.0
-          adherence:
-            default: 0.0
-            description: "Probability that an agent on PrEP is assigned an adherence of 1, otherwise assigned 0"
-            type: float
-            min: 0.0
-            max: 1.0
-          cap:
-            default: 0.0
-            description: "Ceiling/target percentage of PrEP coverage for this population class, or probability of going on PrEP if cap_as_prob is true"
-            type: float
-            min: 0.0
-            max: 1.0
-          init:
-            default: 0.0
-            description: "Initial PrEP coverage"
-            type: float
-            min: 0.0
-            max: 1.0
+          discontinue: {default: 0.0, type: float}
+          adherence:   {default: 0.0, type: float}
+          cap:         {default: 0.0, type: float}
+          init:        {default: 0.0, type: float}
+
         high_risk:
-          init:
-            default: 0.0
-            description: "Probability that an agent is initially marked as high risk"
-            type: float
-            min: 0.0
-            max: 1.0
+          init: {default: 0.0, type: float}
+
         vaccine:
-          init: # to review - not currently used
-            default: 0.0
-            description: "Probability that an agent is initially vaccinated"
-            type: float
-            min: 0.0
-            max: 1.0
-          prob:
-            default: 0.0
-            description: "Probability that an agent becomes vaccinated at a given time step"
-            type: float
-            min: 0.0
-            max: 1.0
+          init: {default: 0.0, type: float}
+          prob: {default: 0.0, type: float}
           booster:
-            interval:
-              default: 0
-              description: "Number of time steps from vaccination at which booster vaccine is required"
-              type: int
-              min: 0
-            prob:
-              default: 0.0
-              description: "Probability of an agent getting booster vaccine at required time step"
-              type: float
-              min: 0.0
-              max: 1.0
+            interval: {default: 0, type: int}
+            prob:     {default: 0.0, type: float}
+
+
+        # -----------------------------------------------------
+        #   DRUG USE CLASS (per race × sex_type)
+        # -----------------------------------------------------
         drug_type:
           type: sub-dict
-          description: "Parameters controlling population race+sex_type+drug_type level probabilities and behaviors"
           keys:
             - drug_types
+
           default:
-            ppl:
-              default: 0.0
-              description: "Percentage of agents with the given drug use type, all drug_types must add to 1"
-              type: float
-              min: 0.0
-              max: 1.0
+            ppl: {default: 0.0, type: float}
+
             hiv:
-              init:
-                default: 0.0
-                description: "Probability that an agent in this class initially has HIV"
-                type: float
-                min: 0.0
-                max: 1.0
+              init: {default: 0.0, type: float}
               dx:
-                init:
-                  default: 0.0
-                  description: "Probability that an agent with HIV in the initial population is initially diagnosed and 'knows' their HIV status, therefore enabling enrollment in treatment"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                prob:
-                  default: 0.0
-                  description: "Probability that an agent with HIV becomes diagnosed at a given time step and 'knows' their HIV status, therefore enabling enrollment in treatment"
-                  type: float
-                  min: 0.0
-                  max: 1.0
+                init: {default: 0.0, type: float}
+                prob: {default: 0.0, type: float}
               aids:
-                init:
-                  default: 0.0
-                  description: "Probability that an agent in this class with HIV has AIDS initially"
-                  type: float
-                  min: 0.0
-                  max: 1.0
+                init: {default: 0.0, type: float}
+
             monkeypox:
-              init:
-                default: 0.0
-                description: "Probability that an agent in this class initially has monkeypox"
-                type: float
-                min: 0.0
-                max: 1.0
+              init: {default: 0.0, type: float}
               dx:
-                init:
-                  default: 0.0
-                  description: "Probability that an agent with monkeypox in the initial ppl is initially diagnosed"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                prob:
-                  default: 0.0
-                  description: "Probability that an agent with HIV becomes diagnosed at a given time step and 'knows' their monkeypox status, therefore enabling enrollment in treatment"
-                  type: float
-                  min: 0.0
-                  max: 1.0
+                init: {default: 0.0, type: float}
+                prob: {default: 0.0, type: float}
+
             haart:
-              init:
-                default: 0.0
-                description: "Probability that an agent in this class with HIV is initially enrolled in HAART"
-                type: float
-                min: 0.0
-                max: 1.0
-              cap:
-                type: float
-                default: 0.0
-                description: "Percent of diagnosed agents on haart if haart cap is used"
-                min: 0.0
-                max: 1.0
+              init:  {default: 0.0, type: float}
+              cap:   {default: 0.0, type: float}
               enroll:
                 type: definition
-                description: "Probability that an agent in this class with HIV becomes enrolled in HAART given the agent's time since diagnosis (unused if use_cap is true)"
                 fields:
-                  prob:
-                    type: float
-                    min: 0.0
-                    max: 1.0
-                  start:
-                    type: int
-                    min: 0
-                  stop:
-                    type: int
-                    min: 1
+                  prob:  {type: float}
+                  start: {type: int}
+                  stop:  {type: int}
                 default:
-                  enroll_0:
-                    start: 0
-                    stop: 999
-                    prob: 0.0
+                  enroll_0: {start: 0, stop: 999, prob: 0.0}
               reinit:
-                prob:
-                  type: float
-                  description: "Probability of reinitiating haart"
-                  default: 0.0
+                prob: {default: 0.0, type: float}
               adherence:
-                init:
-                  default: 0.0
-                  description: "Probability that an agent is adherent at agent creation"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                prob:
-                  default: 0.0
-                  description: "Probability that an agent is adherent when going on haart"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                discontinue:
-                  default: 0.0
-                  description: "Probability that an adherent agent will become nonadherent at a given timestep"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                become:
-                  default: 0.0
-                  description: "Probability that a non-adherent agent will become adherent at a given timestep"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-              discontinue:
-                default: 0.0
-                description: "Probability that an agent on HAART discontinues HAART in a given time step"
-                type: float
-                min: 0.0
-                max: 1.0
+                init:        {default: 0.0, type: float}
+                prob:        {default: 0.0, type: float}
+                discontinue: {default: 0.0, type: float}
+                become:      {default: 0.0, type: float}
+              discontinue: {default: 0.0, type: float}
+
+            moud:
+              init:        {default: 0.0, type: float}
+              discontinue: {default: 0.0, type: float}
+              enroll:
+                type: definition
+                fields:
+                  prob:  {type: float}
+                  start: {type: int}
+                  stop:  {type: int}
+                default:
+                  enroll_0: {start: 0, stop: 999, prob: 0.0}
+              reinit:
+                prob: {default: 0.0, type: float}
+
             exit:
               type: sub-dict
-              description: Parameters controlling agent exit
-              keys:
-                - exit
+              keys: [exit]
               default:
-                prob:
-                  default: 0.0
-                  description: probability for this exit type if exit type is not "death"
-                  type: float
-                  min: 0.0
-                  max: 1.0
-                base:
-                  default: 10.8
-                  description: base death probability per 1000 person-years if exit type is "death"
-                  type: float
-                hiv:
-                  default: 2.
-                  type: float
-                  description: (Used for death only) Scalar for death rate for agents with hiv, not aids, and not haart adherent. Scales from base.
-                aids:
-                  default: 4.
-                  type: float
-                  description: (Used for death only) Scalar for death rate for agents with aids. Scales from base.
-                haart_adherent:
-                  default: 1.0
-                  type: float
-                  description: (Used for death only) Scalar for death rate for those fully adherent on haart. Scales from base.
+                prob: {default: 0.0, type: float}
+                base: {default: 10.8, type: float}
+                hiv:  {default: 2.0, type: float}
+                aids: {default: 4.0, type: float}
+                haart_adherent: {default: 1.0, type: float}
+
             num_partners:
               type: sub-dict
-              keys:
-                - bond_types
+              keys: [bond_types]
               default:
-                dist_type:
-                  default: set_value
-                  description: "How to determine mean number of partners for an agent. Uses numpy.random distributions or `set_value` to always return the first value. More info at https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator"
-                  type: enum
-                  class: distributions
+                dist_type: {default: set_value, type: enum}
                 vars:
                   type: bin
-                  description: Pass values in order of bin keys to the distribution, starting at 1
                   fields:
-                    value:
-                      type: float
-                    value_type:
-                      type: enum
-                      values:
-                        - int
-                        - float
+                    value:      {type: float}
+                    value_type: {type: enum, values: [int, float]}
                   default:
-                    1:
-                      value: 0
-                      value_type: int
+                    1: {value: 0, value_type: int}

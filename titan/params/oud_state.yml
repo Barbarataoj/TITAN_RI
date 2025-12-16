@@ -1,0 +1,26 @@
+oud_state:
+  init_active:
+    default: 0.50
+    type: float
+    min: 0.0
+    max: 1.0
+  init_remission:
+    default: 0.20
+    type: float
+    min: 0.0
+    max: 1.0
+  init_none:
+    default: 0.30
+    type: float
+    min: 0.0
+    max: 1.0
+  transitions:
+    remission_rate_per_year:
+      default: 0.15
+      type: float
+    inject_start_rate_per_year:
+      default: 0.02
+      type: float
+    inject_stop_rate_per_year:
+      default: 0.10
+      type: float

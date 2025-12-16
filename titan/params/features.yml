@@ -55,3 +55,23 @@ features:
     default: false
     description: Whether to scale various parameters based on time (such as a stay at home order affecting prep)
     type: boolean
+
+  moud:
+    default: false
+    description: Whether to enable the MOUD (medication for opioid use disorder) feature
+    type: boolean
+
+  hiv_testing:
+    default: false
+    description: Whether to enable the HIV testing feature, which drives additional HIV diagnoses over time
+    type: boolean
+
+  overdose:
+    default: false
+    description: Whether to enable the overdose feature (nonfatal and fatal overdose events)
+    type: boolean
+    
+  oud_state:
+    default: true 
+    description: "Dynamic OUD status and injection status transitions." 
+    type: boolean

@@ -18,10 +18,16 @@ class Injection(base_interaction.BaseInteraction):
             rel: The relationship in which the interaction is happening
         """
 
-        # make sure both agents have Inj drug type, should only be possible for
-        # the relationship to have the injection interaction type if both agents PWID
-        assert rel.agent1.drug_type == "Inj"
-        assert rel.agent2.drug_type == "Inj"
+        # --- New: guard against non-PWID partners -------------------------
+        # Only PWID–PWID (drug_type == "Inj" for both) should generate
+        # injection acts. If either partner is NonInj/None/etc., we return 0.
+        if rel.agent1.drug_type != "Inj" or rel.agent2.drug_type != "Inj":
+            return 0
+        # ------------------------------------------------------------------
+
+        # original assumptions (kept as internal sanity)
+        # assert rel.agent1.drug_type == "Inj"
+        # assert rel.agent2.drug_type == "Inj"
 
         agent_params = (
             rel.agent1.location.params.demographics[rel.agent1.race]
@@ -43,18 +49,37 @@ class Injection(base_interaction.BaseInteraction):
         if share_acts < 1:
             return 0
 
+        # syringe services program risk
         if (
-            rel.agent1.syringe_services.active or rel.agent2.syringe_services.active  # type: ignore[attr-defined]
-        ):  # syringe services program risk
+            rel.agent1.syringe_services.active  # type: ignore[attr-defined]
+            or rel.agent2.syringe_services.active  # type: ignore[attr-defined]
+        ):
             p_unsafe_injection = features.SyringeServices.enrolled_risk
         else:
             p_unsafe_injection = agent_params.unsafe_prob
 
+        # ===== MOUD risk reduction for injection-related HIV/HCV =====
+        # We assume each agent has a MOUD feature (titan.features.moud.MOUD)
+        # with a get_injection_risk_multiplier() method returning
+        #   <1.0 if on MOUD (e.g., 0.7), 1.0 if not on MOUD.
+        moud_mult = 1.0
+
+        moud1 = getattr(rel.agent1, "moud", None)
+        if moud1 is not None:
+            moud_mult = min(moud_mult, moud1.get_injection_risk_multiplier())
+
+        moud2 = getattr(rel.agent2, "moud", None)
+        if moud2 is not None:
+            moud_mult = min(moud_mult, moud2.get_injection_risk_multiplier())
+
+        p_unsafe_injection *= moud_mult
+        # ===== END MOUD block =====
+
         # diagnosis risk reduction
-        if rel.agent1.hiv.dx or rel.agent1.hiv.dx:  # type: ignore[attr-defined]
+        if rel.agent1.hiv.dx or rel.agent2.hiv.dx:  # type: ignore[attr-defined]
             p_unsafe_injection *= 1 - model.params.hiv.dx.risk_reduction.injection
 
-        for n in range(share_acts):
+        for _ in range(share_acts):
             if model.run_random.random() > p_unsafe_injection:
                 share_acts -= 1
 

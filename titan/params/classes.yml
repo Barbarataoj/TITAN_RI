@@ -6,10 +6,18 @@ classes:
       hispanic:
         type: boolean
     default:
-      white:
+      white_nonhispanic:
         hispanic: false
-      black:
+      white_hispanic:
+        hispanic: true
+      black_nonhispanic:
         hispanic: false
+      black_hispanic:
+        hispanic: true
+      other_nonhispanic:
+        hispanic: false
+      other_hispanic:
+        hispanic: true
   sex_types:
     description: "Which sex types to use in model"
     type: definition

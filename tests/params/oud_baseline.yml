@@ -1,0 +1,524 @@
+# =============================
+# OUD-focused baseline scenario
+# Approximate Rhode Island OUD demographics:
+# - General RI population: ~69% non-Hispanic White, ~6% Black, ~17% Hispanic. :contentReference[oaicite:0]{index=0}
+# - Overdose rates are higher in Black and Hispanic residents than Whites. :contentReference[oaicite:1]{index=1}
+#
+# For simplicity, we model two race groups (white, black) and interpret:
+#   - "white" ≈ White + some Hispanic/other
+#   - "black" ≈ Black + some Hispanic/other with similar risk profile
+# We bias OUD share toward Black to reflect higher overdose burden.
+# =============================
+
+demographics:
+  black:
+    ppl: 0.30    # ~30% of OUD population (over-represented vs gen pop to reflect higher burden)
+    sex_type:
+      MTF:
+        ppl: 0.1
+        drug_type: &base_drug_type
+          Inj:
+            ppl: 0.35
+            exit:
+              death:
+                base: 10.8
+              migrate:
+                prob: 0.001
+            num_partners:
+              Sex:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+              Social:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 0
+                    value_type: float
+              SexInj:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+              Inj:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+            hiv:
+              init: 0.10
+              dx:
+                init: 0.10
+                prob: 0.10
+              aids:
+                init: 0.10
+            monkeypox:
+              init: 0.10
+              dx:
+                init: 0.10
+                prob: 0.10
+            haart:
+              init: 0.10
+              enroll: &haart_prob
+                begin:
+                  prob: 0.10
+                  start: 0
+                  stop: 10
+                end:
+                  prob: 1.0
+                  start: 10
+                  stop: 100
+              reinit: &reinit_prob
+                prob: 0.0
+              adherence:
+                init: 0.10
+                prob: 0.10
+              discontinue: 0.10
+            moud:
+              init: 0.40       # ~40% of PWID with OUD on MOUD at baseline (RI is fairly high-coverage)
+              enroll:
+                early:
+                  start: 0
+                  stop: 6
+                  prob: 0.06   # 6% per month in first 6 months among those not on MOUD
+                late:
+                  start: 6
+                  stop: 120
+                  prob: 0.015  # 1.5% per month after 6 months
+              reinit:
+                prob: 0.03      # chance to re-start MOUD if previously ever on it
+              discontinue: 0.02      # 2% per month discontinuation
+          NonInj: &npwid_drug_type
+            ppl: 0.35
+            exit:
+              death:
+                base: 10.8
+              migrate:
+                prob: 0.01
+            hiv:
+              init: 0.05
+              dx:
+                init: 0.10
+                prob: 0.08
+              aids:
+                init: 0.05
+            monkeypox:
+              init: 0.05
+              dx:
+                init: 0.10
+                prob: 0.08
+            num_partners:
+              Sex:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 6
+                    value_type: float
+            haart:
+              init: 0.08
+              enroll: *haart_prob
+              reinit: *reinit_prob
+              adherence:
+                init: 0.10
+                prob: 0.10
+              discontinue: 0.10
+            moud:
+              init: 0.30       # lower baseline MOUD coverage than Inj
+              enroll:
+                early:
+                  start: 0
+                  stop: 6
+                  prob: 0.04
+                late:
+                  start: 6
+                  stop: 120
+                  prob: 0.01
+              reinit:
+                prob: 0.02
+              discontinue: 0.02
+          None:   # people without OUD
+            ppl: 0.30
+            exit:
+              death:
+                base: 10.8
+              migrate:
+                prob: 0.01
+            hiv:
+              init: 0.02
+              dx:
+                init: 0.10
+                prob: 0.10
+              aids:
+                init: 0.01
+            monkeypox:
+              init: 0.02
+              dx:
+                init: 0.10
+                prob: 0.10
+            num_partners:
+              Sex:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 2
+                    value_type: float
+            haart:
+              init: 0.05
+              enroll: *haart_prob
+              reinit: *reinit_prob
+              adherence:
+                init: 0.10
+                prob: 0.10
+              discontinue: 0.10
+            # no MOUD block here (no OUD)
+        incar: &base_incar
+          init: 0.03
+          prob: 0.03
+        safe_sex: &safe_sex_default
+          Sex:
+            prob: 0.15
+          Inj:
+            prob: 0.10
+          SexInj:
+            prob: 0.10
+        injection: &base_injection
+          unsafe_prob: 0.10
+          num_acts: 10
+        prep: &base_prep
+          adherence: 0.10
+          discontinue: 0.10
+          cap: 0.30
+          init: 0.30
+        high_risk: &base_high_risk
+          init: 0.20
+        vaccine: &base_vaccine
+          init: 0.10
+          prob: 0.10
+          booster:
+            interval: 12
+            prob: 0.10
+      MSM:
+        ppl: 0.30
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep:
+          adherence: 0.10
+          discontinue: 0.10
+          cap: 0.30
+          init: 0.50
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HM:
+        ppl: 0.30
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HF:
+        ppl: 0.20
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      WSW:
+        ppl: 0.10
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+
+  white:
+    ppl: 0.70    # ~70% of modeled OUD + non-OUD population
+    sex_type:
+      MSM:
+        ppl: 0.30
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HM:
+        ppl: 0.30
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HF:
+        ppl: 0.20
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      WSW:
+        ppl: 0.10
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection:
+          unsafe_prob: 0.05
+          num_acts: 10
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      MTF:
+        ppl: 0.10
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection:
+          unsafe_prob: 0.08
+          num_acts: 10
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+
+partnership:
+  pca:
+    frequency:
+      Sex: &bin_always_one
+        bins:
+          1:
+            prob: 1.0
+            min: 1
+            max: 1
+      SexInj: *bin_always_one
+      Inj: *bin_always_one
+  sex:
+    frequency:
+      Sex:
+        type: bins
+        bins:
+          1:
+            prob: 0.5
+            min: 0
+            max: 1
+          2:
+            prob: 1.0
+            min: 37
+            max: 38
+    acquisition:
+      HM:
+        versatile: 0.0004
+      HF:
+        versatile: 0.0008
+      MSM:
+        insertive: 0.0011
+        receptive: 0.0138
+        versatile: 0.00745
+  duration:
+    Sex:
+      white:
+        type: bins
+        bins:
+          1:
+            prob: 1.0
+            min: 1
+            max: 2
+      black:
+        type: bins
+        bins:
+          1:
+            prob: 1.0
+            min: 3
+            max: 4
+    Inj:
+      white: &inj_dur
+        type: distribution
+        distribution:
+          dist_type: randint
+          vars:
+            1:
+              value: 1
+              value_type: int
+            2:
+              value: 3
+              value_type: int
+          mean: 1
+      black: *inj_dur
+    SexInj:
+      white: &poisson_one
+        type: distribution
+        distribution:
+          dist_type: poisson
+          vars:
+            1:
+              value: 1
+              value_type: float
+          mean: 1
+      black: *poisson_one
+    Social:
+      white: *poisson_one
+      black: *poisson_one
+
+prep:
+  cap: 0.10
+  init: 0.70
+  cap_as_prob: false
+
+knowledge:
+  prob: 0.30
+  opinion:
+    prob: 0.50
+
+syringe_services:
+  timeline:
+    ssp_open:
+      start_time: 1
+      stop_time: 120
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+
+agent_zero:
+  interaction_type: injection
+  num_partners: 1
+
+outputs:
+  network:
+    calc_component_stats: true
+  classes:
+    - locations
+    - races
+    - sex_types
+    - components
+    - drug_types
+
+exposures:
+  hiv: true
+  knowledge: true
+  monkeypox: true
+
+haart:
+  use_reinit: true
+
+features:
+  incar: true
+  prep: true
+  high_risk: true
+  haart: true
+  exit_enter: true
+  static_network: false
+  agent_zero: true
+  assort_mix: false
+  vaccine: true
+  partner_tracing: true
+  external_exposure: true
+  syringe_services: true
+  timeline_scaling: true
+  moud: true
+  hiv_testing: true
+  overdose: true
+
+model:
+  num_pop: 1000      # bump up for more stable prevalence
+  network:
+    enable: true
+  num_reps: 10       # multiple reps for variability
+
+location:
+  scaling:
+    world:
+      demographics|white|sex_type|WSW|drug_type|NonInj|hiv|aids|init:
+        field: override
+        override: 1
+
+external_exposure:
+  convert_prob: 1.0
+
+exit_enter:
+  death:
+    exit_class: death
+    entry_class: replace
+
+classes:
+  exit:
+    death:
+      exit_type: death
+      ignore_incar: true
+    age_out:
+      exit_type: age_out
+      ignore_incar: false
+      age: 999
+    migrate:
+      exit_type: drop_out
+      ignore_incar: false
+    none:
+      exit_type: none
+      ignore_incar: false
+  enter:
+    replace:
+      enter_type: replace
+      prob: 1.0
+    age_in:
+      enter_type: replace
+      age: 16
+      prob: 1.0
+      age_in: true
+    new_ag:
+      enter_type: new_agent
+      prob: 1.0
+  age_bins:
+    fallback_young:
+      min_age: 0
+      max_age: 15
+    young_adult:
+      min_age: 16
+      max_age: 24
+    mid_adult:
+      min_age: 25
+      max_age: 44
+    fallback_old:
+      min_age: 45
+      max_age: 999
+
+# ============ TOP-LEVEL MOUD / OVERDOSE / HIV TESTING PARAMS ============
+
+moud:
+  start_time: 0
+  use_reinit: true
+  overdose_scale:
+    active: 0.4   # ~60% reduction in overdose risk when on MOUD
+    inactive: 1.0
+  injection_scale:
+    active: 0.7   # ~30% reduction in injection HIV/HCV risk
+    inactive: 1.0
+
+overdose:
+  # If 1 step ≈ 1 month, then:
+  #   base_prob_inj = 0.012 ≈ 0.144/year ≈ 14.4/100 person-years
+  #   base_prob_noninj = 0.007 ≈ 0.084/year ≈ 8.4/100 person-years
+  # These are in the ballpark for high-risk OUD populations and can be tuned.
+  base_prob_inj: 0.50
+  base_prob_noninj: 0.007
+  fatal_frac: 0.12         # 12% of overdoses are fatal; tune to RI data
+  high_risk_mult: 2.0      # double risk for high-risk flag
+  ssp_rr: 0.8              # 20% lower risk if in SSP
+
+hiv_testing:
+  base_prob: 0.30          # baseline monthly testing prob
+  high_risk_mult: 2.0      # more frequent testing for high-risk agents
+  oud_mult: 1.5            # higher testing among OUD (Inj/NonInj)
+  interval: 3              # test every 3 time steps (≈ quarterly)

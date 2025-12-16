@@ -1,0 +1,4 @@
+[console_scripts]
+grid2edges=titan.utils:grid_to_edges_cli
+run_titan=titan.run_titan:script_init
+

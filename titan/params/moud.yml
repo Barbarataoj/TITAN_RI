@@ -1,0 +1,38 @@
+moud:
+  start_time:
+    default: 0
+    description: Time step when MOUD becomes available in the model
+    type: int
+    min: 0
+  use_reinit:
+    default: true
+    description: Whether agents who previously discontinued MOUD can reinitiate treatment
+    type: bool
+
+  overdose_scale:
+    active:
+      default: 0.4
+      description: Relative overdose risk when actively on MOUD (0.4 ≈ 60% reduction)
+      type: float
+      min: 0
+      max: 1
+    inactive:
+      default: 1.0
+      description: Relative overdose risk when not on MOUD
+      type: float
+      min: 0
+      max: 10
+
+  injection_scale:
+    active:
+      default: 0.7
+      description: Relative HIV/HCV injection transmission risk when on MOUD
+      type: float
+      min: 0
+      max: 1
+    inactive:
+      default: 1.0
+      description: Relative HIV/HCV injection transmission risk when not on MOUD
+      type: float
+      min: 0
+      max: 10

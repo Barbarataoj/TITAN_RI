@@ -1,0 +1,86 @@
+calibration:
+  mode: "oud_only"
+
+  population:
+    size: 3000     # number of agents simulated (not Rhode Island population)
+    steps: 120     # 10 years if monthly steps_per_year = 12
+  
+  n_runs: 10
+  # --------------------------------------------
+  # OUD baseline state distribution targets
+  # --------------------------------------------
+  oud_baseline:
+    active_pct: 0.75
+    remission_pct: 0.25
+    none_pct: 0.0      # rare, but included for completeness
+
+  # --------------------------------------------
+  # Injecting behavior among OUD at baseline
+  # --------------------------------------------
+  injecting:
+    injecting_pct: 0.45
+
+  # --------------------------------------------
+  # Overdose calibration targets
+  # --------------------------------------------
+  overdose:
+    fatal_rate_annual: 0.015
+    nonfatal_rate_annual: 0.18
+
+  # --------------------------------------------
+  # MOUD engagement (Medication for OUD)
+  # --------------------------------------------
+  moud:
+    uptake_pct: 0.40
+
+  # --------------------------------------------
+  # HIV outcomes (important for your study)
+  # --------------------------------------------
+  hiv:
+    baseline_prevalence_pct: 0.04
+    incidence_per_100py: 1.5
+
+  # --------------------------------------------
+  # Parameters TO BE CALIBRATED
+  # The engine will modify these.
+  # --------------------------------------------
+  parameters_to_optimize:
+
+    - path: "oud.transitions.remission_rate_per_year"
+      lower: 0.05
+      upper: 0.35
+
+    - path: "oud.transitions.inject_start_rate_per_year"
+      lower: 0.005
+      upper: 0.10
+
+    - path: "oud.transitions.inject_stop_rate_per_year"
+      lower: 0.02
+      upper: 0.30
+
+    - path: "overdose.fatal_prob"
+      lower: 0.005
+      upper: 0.03
+
+    - path: "overdose.nonfatal_prob"
+      lower: 0.05
+      upper: 0.40
+
+    - path: "moud.uptake_rate"
+      lower: 0.05
+      upper: 0.60
+
+    - path: "hiv.acquisition.scale"
+      lower: 0.1
+      upper: 3.0
+
+    - path: "hiv.transmission.scale"
+      lower: 0.1
+      upper: 3.0
+
+  # --------------------------------------------
+  # Stopping criteria
+  # --------------------------------------------
+  tolerance:
+    max_error: 0.02     # 2% deviation allowed
+    max_iterations: 50

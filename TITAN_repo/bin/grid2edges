@@ -1,0 +1,7 @@
+#!/Users/barbaratao/titan_projects/TITAN/.TITAN_repo/bin/python3
+import sys
+from titan.utils import grid_to_edges_cli
+if __name__ == '__main__':
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
+    sys.exit(grid_to_edges_cli())
