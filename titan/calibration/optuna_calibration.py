@@ -710,11 +710,35 @@ def main():
     # user_attrs at all -- hiv_new_pooled had to be re-derived by re-parsing every
     # candidate's basicReport.txt. A 6 h run should not be one lost log file away
     # from being unrepeatable.
-    storage = os.environ.get("TITAN_CALIB_STORAGE")
-    if storage is None:
-        job = os.environ.get("SLURM_JOB_ID", "local")
-        storage = f"sqlite:///{OUTPUT_DIR}/study_{job}.db"
-    print(f"Study storage: {storage}")
+    # JournalStorage, not SQLite. Job 4586379 died four minutes in with
+    #
+    #     sqlite3.OperationalError: database is locked
+    #
+    # and took three of the sixteen workers with it, unwinding study.optimize
+    # after 14 trials. The job still exited 0, so SLURM recorded it COMPLETED.
+    #
+    # The cause is n_jobs=16 threads committing to one SQLite file on
+    # /oscar/scratch. SQLite serialises writers behind a single file lock and
+    # gives up after a 5 s busy timeout, and its locking is advisory-file-based,
+    # which is exactly what a network filesystem does not implement reliably.
+    # Every earlier calibration ran in memory, so this path had never carried a
+    # parallel write load.
+    #
+    # JournalStorage is Optuna's supported backend for concurrent workers on a
+    # shared filesystem: append-only, one lock per append, no long-lived
+    # transaction to contend over. TITAN_CALIB_STORAGE still overrides with an
+    # RDB URL if a real database is ever available.
+    storage_url = os.environ.get("TITAN_CALIB_STORAGE")
+    job = os.environ.get("SLURM_JOB_ID", "local")
+    if storage_url is not None:
+        storage = storage_url
+        print(f"Study storage: {storage} (from TITAN_CALIB_STORAGE)")
+    else:
+        journal_path = f"{OUTPUT_DIR}/study_{job}.journal"
+        storage = optuna.storages.JournalStorage(
+            optuna.storages.journal.JournalFileBackend(journal_path)
+        )
+        print(f"Study storage: JournalStorage at {journal_path}")
 
     study = optuna.create_study(
         # 6 objectives since 2026-07-29 (inj_share_err appended). Studies persisted

@@ -9,6 +9,12 @@
 #SBATCH --output=/oscar/scratch/%u/titan_calibration/calib_%j.out
 #SBATCH --error=/oscar/scratch/%u/titan_calibration/calib_%j.err
 
+# Fail the SLURM job when python fails. Without this, job 4586379 died after 14
+# of 2000 trials on a storage error and still recorded State=COMPLETED, because
+# the trailing echo ran anyway and became the job's exit code. A six-hour silent
+# failure looked identical to success.
+set -euo pipefail
+
 echo "Job started on $(hostname) at $(date)"
 
 module purge
