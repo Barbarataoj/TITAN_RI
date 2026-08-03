@@ -1,86 +1,513 @@
 calibration:
-  mode: "oud_only"
+  mode: "oud_hiv_trajectory"
 
+  # --------------------------------------------
+  # Population & time horizon
+  # --------------------------------------------
+  # N=500 with 10 MC reps — chosen after profiling showed O(n^2) in partner
+  # assignment. Per-agent-yr stochasticity at N=500*10reps = 5000 person-yrs
+  # is statistically equivalent to N=1000*5reps but 3x faster wallclock.
+  # Burn was trimmed from 120 to 36 steps on the claim that "OUD/MOUD equilibrate
+  # within 2-3 yr at calibrated rates". Measured 2026-07-29, they do not: at t=0
+  # the injection share was still falling (0.26, settling ~0.19 around year 4-5)
+  # and MOUD coverage was still climbing (0.49 toward its 0.73 equilibrium, reached
+  # ~year 5), so the first several years of every scenario comparison were
+  # transient. Raised to 60 (5 yr). Two initial-condition fixes landed at the same
+  # time and shrink what the burn-in has to absorb: Inj.ppl 0.50 -> 0.25 (P2) and
+  # moud.init_at_equilibrium (P6). See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md P8.
+  # N=5000+ is not feasible with current engine (estimated 10 min/trial);
+  # requires fixing the O(n^2) in titan/population.py update_agent_partners.
+  # STATISTICAL POWER, settled 2026-07-30. EPIDEMIC_DYNAMICS_MAP_2026-07-29.md
+  # finding P4 held that hiv_traj_rmse "is fitting Monte Carlo noise at N=500".
+  # A Poisson power analysis over the actual pooled denominator says that is
+  # overstated. Reps are pooled by parse_basic_report's groupby("t").sum(), so the
+  # effective denominator is size x injection_share x n_runs:
+  #
+  #   pooled PWID   P(correct level beats a 2x-wrong one)   P(shape beats flat-at-mean)
+  #     550 (now)                 1.00 / 0.83                        0.878
+  #    1250                       1.00 / 0.99                        0.982
+  #    3750                       1.00 / 1.00                        1.000
+  #
+  # 550 is what the model currently delivers, because its injection share sits at
+  # 0.11 rather than the 0.45 target -- a 4x shrunken denominator. At the target
+  # share the same config gives 1250 and the objective resolves both level and
+  # shape. So P4's cure is the injection-share refit, not a larger population:
+  # size 500 x 10 reps is adequate ONCE inj_share_err is satisfied. Re-check this
+  # if the refit leaves the injection share short.
+  #
+  # Two genuine defects did come out of the same analysis and are fixed:
+  #   * the canonical-pick transmission screen was a flat 2 pooled infections,
+  #     ~2% of the ~90 the targets imply. It is now derived from the targets --
+  #     see optuna_calibration.min_transmission_events.
+  #   * hiv_traj_rmse compares the model's TRUE incidence (hiv_new) against a
+  #     DIAGNOSED-incidence claims proxy. The parser now also reports
+  #     hiv_dx_incidence_series_pwid (from hiv_dx_new) so the gap is visible. The
+  #     two coincide only at equilibrium in the undiagnosed pool; post-rebuild
+  #     dx_among_hiv is ~0.97, so the bias is small but systematic.
   population:
-    size: 3000     # number of agents simulated (not Rhode Island population)
-    steps: 120     # 10 years if monthly steps_per_year = 12
-  
+    size: 500
+    steps: 132        # 11 years × 12 months
+    burn_steps: 60    # 5-yr burn (was 36, which was measurably too short)
+
   n_runs: 10
+
   # --------------------------------------------
-  # OUD baseline state distribution targets
+  # OUD baseline state distribution (STEADY-STATE)
   # --------------------------------------------
+  # Split is defined over the EVER-OUD population (active + remission), matching
+  # the denominator of the epidemiological literature (NESARC-III, ECA, NSDUH).
+  # 0.55/0.45 active/remission is the literature-defensible UPPER end: national
+  # cross-sectional estimates center on ~40% active / 60% remission, but this
+  # cohort is severe (RI heroin/fentanyl), household surveys undercount exactly
+  # these users, and the model has no long-term-recovery exit — so it represents
+  # PERSISTENT OUD, which skews more active than the general ever-OUD population.
+  # oud_none MUST stay 0 and the scenario must set init_none=0 (all ever-OUD);
+  # otherwise the never-OUD pool enters the denominator and the objective is
+  # unpassable regardless of transition tuning. Was 0.75/0.25 (uncited) before
+  # 2026-07-20; see calibration_log phase_4 addendum for the full rationale.
   oud_baseline:
-    active_pct: 0.75
-    remission_pct: 0.25
-    none_pct: 0.0      # rare, but included for completeness
+    oud_active: 0.55
+    oud_remission: 0.45
+    oud_none: 0.0   # all agents are ever-OUD; no susceptible compartment
 
   # --------------------------------------------
-  # Injecting behavior among OUD at baseline
+  # Injecting behavior among OUD-active agents
   # --------------------------------------------
+  # SCORED as the 6th NSGA-II objective (inj_share_err) since 2026-07-29. It had
+  # been defined here since the OUD redesign but optuna_calibration.py never read
+  # it, so the injection share was unconstrained: it drifted 0.49 -> 0.18 over a
+  # run with nothing objecting. Measured as person-time-weighted Inj share of
+  # oud_active over the post-burn window. Note the paired initial condition,
+  # demographics.*.drug_type.Inj.ppl, must equal injecting_pct x oud_active
+  # (0.45 x 0.55 = 0.25) or the run starts away from its own target -- that key is
+  # a POPULATION share and is not in parameters_to_optimize, so it does not
+  # self-correct. See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+  # FEASIBILITY, settled 2026-07-30 (analysis/oud_feasibility_2026-07-30/).
+  # EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P3 recorded this target as
+  # UNREACHABLE ("equilibrium Inj-of-active-OUD is ~0.37 against a 0.45 target,
+  # and no injection-block setting can raise it"). That verdict was reached under
+  # the pre-fix parameterisation and does not survive the P2/P6/P7 fixes.
+  #
+  # A 7-state compartmental replica of oud_state.py -- validated against the
+  # N=3000 post-rebuild run to within 1-2% on inj_of_active, active/remission
+  # split, ever-injected share and population injection share -- was integrated
+  # over a 9^5 grid of the five OUD search bounds below. Result:
+  #
+  #   inj_of_active spans 0.064-0.627 across the box          (target 0.45)
+  #   conditional on hitting oud_active = 0.55 +/-0.02, it still spans
+  #   0.079-0.562, so the two targets are not in conflict
+  #   148 of 59,049 grid points hit BOTH within +/-0.02
+  #
+  # The currently-fitted vector misses (0.282) because relapse_rate 0.236 and
+  # relapse_to_inj_prob 0.467 both sit below the feasible region (which needs
+  # >=0.275 and >=0.51 respectively); inject_start must be >=0.044. All three are
+  # free and inside their existing bounds, so NO re-bounding is required -- P3 is
+  # a refit item, not a blocker.
+  #
+  # CAVEAT, and this one is real: `ever_injected` is a one-way latch that only
+  # population turnover (1.1%/yr) resets, so it relaxes on a ~50-year timescale
+  # against a 16-year run. inj_of_active is therefore NOT at steady state in the
+  # scored window -- it drifts upward throughout:
+  #
+  #                       scored-window avg   t=16yr   equilibrium
+  #   currently fitted          0.282          0.300      0.391
+  #   a feasible vector         0.451          0.488      0.591
+  #
+  # So the comment below that this is a "steady-state target" is wrong about the
+  # MODEL even where it is right about the DATA, and the parser's post-burn
+  # time-averaging measures a transient whose level depends on Inj.ppl and the
+  # baseline ever_injected draw. Consequences: (a) the fit is only valid for
+  # exactly this burn_steps/num_steps window -- changing either invalidates it;
+  # (b) lengthening the burn does NOT help, it overshoots; (c) scenario runs on a
+  # longer horizon will show the injection share climbing for reasons unrelated
+  # to the intervention, which will contaminate scenario contrasts. The durable
+  # fix is to make relapse-to-injection depend on RECENCY of injection rather than
+  # a permanent latch, which would give the quantity a genuine equilibrium. That
+  # is a modelling-semantics decision, deliberately not taken here.
   injecting:
-    injecting_pct: 0.45
+    injecting_pct: 0.45   # current target; revisit when APCD #34 PWID composition arrives
 
   # --------------------------------------------
-  # Overdose calibration targets
+  # Overdose calibration targets (ANNUALIZED, RI APCD T3)
   # --------------------------------------------
+  # APCD per-stratum rates from RI_parameter_verification_APCD.md (#17, #18, T3 avg).
+  # Weighted nonfatal = 0.45 * 0.091 + 0.55 * 0.045 = 0.066.
+  # Fatal rate from RIDOH (#42 anchor): 256 OD deaths 2019 / ~13,704 OUD ≈ 0.018; keep 0.015 as conservative anchor.
   overdose:
-    fatal_rate_annual: 0.015
-    nonfatal_rate_annual: 0.18
+    fatal_rate_annual: 0.015           # 256 RIDOH OD deaths (2019) / 13,704 T3-avg OUD (APCD #39, 2021-22) ≈ 0.0187; 0.015 kept as conservative anchor. See comment above.
+    nonfatal_rate_annual: 0.066        # APCD T3 weighted (was 0.18 — over-counted vs claims)
+    nonfatal_rate_inj_annual: 0.091    # APCD T3 (#17)
+    nonfatal_rate_noninj_annual: 0.045 # APCD T3 (#18)
 
   # --------------------------------------------
-  # MOUD engagement (Medication for OUD)
+  # MOUD engagement (TIME-AVERAGED)
   # --------------------------------------------
+  # DENOMINATOR FIX 2026-07-20: the objective now scores MOUD coverage among
+  # ACTIVE OUD (parser denominator = oud_active, numerator = moud_active), which
+  # matches the APCD series denominator ("MOUD fills among F11-DIAGNOSED OUD in
+  # year Y" ~= currently-active OUD). Previously the parser divided by
+  # (oud_active + oud_remission), a larger denominator than the target's, which
+  # forced the optimizer to inflate calibrated MOUD ~2x to hit the series and
+  # created a spurious MOUD-vs-overdose tradeoff. The uptake_series below is now
+  # the correct target for the active-OUD denominator and is used as-is (no rescale).
+  # uptake_pct 0.40 is the coverage over TRUE OUD (active+remission) — a cross-check,
+  # not the objective; expect ~0.40 there once the active-OUD coverage matches the series.
   moud:
-    uptake_pct: 0.40
+    uptake_pct: 0.40                        # cross-check: MOUD over all true OUD (active+remission)
+    uptake_pct_diagnosed: 0.815             # APCD T3 (#16), among-diagnosed = active-OUD denominator
+    # Per-year MOUD coverage among ACTIVE OUD 2012–2022 (APCD #16/#43); denominator
+    # = F11-dx OUD in year Y, matched to model oud_active. Used directly by the objective.
+    uptake_series_years: [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
+    uptake_series_per_yr: [0.692, 0.655, 0.690, 0.692, 0.673, 0.710, 0.753, 0.751, 0.776, 0.820, 0.810]
 
   # --------------------------------------------
-  # HIV outcomes (important for your study)
+  # HIV outcomes (OPTIMIZED — trajectory fit 2012–2022)
   # --------------------------------------------
+  # Initial HIV prevalence among PWID at 2012 = first year of mofan's series ≈ 7.5%.
+  # T3-avg baseline_prevalence_pct = 0.062 (APCD #25), used for steady-state check.
+  # incidence_series is APCD #26 PWID HIV incidence per PWID-yr, 2012–2022 (decimal form).
+  # DENOMINATOR MISMATCH, quantified 2026-07-30 (analysis/oud_feasibility_2026-07-30/
+  # probe_denominator.py). Both HIV targets below are scored over agents whose
+  # drug_type == "Inj" at the instant of measurement. oud_state flips drug_type to
+  # NonInj the moment an agent enters remission, so that denominator is "injecting
+  # right now". The APCD targets are built from a claims cohort, where an
+  # injection-related code anywhere in claims year Y confers membership for the
+  # whole of year Y. These are not the same population, and the gap is a factor of
+  # two (N=3000, seed 17, final timestep of the post-rebuild run):
+  #
+  #     drug_type == Inj now    n= 322   prev 0.0186   <- what is scored
+  #     injected in last 12 mo  n= 486   prev 0.0288   <- matches the target's build
+  #     ever injected           n=1645   prev 0.0377
+  #     whole population        n=3000   prev 0.0223
+  #
+  # The look-back denominator moves the model TOWARD 0.062, so roughly half the
+  # apparent prevalence shortfall is a definitional artefact rather than missing
+  # transmission. It is NOT swapped in here, because the same change cuts measured
+  # incidence by the same ~1.5x -- the incident-case numerator is identical under
+  # both denominators (7 cases) while the denominator grows -- making the
+  # prevalence fit easier and the incidence fit harder. Which one to score is a
+  # question about how APCD #25/#26 were extracted, not something to settle by
+  # picking whichever flatters the model. OUDState now reports the look-back
+  # denominator as `pwid_recent`/`pwid_recent_hiv` so both are visible in
+  # validate_candidates; decide before committing compute to the refit.
+  #
+  # SEPARATE, AND UNRESOLVED: every stratum in demographics carries
+  # hiv.init = 0.075 for Inj and 0.0 for NonInj, identically across all six races
+  # and all four sex types. Non-injecting agents therefore start with ZERO HIV --
+  # including MSM, who carry most of RI's HIV -- so the model's total prevalence is
+  # a seed that redistributes rather than an epidemic that sustains. It is also why
+  # hiv_prev_inj falls 0.080 -> 0.019 while hiv_prev_noninj rises 0.000 -> 0.023
+  # over a run: with transmission near zero, prevalence simply equilibrates across
+  # compartments. Setting a non-zero NonInj seed (and race/sex_type differentiation)
+  # needs RIDOH data -- this is citations GAP #27/#40 and must not be invented.
   hiv:
-    baseline_prevalence_pct: 0.04
-    incidence_per_100py: 1.5
+    baseline_prevalence_pct: 0.062          # APCD T3 PWID HIV prev (#25)
+    initial_prevalence_pwid_2012: 0.075     # series-anchored initial condition
+    incidence_series_years: [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
+    incidence_series_per_pwid_yr: [0.0090, 0.0096, 0.0080, 0.0064, 0.0125, 0.0047, 0.0044, 0.0032, 0.0017, 0.0026, 0.0107]
+    # Aggregation windows for hiv_traj_rmse, added 2026-08-03. The objective scores
+    # period means, not the 11 annual points.
+    #
+    # WHY: measured 2026-08-03 over 20 Pareto members re-run at 5 pop seeds x 10
+    # reps (job 4576015). Against the annual series every candidate scored WORSE
+    # than a flat-at-mean predictor -- candidates 0.00426-0.00613, flat-at-mean
+    # 0.00342 -- and 0 of 20 beat it. The 52/640 front members that appeared to
+    # beat it at 10 reps all regressed. So the annual shape is not a thing the
+    # model reproduces, and scoring it added error rather than signal.
+    #
+    # This SUPERSEDES the power analysis at the top of this file, which predicted
+    # shape would resolve once the injection share was refit. That precondition
+    # was met (share 0.11 -> ~0.45, pooled PWID ~1120), and shape still did not
+    # resolve: between-trial SD of the objective was 0.00045 against a 0.00039 SE
+    # on each trial's own mean. The prediction was about power to beat a flat
+    # model; the failure is one of fit, which no amount of reps corrects.
+    #
+    # Periods are the ones the provenance note below already reports (T1 0.0083 /
+    # T2 0.0053 / T3 0.0066) and match the APCD extraction's own era split.
+    incidence_periods:
+      - [2012, 2015]   # T1
+      - [2016, 2020]   # T2
+      - [2021, 2022]   # T3
+    # 2014 value interpolated 0.0229 -> 0.0080 (mean of 2013/2015). Deep research 2026-07-13
+    # (RIDOH HIV Surveillance Reports 2022/2023 + PMC6477915, PMC6055286, PMC5522175):
+    # RI IDU-attributed HIV diagnoses stayed <6/yr across 2009-2023; the 2014 uptick was in
+    # OVERALL (post-ACA testing) diagnoses, not PWID -> original 2.29% was a claims-proxy artifact.
+    # NOTE: entire series is a claims (diagnosed-incidence) proxy; no RI PWID biological serosurvey exists.
+    # T1=2012-2015 mean now 0.0083; T2=2016-2020 mean 0.0053; T3=2021-2022 mean 0.0066.
+    #
+    # PROVENANCE CAVEAT (deep-research pass 2026-07-21, see
+    # docs/calibration_log/phase_4_ridoh_idu_validation_2026-07-21.md): this series is
+    # an APCD claims proxy scoped to the OUD-diagnosed population (any transmission
+    # route) per the Gu/Marshall 2025 protocol (PMC12400686), NOT RIDOH's
+    # transmission-category-specific IDU classification. Kept as the optimization
+    # target (no RI PWID population denominator exists to build a true per-PWID-year
+    # IDU-specific rate — see ridoh_idu_validation below) but treat hiv_traj_rmse fits
+    # with that caveat in mind.
+    ridoh_idu_validation:
+      # NOT an optimization target -- sanity-check reference only. RIDOH classifies
+      # transmission route via case-investigation interview (IDU-specific), unlike the
+      # incidence_series_per_pwid_yr above. No RIDOH/CDC-published RI PWID population
+      # denominator exists (RI is not an NHBS-PWID project area), so these counts
+      # cannot be converted into a per-PWID-year rate -- see
+      # docs/calibration_log/phase_4_ridoh_idu_validation_2026-07-21.md for full
+      # derivation and citations.
+      annual_count_range: [2, 9]   # observed low/high, RIDOH reports 2009-2023
+      note: >
+        RIDOH IDU-attributed new HIV diagnoses, RI: <6/yr (2009-2014), ~1.8/yr avg
+        (2015-2019), 7 (2020), <5 (2022), 6 (2023); consistently 3-6% of all statewide
+        diagnoses (~63-115/yr total), all years 2009-2023.
 
   # --------------------------------------------
-  # Parameters TO BE CALIBRATED
-  # The engine will modify these.
+  # VALIDATION TARGETS -- NOT SCORED
+  # --------------------------------------------
+  # Added 2026-07-29. These are directly observable quantities that the model
+  # takes as data-anchored INPUTS rather than fitting. They are checked so a
+  # parameterisation that drifts away from them is visible, but deliberately kept
+  # out of the objective: fitting an observable would spend search dimensions on
+  # something already measured and let the optimizer hide error from elsewhere in
+  # a quantity we can independently check.
+  #
+  # Until this block existed, neither incarceration nor the HIV care cascade was
+  # constrained by anything at all -- the same failure mode that let the injection
+  # share drift unnoticed. See EPIDEMIC_DYNAMICS_AUDIT_2026-07-29b.md.
+  validation_targets:
+
+    incarceration:
+      # RIDOC CY2024 commitments (8,076 awaiting-trial / 2,540 sentenced) with
+      # spells <= 7 days dropped and the entry hazard rescaled by the 60% retained
+      # -- the monthly timestep cannot represent a 2-day hold, and rounding one up
+      # to a full month overstates person-time by ~24%. Dropping them instead
+      # holds the error to +6.5%.
+      concurrent_share: 0.0552          # steady-state share incarcerated
+      concurrent_tolerance: 0.015
+      annual_entry_gt7d: 0.192          # P(>=1 spell > 7 days in a year)
+      mean_spell_months: 3.32
+      note: >
+        Cross-check: the retained mixture implies a 56-day mean spell across ALL
+        commitments, against 53 days observed in the RI incarcerated-MOUD cohort
+        (4,731 episodes). P(spell > 12 mo) 1.9% modelled vs 2.8% observed.
+
+    hiv_cascade:
+      # CDC NHBS-PWID 2024 / NHSS 2024, national PWID. RIDOH publishes a statewide
+      # continuum (76.4% engaged, 71.9% suppressed) but does not stratify it by
+      # PWID, and the PWID-specific national figures are substantially worse than
+      # the statewide all-PLWH ones -- so the national PWID numbers are the base
+      # case and the RI statewide figures are an optimistic upper-bound scenario.
+      #
+      # These are MARGINAL proportions from different surveillance designs; they
+      # must not be multiplied sequentially. suppressed_given_art is a derived
+      # approximation (0.572 / 0.780), not a measured conditional.
+      linked_within_1mo: 0.802
+      art_among_dx: 0.780
+      art_tolerance: 0.06
+      suppressed_among_dx: 0.572
+      suppressed_given_art: 0.733
+      suppressed_tolerance: 0.08
+      ri_statewide_upper_bound: 0.72    # optimistic scenario, not the base case
+      note: >
+        dx_among_hiv is deliberately NOT given a target here. The model saturates
+        it at 0.97-1.00 against a real-world figure nearer 0.85-0.90, and that is
+        an open defect in hiv_testing (audit finding F7), not a parameter to fit.
+
+    background_foi:
+      # Added 2026-07-30 when hiv.background_sex.per_act_transmission_prob was
+      # removed from parameters_to_optimize (audit F9). The exogenous route is
+      # structurally necessary -- the modelled population is 100% ever-OUD
+      # (init_none = 0), so sex with non-OUD partners cannot be a partnership --
+      # but it must be an INPUT. Its per-act probability is now read from
+      # partnership.sex.acquisition, the same table the network route uses,
+      # because it is the same biological quantity. What remains are two
+      # mixing inputs, and BOTH are unsourced:
+      #
+      #   hiv.background_sex.rate_nonoud_per_timestep       = 0.5   GAP
+      #   hiv.background_sex.partner_hiv_prevalence_nonoud  = 0.01  GAP #27
+      #   hiv.background_sex.inj_multiplier                 = 1.5   GAP
+      #
+      # partner_hiv_prevalence_nonoud = 0.01 is ~4x RI's general adult HIV
+      # prevalence (~0.0025). Assortative mixing justifies some excess, but not
+      # an unstated factor of four, and the value is doing real work: it is a
+      # linear multiplier on the entire exogenous route.
+      max_exogenous_incidence_share: 0.25
+      note: >
+        Diagnostic, not a fitted quantity. In the post-rebuild run 12 of 21
+        infections (57%) arrived through the exogenous route, versus 2 by network
+        injection and 7 by network sex. That is the one route no modelled
+        intervention can touch, so a model in that regime will understate every
+        scenario effect no matter how well it fits the calibration targets. If a
+        refit lands above this share, the exogenous inputs are wrong, not the
+        network parameters. Measure with
+        analysis/oud_feasibility_2026-07-30/probe_denominator.py.
+
+  # --------------------------------------------
+  # PARAMETERS TO BE CALIBRATED (wide ranges per user direction)
   # --------------------------------------------
   parameters_to_optimize:
 
-    - path: "oud.transitions.remission_rate_per_year"
-      lower: 0.05
-      upper: 0.35
-
-    - path: "oud.transitions.inject_start_rate_per_year"
-      lower: 0.005
-      upper: 0.10
-
-    - path: "oud.transitions.inject_stop_rate_per_year"
-      lower: 0.02
-      upper: 0.30
-
-    - path: "overdose.fatal_prob"
-      lower: 0.005
-      upper: 0.03
-
-    - path: "overdose.nonfatal_prob"
+    # ---- OUD natural history (oud_state.py) ----
+    # Bounds widened per user; previous values from prior Optuna runs as priors only.
+    # NOTE: oud_state.transitions.incidence_rate_per_year was REMOVED here 2026-07-20.
+    # We adopted an OUD-only population design (scenario init_none=0), which leaves no
+    # susceptible pool for incidence (none->active) to act on, so the parameter is inert.
+    # It stays at the scenario default 0.0. See docs/calibration_log/phase_4_oud_addendum_2026-07-20.md.
+    - path: "oud_state.transitions.remission_rate_per_year"
       lower: 0.05
       upper: 0.40
 
-    - path: "moud.uptake_rate"
+    - path: "oud_state.transitions.relapse_rate_per_year"
       lower: 0.05
-      upper: 0.60
+      upper: 0.50        # NEW
 
-    - path: "hiv.acquisition.scale"
-      lower: 0.1
+    - path: "oud_state.transitions.relapse_to_inj_prob"
+      lower: 0.30
+      upper: 0.85        # NEW
+
+    - path: "oud_state.transitions.inject_start_rate_per_year"
+      lower: 0.01
+      upper: 0.10
+
+    - path: "oud_state.transitions.inject_stop_rate_per_year"
+      lower: 0.02
+      upper: 0.30
+
+    # ---- Overdose dynamics (overdose.py) — bounds anchored to APCD ----
+    - path: "overdose.base_prob_inj"
+      lower: 0.04
+      upper: 0.18        # tightened from 0.40 per APCD #17 T3 = 0.091
+
+    - path: "overdose.base_prob_noninj"
+      lower: 0.005
+      upper: 0.08        # widened upper from 0.02 per APCD #18 T3 = 0.045
+
+    - path: "overdose.fatal_frac"
+      lower: 0.05
+      upper: 0.25
+
+    - path: "overdose.high_risk_mult"
+      lower: 1.0
       upper: 3.0
 
-    - path: "hiv.transmission.scale"
-      lower: 0.1
-      upper: 3.0
+    # ---- MOUD dynamics ----
+    - path: "moud.overdose_scale.active"
+      lower: 0.20
+      upper: 0.70
+
+    - path: "moud.injection_scale.active"
+      lower: 0.40
+      upper: 0.90
+
+    # MOUD discontinuation per month — Hallowell anchor 0.078/mo (37.8% 12-mo retention)
+    - path: "moud.discontinue_per_month"
+      lower: 0.03
+      upper: 0.18        # NEW; bounds Hallowell ±
+
+    # MOUD re-initiation per month (top-level override, moud.py update_agent STEP 2).
+    # The equilibrium coverage ceiling among ever-on agents is
+    # reinit_prob/(reinit_prob+discontinue_per_month); with reinit previously fixed at
+    # the demographic default the model capped ~0.62-0.77 and could not reach the
+    # 0.82 (2022) target. Bounds span ~3-20-month re-engagement: at disc=0.06,
+    # reinit=0.27 -> equilibrium 0.82. Added 2026-07-24 with the init_coverage lever
+    # so MOUD coverage is genuinely fit (not hand-set). See calibration_log.
+    - path: "moud.reinit_prob"
+      lower: 0.05
+      upper: 0.35        # NEW 2026-07-24
+
+    # NOTE: moud.init_coverage is deliberately NOT optimized (removed 2026-07-29).
+    # It sets only the t=0 placement probability, and with use_reinit true coverage
+    # converges to reinit_prob/(reinit_prob+discontinue_per_month) within ~3 years,
+    # so it cannot affect an objective scored after burn-in. Measured: a fitted
+    # 0.502 produced an observed 0.749, matching the 0.734 equilibrium set by the
+    # two parameters above. Same class of dead search dimension as hiv.dx.prob
+    # (A8). The scenarios now set moud.init_at_equilibrium instead, which starts the
+    # run at that equilibrium and removes the transient rather than fitting a value
+    # that gets overwritten. See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P6.
+
+    # Post-overdose MOUD initiation relative risk (Larochelle proxy ≈ 2x)
+    - path: "moud.post_overdose_rr"
+      lower: 1.0
+      upper: 5.0         # NEW
+
+    # ---- HIV transmission & testing ----
+    # Per-act injection HIV transmission (canonical 0.0063; allow wider for RI fit)
+    - path: "partnership.injection.transmission.base"
+      lower: 0.001
+      upper: 0.012       # NEW
+
+    # REMOVED 2026-07-30: hiv.background_sex.per_act_transmission_prob.
+    #
+    # The premise above -- "complementary to, not double-counting with, the
+    # network sexual route" -- is right about the ROUTE and wrong about the
+    # PARAMETER. The exogenous route is genuinely needed (the modelled population
+    # is 100% ever-OUD, so sex with non-OUD partners cannot be a partnership), but
+    # its per-act transmission probability is the same biological quantity as the
+    # network route's, and fitting it separately gave the model two free levers on
+    # one constant. Measured consequence in the post-rebuild run: it was fitted to
+    # 0.002805 -- 94% of its upper bound, and 3.5-7x the heterosexual per-act value
+    # it was being applied to -- and delivered 12 of 21 infections, 57% of all
+    # incidence, through the one route no modelled intervention can touch. A
+    # scenario comparison run on that fit would understate every intervention.
+    #
+    # hiv.py now reads partnership.sex.acquisition[sex_type][sex_role] for this
+    # route, so it inherits F1's fix. The exogenous magnitude is now set only by
+    # observable inputs: rate_nonoud_per_timestep and partner_hiv_prevalence_nonoud
+    # (the latter is citations GAP #27 and still needs a source -- see
+    # validation_targets). calibration.acquisition continues to scale both routes
+    # together, which is the intended shared lever.
+
+    # Scalar on sex acts per partnership per timestep, applied to every
+    # sex-carrying bond in titan/interactions/sex.py. This is the lever that fits
+    # the NETWORK sexual transmission route.
+    #
+    # Fitted rather than pinned because no RI-specific PWID/OUD coital-frequency
+    # data exists. The scenarios set partnership.sex.frequency to a Poisson with an
+    # NSFG-anchored prior mean of 4.0 acts/month, so these bounds span roughly 1-12
+    # acts/month. One scalar covers both Sex and SexInj, keeping this to a single
+    # search dimension.
+    #
+    # Added 2026-07-29. Before that, partnership.sex.frequency was absent from every
+    # RI parameter file and fell back to a default bin of min:0/max:1 which, because
+    # utils.safe_random_int is half-open, yielded zero acts forever:
+    # Sex.get_num_acts returned >=1 act on 0 of 369,609 calls. Network sexual
+    # transmission was structurally absent from every result the project has
+    # produced, and partnership.injection.transmission.base plus
+    # calibration.acquisition absorbed the entire epidemic in its place -- so those
+    # two are expected to move substantially in this refit. Turning the route on at
+    # the only other frequency in the repo (tests/params/oud_ri_baseline.yml,
+    # ~19 acts/month) drove prevalence to 95%, which brackets how sensitive this is.
+    # See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P1.
+    - path: "calibration.sex.act"
+      lower: 0.25
+      upper: 3.0         # NEW 2026-07-29
+
+    # NOTE: hiv.dx.prob is deliberately NOT optimized. Its only consumer is the
+    # legacy per-step diagnosis roll in titan/exposures/hiv.py, which is gated
+    # off whenever features.hiv_testing is true (as it is in every scenario
+    # here). Optimizing it added a search dimension that could not affect any
+    # objective. Diagnosis is driven by the hiv_testing feature instead.
+
+    # Annual HIV testing base probability among PWID/OUD
+    # (renamed from hiv_testing.base_prob, which was a per-timestep probability)
+    - path: "hiv_testing.base_prob_annual"
+      lower: 0.10
+      upper: 0.80        # NEW; current YAML 0.3
+
+    # ---- Network structure ----
+    # Linear partner-count boost during a high-risk burst (~20% of agents, ~6-step
+    # duration). Schema default 300 was sized for populations of 6,000-172,000
+    # (Atlanta/Mississippi/NYC/Philly-GIS/legacy-RI settings); at this scenario's
+    # num_pop=500 it swamps the network entirely. Philly-GIS is this repo's own
+    # precedent for scaling it down (300->3). Tuned here rather than hand-picked,
+    # since the right value is a calibration question. `type: int` because the
+    # schema requires an int (see optuna_calibration.py's set_yaml_value/suggest_int
+    # handling for "type" entries, added alongside this parameter 2026-07-21).
+    # See docs/calibration_log/phase_4_num_partners_fix_2026-07-21.md.
+    - path: "high_risk.partner_scale"
+      lower: 1
+      upper: 20          # NEW
+      type: int
 
   # --------------------------------------------
-  # Stopping criteria
+  # Stopping criteria (Optuna-level)
   # --------------------------------------------
   tolerance:
-    max_error: 0.02     # 2% deviation allowed
-    max_iterations: 50
+    max_error: 0.02
+    max_iterations: 200       # widened to give NSGA-II room in higher-dim space

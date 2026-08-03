@@ -47,6 +47,9 @@ class FakeRandom:
     def poisson(self, var: float, size: int = 1):
         return int(round(var))
 
+    def gammavariate(self, alpha, beta):
+        return self.num
+
 
 # test fixtures used throughout unit tests
 @pytest.fixture
@@ -54,7 +57,17 @@ def params(tmpdir):
     param_file = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "params", "basic.yml"
     )
-    return create_params(None, param_file, tmpdir)
+    p = create_params(None, param_file, tmpdir)
+
+    # basic.yml leaves model.seed at its default of 0, which means "pure
+    # random" -- so every test building a population drew a fresh seed and the
+    # statistical assertions in population/partnering tests failed
+    # intermittently (observed 3 failures across 5 consecutive runs, on
+    # different tests each time). Pin the seeds so unit tests are reproducible.
+    # Tests that specifically exercise seeding use params/basic_seeded.yml.
+    p.model.seed.ppl = 1
+    p.model.seed.run = 1
+    return p
 
 
 @pytest.fixture
@@ -65,7 +78,7 @@ def world_location(params):
 @pytest.fixture
 def make_agent(params, world_location):
     def _make_agent(
-        SO="MSM", age=30, race="black", DU="None", location=None, init_bond_fields=True
+        SO="MSM", age=30, race="black_nonhispanic", DU="NonInj", location=None, init_bond_fields=True
     ):
         if location is None:
             location = world_location

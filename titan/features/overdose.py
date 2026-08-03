@@ -1,156 +1,211 @@
 from typing import Dict, ClassVar
+import logging
+
+import numpy as np
 
 from . import base_feature
-from .. import agent
-from .. import population
-from .. import model
-from ..parse_params import ObjMap
+from .. import agent, population, model
 
 
 class Overdose(base_feature.BaseFeature):
     """
     Overdose feature.
 
-    - Applies only to OUD agents (drug_type in {Inj, NonInj}).
-    - Simulates non-fatal and fatal overdoses.
-    - Fatal overdoses trigger death via exit_enter.
+    Key properties:
+    - Eligible ONLY if agent.has_oud == True
+    - Annual probabilities converted to per-step probabilities
+    - Injection vs non-injection baseline risk
+    - MOUD effects applied multiplicatively
+    - Elevated risk after relapse (loss of tolerance)
+    - High-risk phenotype
+    - Syringe services / naloxone protection
+    - Nonfatal overdoses create short-term memory
+    - Fatal overdoses trigger exit via exit_enter
     """
 
     name = "overdose"
-    # Stats we will contribute to:
-    #   * overdose_events: number of overdoses (fatal + non-fatal) this step
-    #   * overdose_deaths: number of fatal overdoses this step
     stats = ["overdose_events", "overdose_deaths"]
 
-    # Class-level cumulative counts by race/sex_type (optional)
+    # Class-level cumulative counts
     event_counts: ClassVar[Dict] = {}
     death_counts: ClassVar[Dict] = {}
 
+    # ================= INITIALIZATION =================
+
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
-
-        # Agent-level counters
-        self.overdose_count = 0  # cumulative overdoses over the agent's life
         self.events_this_step = 0
         self.deaths_this_step = 0
 
-    # ================= CLASS-LEVEL METHODS =================
-
     @classmethod
-    def init_class(cls, params: "ObjMap"):
-        """
-        Initialize the counts dictionaries for the races and sex_types in the model.
-
-        args:
-            params: the population params
-        """
+    def init_class(cls, params):
         cls.event_counts = {
-            race: {sex_type: 0 for sex_type in params.classes.sex_types}
+            race: {sex: 0 for sex in params.classes.sex_types}
             for race in params.classes.races
         }
         cls.death_counts = {
-            race: {sex_type: 0 for sex_type in params.classes.sex_types}
+            race: {sex: 0 for sex in params.classes.sex_types}
             for race in params.classes.races
         }
 
-    # ================= AGENT INITIALIZATION =================
+        # Fatal overdoses remove the agent by setting agent.exit_class, which is
+        # only acted on by TITAN.exit() -- and that only runs when exit_enter is
+        # enabled. Without it, fatal_frac would silently be a pure counter.
+        fatal_frac = getattr(getattr(params, "overdose", None), "fatal_frac", 0.0)
+        if fatal_frac > 0 and not params.features.exit_enter:
+            logging.warning(
+                "overdose.fatal_frac is %.3f but features.exit_enter is false: "
+                "fatal overdoses will be counted but agents will NOT be removed "
+                "from the model.",
+                fatal_frac,
+            )
+
+        # Event generation is gated on agent.has_oud, which is only ever set by
+        # the oud_state feature. With oud_state off, this feature produces
+        # exactly zero events and zero deaths with no other symptom.
+        if not params.features.get("oud_state", False):
+            logging.warning(
+                "features.overdose is enabled but features.oud_state is not. "
+                "Overdose events are gated on has_oud, which only oud_state "
+                "sets, so no overdose events or deaths will be generated."
+            )
 
     def init_agent(self, pop: "population.Population", time: int):
-        """
-        Initialize agent-level overdose tracking variables.
-        """
-        self.overdose_count = 0
+        self.active = True  # REQUIRED
         self.events_this_step = 0
         self.deaths_this_step = 0
 
-    # ================= PER-TIME-STEP UPDATE =================
+        # Nonfatal overdose memory (used by MOUD)
+        self.agent.recent_overdose = False
+        self.agent.recent_overdose_timer = 0
 
-    def update_agent(self, model: "model.TITAN"):
+    # ================= POPULATION-LEVEL UPDATE =================
+
+    @classmethod
+    def update_pop(cls, model: "model.TITAN"):
         """
-        Simulate overdose events for this agent at the current time step.
+        Advance and expire the recent-overdose window for every agent.
+
+        This runs here, ahead of any feature's per-agent `update_agent`
+        (`update_pop` for every feature runs before `update_agent` for any
+        feature - see `TITAN.update_all_agents`), so that consumers like
+        `moud` and `hiv_testing` read this step's expiry rather than the
+        previous step's. Doing the decrement inside this feature's own
+        `update_agent` instead left the flag visible for one step longer
+        than `post_overdose_window` intends, since moud/hiv_testing are
+        declared earlier than overdose and so read the stale value first.
 
         args:
             model: the instance of TITAN currently being run
         """
-        # Reset per-step counters for this agent
+        for a in model.pop.all_agents:
+            agent_feature = getattr(a, cls.name)
+            if not agent_feature.active:
+                continue
+            if not getattr(a, "recent_overdose", False):
+                continue
+
+            params = getattr(a.location.params, "overdose", None)
+            if params is None:
+                continue
+
+            a.recent_overdose_timer = getattr(a, "recent_overdose_timer", 0) + 1
+            steps_per_year = model.params.model.time.steps_per_year
+            post_od_window = getattr(
+                params, "post_overdose_window", steps_per_year // 2
+            )
+            if a.recent_overdose_timer > post_od_window:
+                a.recent_overdose = False
+                a.recent_overdose_timer = 0
+
+    # ================= PER-STEP UPDATE =================
+
+    def update_agent(self, model: "model.TITAN"):
+        if not self.active:
+            return
+
         self.events_this_step = 0
         self.deaths_this_step = 0
 
-        # Only agents with OUD (Inj / NonInj) are eligible
-        if getattr(self.agent, "drug_type", None) not in ("Inj", "NonInj"):
+        params = getattr(self.agent.location.params, "overdose", None)
+        if params is None:
             return
 
-        overdose_params = getattr(model.params, "overdose", None)
-        if overdose_params is None:
+        # Strict eligibility for generating new events
+        if not getattr(self.agent, "has_oud", False):
             return
 
-        # Base risk by drug_type
+        # ---------- Base annual probability by drug type ----------
         if self.agent.drug_type == "Inj":
-            base_prob = getattr(overdose_params, "base_prob_inj", 0.0)
+            annual_prob = getattr(params, "base_prob_inj", 0.0)
         else:
-            base_prob = getattr(overdose_params, "base_prob_noninj", 0.0)
+            annual_prob = getattr(params, "base_prob_noninj", 0.0)
 
-        fatal_frac = getattr(overdose_params, "fatal_frac", 0.0)
-        high_risk_mult = getattr(overdose_params, "high_risk_mult", 1.0)
-        ssp_rr = getattr(overdose_params, "ssp_rr", 1.0)
+        annual_prob = max(0.0, min(1.0, annual_prob))
 
-        # Start from base probability
-        prob = base_prob
+        # ---------- Annual → per-step conversion ----------
+        steps_per_year = model.params.model.time.steps_per_year
+        dt = 1.0 / steps_per_year
+        hazard = -np.log(1.0 - annual_prob) if annual_prob > 0 else 0.0
+        prob = 1.0 - np.exp(-hazard * dt)
 
-        # MOUD effect: ask the MOUD feature for an overdose risk multiplier
-        moud_feat = getattr(self.agent, "moud", None)
-        if moud_feat is not None and hasattr(moud_feat, "get_overdose_risk_multiplier"):
-            prob *= moud_feat.get_overdose_risk_multiplier()
+        # ==================================================
+        # Multiplicative risk modifiers (preserve original)
+        # ==================================================
 
-        # High-risk multiplier
-        if hasattr(self.agent, "high_risk") and self.agent.high_risk:  # type: ignore[attr-defined]
-            prob *= high_risk_mult
+        # ---------- MOUD effect (FIXED) ----------
+        params_moud = getattr(self.agent.location.params, "moud", None)
+        if params_moud is not None:
+            if getattr(self.agent, "on_moud", False):
+                prob *= params_moud.overdose_scale.active
+            else:
+                prob *= params_moud.overdose_scale.inactive
 
-        # Syringe services (if you believe SSP reduces overdose risk, e.g. via naloxone)
-        if hasattr(self.agent, "syringe_services") and self.agent.syringe_services.active:  # type: ignore[attr-defined]
-            prob *= ssp_rr
+        # ---------- Elevated risk after relapse ----------
+        if getattr(self.agent, "recent_relapse", False):
+            prob *= getattr(params, "post_relapse_od_rr", 1.0)
 
-        # Clamp probability into [0, 1]
+        # ---------- High-risk phenotype ----------
+        high_risk_feat = getattr(self.agent, "high_risk", None)
+        if high_risk_feat is not None and getattr(high_risk_feat, "active", False):
+            prob *= getattr(params, "high_risk_mult", 1.0)
+
+        # ---------- Syringe services / naloxone ----------
+        if (
+            hasattr(self.agent, "syringe_services")
+            and self.agent.syringe_services.active
+        ):
+            prob *= getattr(params, "ssp_rr", 1.0)
+
         prob = max(0.0, min(1.0, prob))
 
-        # Decide whether an overdose occurs this step
+        # ==================================================
+        # Determine overdose event
+        # ==================================================
         if model.run_random.random() >= prob:
             return
 
-        # Overdose occurred
+        # ---------- Overdose occurred ----------
         self.events_this_step += 1
-        self.overdose_count += 1
         self.event_counts[self.agent.race][self.agent.sex_type] += 1
 
-        # Decide if fatal
+        # Flag nonfatal overdose for downstream linkage
+        self.agent.recent_overdose = True
+        self.agent.recent_overdose_timer = 0
+
+        # ---------- Fatality ----------
+        fatal_frac = getattr(params, "fatal_frac", 0.0)
         if model.run_random.random() < fatal_frac:
             self.deaths_this_step += 1
             self.death_counts[self.agent.race][self.agent.sex_type] += 1
 
-            # Mark this agent for death via exit_enter.
-            # NOTE: adjust field names here to match your actual exit_enter implementation.
             self.agent.exit_class = "death"
-            # Optional: label reason for later analysis
             self.agent.death_reason = "overdose"
 
     # ================= STATS =================
 
     def set_stats(self, stats: Dict[str, int], time: int):
-        """
-        Contribute overdose stats for this agent to the global stats dict.
-
-        stats keys:
-          * overdose_events
-          * overdose_deaths
-        """
-        if self.events_this_step > 0:
-            stats.setdefault("overdose_events", 0)
+        if self.events_this_step:
             stats["overdose_events"] += self.events_this_step
-
-        if self.deaths_this_step > 0:
-            stats.setdefault("overdose_deaths", 0)
+        if self.deaths_this_step:
             stats["overdose_deaths"] += self.deaths_this_step
-
-        # Reset per-step counters after stats collection
-        self.events_this_step = 0
-        self.deaths_this_step = 0

@@ -13,11 +13,16 @@ class HAART(base_feature.BaseFeature):
     """
 
     name = "haart"
-    stats = ["haart"]
+    stats = ["haart", "haart_adherent"]
     """
         HAART collects the following stats:
 
         * haart - number of agents with active haart
+        * haart_adherent - number of those who are adherent, i.e. virally
+          suppressed. Reported separately because adherence, not enrollment, is
+          what carries the transmission benefit (`haart_scaling`), so ART
+          coverage alone cannot be validated against a care-continuum target.
+          Added 2026-07-29 (EPIDEMIC_DYNAMICS_AUDIT_2026-07-29b.md finding F6).
     """
 
     counts: ClassVar[Dict] = {}
@@ -135,6 +140,8 @@ class HAART(base_feature.BaseFeature):
     def set_stats(self, stats: Dict[str, int], time: int):
         if self.active:
             stats["haart"] += 1
+            if self.adherent:
+                stats["haart_adherent"] += 1
 
     def get_transmission_risk_multiplier(self, time: int, interaction_type: str):
         """

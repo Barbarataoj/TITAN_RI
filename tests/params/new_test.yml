@@ -1,0 +1,803 @@
+demographics:
+  black:
+    ppl: 0.600000000000567
+    sex_type:
+      MTF:
+        ppl: 0.1
+        drug_type: &base_drug_type
+          Inj:
+            ppl: 0.2
+            exit:
+              death:
+                base: 10.8
+              migrate:
+                prob: 0.001
+            num_partners:
+              Sex:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+              Social:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 0
+                    value_type: float
+              SexInj:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+              Inj:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+            hiv:
+              init: 0.1
+              dx:
+                init: 0.1
+                prob: 0.1
+              aids:
+                init: 0.1
+            monkeypox:
+              init: 0.1
+              dx:
+                init: 0.1
+                prob: 0.1
+            haart:
+              init: 0.1
+              enroll: &haart_prob
+                begin:
+                  prob: 0.1
+                  start: 0
+                  stop: 10
+                end:
+                  prob: 1.0
+                  start: 10
+                  stop: 100
+              reinit: &reinit_prob
+                prob: 0.0
+              adherence:
+                init: 0.1
+                prob: 0.1
+              discontinue: 0.1
+          NonInj: &npwid_drug_type
+            ppl: 0.4
+            exit:
+              death:
+                base: 10.8
+              migrate:
+                prob: 0.01
+            hiv:
+              init: 0.1
+              dx:
+                init: 0.1
+                prob: 0.1
+              aids:
+                init: 0.1
+            monkeypox:
+              init: 0.1
+              dx:
+                init: 0.1
+                prob: 0.1
+            num_partners:
+              Sex:
+                dist_type: poisson
+                vars:
+                  1:
+                    value: 10
+                    value_type: float
+            haart:
+              init: 0.1
+              enroll: *haart_prob
+              reinit: *reinit_prob
+              adherence:
+                init: 0.1
+                prob: 0.1
+              discontinue: 0.1
+          None: *npwid_drug_type
+        incar: &base_incar
+          init: 0.02
+          prob: 0.02
+        safe_sex: &safe_sex_default
+          Sex:
+            prob: 0.1
+          Inj:
+            prob: 0.1
+          SexInj:
+            prob: 0.1
+        injection: &base_injection
+          unsafe_prob: 0.1
+          num_acts: 10
+        prep: &base_prep
+          adherence: 0.1
+          discontinue: 0.1
+          cap: 0.3
+          init: 0.3
+        high_risk: &base_high_risk
+          init: 0.1
+        vaccine: &base_vaccine
+          init: 0.1
+          prob: 0.1
+          booster:
+            interval: 12
+            prob: 0.1
+      MSM:
+        ppl: 0.3
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep:
+          adherence: 0.1
+          discontinue: 0.1
+          cap: 0.3
+          init: 0.5
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HM:
+        ppl: 0.3
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HF:
+        ppl: 0.2
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      WSW:
+        ppl: 0.1
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+  white:
+    ppl: 0.4
+    sex_type:
+      MSM:
+        ppl: 0.3
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HM:
+        ppl: 0.3
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      HF:
+        ppl: 0.2
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection: *base_injection
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      WSW:
+        ppl: 0.1
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection:
+          unsafe_prob: 0.
+          num_acts: 10
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+      MTF:
+        ppl: 0.1
+        drug_type: *base_drug_type
+        incar: *base_incar
+        safe_sex: *safe_sex_default
+        injection:
+          unsafe_prob: 0.
+          num_acts: 10
+        prep: *base_prep
+        high_risk: *base_high_risk
+        vaccine: *base_vaccine
+
+partnership:
+  pca:
+    frequency:
+      Sex: &bin_always_one
+        bins:
+          1:
+            prob: 1.0
+            min: 1
+            max: 1
+      SexInj: *bin_always_one
+      Inj: *bin_always_one
+  sex:
+    frequency:
+      Sex:
+        type: bins
+        bins:
+          1:
+            prob: 0.5
+            min: 0
+            max: 1
+          2:
+            prob: 1.0
+            min: 37
+            max: 38
+    acquisition:
+      HM:
+        versatile: 0.0004
+      HF:
+        versatile: 0.0008
+      MSM:
+        insertive: 0.0011
+        receptive: 0.0138
+        versatile: 0.00745
+  duration:
+    Sex:
+      white:
+        type: bins
+        bins:
+          1:
+            prob: 1.0
+            min: 1
+            max: 2
+      black:
+        type: bins
+        bins:
+          1:
+            prob: 1.0
+            min: 3
+            max: 4
+    Inj:
+      white: &inj_dur
+        type: distribution
+        distribution:
+          dist_type: randint
+          vars:
+            1:
+              value: 1
+              value_type: int
+            2:
+              value: 3
+              value_type: int
+          mean: 1
+      black: *inj_dur
+    SexInj:
+      white: &poisson_one
+        type: distribution
+        distribution:
+          dist_type: poisson
+          vars:
+            1:
+              value: 1
+              value_type: float
+          mean: 1
+      black: *poisson_one
+    Social:
+      white: *poisson_one
+      black: *poisson_one
+
+prep:
+  cap: 0.10
+  init: 0.70
+  cap_as_prob: false
+
+knowledge:
+  prob: 0.30
+  opinion:
+    prob: 0.50
+
+syringe_services:
+  timeline:
+    ssp_open:
+      start_time: 1
+      stop_time: 120
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+
+agent_zero:
+  interaction_type: injection
+  num_partners: 0
+
+outputs:
+  network:
+    calc_component_stats: true
+  classes:
+    - locations
+    - races
+    - sex_types
+    - components
+    - drug_types
+
+
+exposures:
+  hiv: true
+  knowledge: true
+  monkeypox: true
+
+haart:
+  use_reinit: true
+
+features:
+  incar: true
+  prep: true
+  high_risk: true
+  haart: true
+  exit_enter: true
+  static_network: false
+  agent_zero: true
+  assort_mix: false
+  vaccine: true
+  partner_tracing: true
+  external_exposure: true
+  syringe_services: true
+  timeline_scaling: true
+  moud: true
+  hiv_testing: true
+  overdose: true
+  oud_state: true
+
+
+
+
+model:
+  seed:
+    run: 0 # let TITAN pick a random positive seed
+    ppl: 12345
+  num_reps: 1   # e.g., 1000 Monte Carlo runs
+  num_pop: 100   # OUD-like population size (scaled)
+  time:
+    num_steps: 120       # 240 steps total → 20 years if 12 steps/year
+    steps_per_year: 12   # monthly time step
+    burn_steps: 120      # first 10 years = burn-in, last 10 years = calibration window
+  network:
+    enable: true
+    type: scale_free      # or comp_size
+    component_size:
+      max: 100
+
+  locations:
+    world:
+      ppl: 1.0
+      category: world
+
+
+external_exposure:
+  convert_prob: 1.0
+
+exit_enter:
+  death:
+    exit_class: death
+    entry_class: replace
+
+classes:
+  exit:
+    death:
+      exit_type: death
+      ignore_incar: true
+    age_out:
+      exit_type: age_out
+      ignore_incar: false
+      age: 999
+    migrate:
+      exit_type: drop_out
+      ignore_incar: false
+    none:
+      exit_type: none
+      ignore_incar: false
+  enter:
+    replace:
+      enter_type: replace
+      prob: 1.0
+    age_in:
+      enter_type: replace
+      age: 16
+      prob: 1.0
+      age_in: true
+    new_ag:
+      enter_type: new_agent
+      prob: 1.0
+  age_bins:
+    fallback_young:
+      min_age: 0
+      max_age: 15
+    young_adult:
+      min_age: 16
+      max_age: 24
+    mid_adult:
+      min_age: 25
+      max_age: 44
+    fallback_old:
+      min_age: 45
+      max_age: 999
+
+# =========================
+# OUD STATE (GLOBAL, USED)
+# =========================
+oud_state:
+  init_active: 0.70
+  init_remission: 0.30
+  init_none: 0.0   # OUD-only population
+
+  transitions:
+    incidence_rate_per_year: 0.0
+
+    remission_rate_per_year: 0.15
+    relapse_rate_per_year: 0.35
+
+    early_relapse_window: 26
+    early_relapse_rr: 2.5
+
+    relapse_risk_window: 8
+    relapse_to_inj_prob: 0.5
+
+    inject_start_rate_per_year: 0.02
+    inject_stop_rate_per_year: 0.10
+
+    moud_remission_rr: 1.5
+
+# =========================
+# MOUD
+# =========================
+moud:
+  start_time: 0
+  use_reinit: true
+
+  init: 0.02
+  reinitiation_rr: 2.0
+  post_relapse_rr: 1.5
+  post_overdose_rr: 2.0
+
+  early_window: 26
+  early_discontinue: 0.08
+  late_discontinue: 0.01
+
+  overdose_scale:
+    active: 0.4
+    inactive: 1.0
+
+  injection_scale:
+    active: 0.7
+    inactive: 1.0
+
+# =========================
+# OVERDOSE
+# =========================
+overdose:
+  base_prob_inj: 0.50
+  base_prob_noninj: 0.007
+  fatal_frac: 0.12
+
+  high_risk_mult: 2.0
+  ssp_rr: 0.8
+  post_relapse_od_rr: 2.0
+
+# =========================
+# SYRINGE SERVICES
+# =========================
+syringe_services:
+  timeline:
+    ssp_open:
+      start_time: 1
+      stop_time: 240
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+
+# =========================
+# HIV (LEGACY DX DISABLED)
+# =========================
+
+aids:
+  prob: 0.01
+  init: 0.05
+
+background_sex:
+  rate_nonoud_per_timestep: 0.5
+  partner_hiv_prevalence_nonoud: 0.01
+  inj_multiplier: 1.5
+
+# =========================
+# HIV TESTING (PRIMARY DX MECHANISM)
+# =========================
+hiv_testing:
+  start_time: 0
+  base_prob: 0.01
+
+  pwid_mult: 2.0
+  oud_mult: 1.5
+  high_risk_mult: 2.0
+
+  moud_early_window: 26
+  moud_early_mult: 2.0
+  moud_stable_mult: 1.3
+
+  post_relapse_mult: 2.0
+  post_overdose_mult: 3.0
+
+
+# =========================
+# PrEP / KNOWLEDGE / SSP
+# =========================
+prep:
+  init: 0.10
+  cap: 0.10
+  cap_as_prob: false
+
+knowledge:
+  prob: 0.30
+  opinion:
+    prob: 0.50prep:
+  cap: 0.10
+  init: 0.70
+  cap_as_prob: false
+
+knowledge:
+  prob: 0.30
+  opinion:
+    prob: 0.50
+
+syringe_services:
+  timeline:
+    ssp_open:
+      start_time: 1
+      stop_time: 120
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+
+agent_zero:
+  interaction_type: injection
+  num_partners: 0
+
+outputs:
+  network:
+    calc_component_stats: true
+  classes:
+    - locations
+    - races
+    - sex_types
+    - components
+    - drug_types
+
+
+exposures:
+  hiv: true
+  knowledge: true
+  monkeypox: true
+
+haart:
+  use_reinit: true
+
+features:
+  incar: true
+  prep: true
+  high_risk: true
+  haart: true
+  exit_enter: true
+  static_network: false
+  agent_zero: true
+  assort_mix: false
+  vaccine: true
+  partner_tracing: true
+  external_exposure: true
+  syringe_services: true
+  timeline_scaling: true
+  moud: true
+  hiv_testing: true
+  overdose: true
+  oud_state: true
+
+
+
+
+model:
+  seed:
+    run: 0 # let TITAN pick a random positive seed
+    ppl: 12345
+  num_reps: 1   # e.g., 1000 Monte Carlo runs
+  num_pop: 100   # OUD-like population size (scaled)
+  time:
+    num_steps: 120       # 240 steps total → 20 years if 12 steps/year
+    steps_per_year: 12   # monthly time step
+    burn_steps: 120      # first 10 years = burn-in, last 10 years = calibration window
+  network:
+    enable: true
+    type: scale_free      # or comp_size
+    component_size:
+      max: 100
+
+  locations:
+    world:
+      ppl: 1.0
+      category: world
+
+
+external_exposure:
+  convert_prob: 1.0
+
+exit_enter:
+  death:
+    exit_class: death
+    entry_class: replace
+
+classes:
+  exit:
+    death:
+      exit_type: death
+      ignore_incar: true
+    age_out:
+      exit_type: age_out
+      ignore_incar: false
+      age: 999
+    migrate:
+      exit_type: drop_out
+      ignore_incar: false
+    none:
+      exit_type: none
+      ignore_incar: false
+  enter:
+    replace:
+      enter_type: replace
+      prob: 1.0
+    age_in:
+      enter_type: replace
+      age: 16
+      prob: 1.0
+      age_in: true
+    new_ag:
+      enter_type: new_agent
+      prob: 1.0
+  age_bins:
+    fallback_young:
+      min_age: 0
+      max_age: 15
+    young_adult:
+      min_age: 16
+      max_age: 24
+    mid_adult:
+      min_age: 25
+      max_age: 44
+    fallback_old:
+      min_age: 45
+      max_age: 999
+
+# =========================
+# OUD STATE (GLOBAL, USED)
+# =========================
+oud_state:
+  init_active: 0.70
+  init_remission: 0.30
+  init_none: 0.0   # OUD-only population
+
+  transitions:
+    incidence_rate_per_year: 0.0
+
+    remission_rate_per_year: 0.15
+    relapse_rate_per_year: 0.35
+
+    early_relapse_window: 26
+    early_relapse_rr: 2.5
+
+    relapse_risk_window: 8
+    relapse_to_inj_prob: 0.5
+
+    inject_start_rate_per_year: 0.02
+    inject_stop_rate_per_year: 0.10
+
+    moud_remission_rr: 1.5
+
+# =========================
+# MOUD
+# =========================
+moud:
+  start_time: 0
+  use_reinit: true
+
+  init: 0.02
+  reinitiation_rr: 2.0
+  post_relapse_rr: 1.5
+  post_overdose_rr: 2.0
+
+  early_window: 26
+  early_discontinue: 0.08
+  late_discontinue: 0.01
+
+  overdose_scale:
+    active: 0.4
+    inactive: 1.0
+
+  injection_scale:
+    active: 0.7
+    inactive: 1.0
+
+# =========================
+# OVERDOSE
+# =========================
+overdose:
+  base_prob_inj: 0.50
+  base_prob_noninj: 0.007
+  fatal_frac: 0.12
+
+  high_risk_mult: 2.0
+  ssp_rr: 0.8
+  post_relapse_od_rr: 2.0
+
+# =========================
+# SYRINGE SERVICES
+# =========================
+syringe_services:
+  timeline:
+    ssp_open:
+      start_time: 1
+      stop_time: 240
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+
+# =========================
+# HIV (LEGACY DX DISABLED)
+# =========================
+
+aids:
+  prob: 0.01
+  init: 0.05
+
+background_sex:
+  rate_nonoud_per_timestep: 0.5
+  partner_hiv_prevalence_nonoud: 0.01
+  inj_multiplier: 1.5
+
+# =========================
+# HIV TESTING (PRIMARY DX MECHANISM)
+# =========================
+hiv_testing:
+  start_time: 0
+  base_prob: 0.01
+
+  pwid_mult: 2.0
+  oud_mult: 1.5
+  high_risk_mult: 2.0
+
+  moud_early_window: 26
+  moud_early_mult: 2.0
+  moud_stable_mult: 1.3
+
+  post_relapse_mult: 2.0
+  post_overdose_mult: 3.0
+
+
+# =========================
+# PrEP / KNOWLEDGE / SSP
+# =========================
+prep:
+  init: 0.10
+  cap: 0.10
+  cap_as_prob: false
+
+knowledge:
+  prob: 0.30
+  opinion:
+    prob: 0.50

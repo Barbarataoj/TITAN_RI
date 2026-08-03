@@ -381,6 +381,27 @@ class TITAN:
             return
 
         for agent in self.pop.all_agents:
+            # Features can flag an agent for exit during their update_agent by
+            # setting agent.exit_class (e.g. overdose sets "death" on a fatal
+            # event). update_agent runs after exit() within a timestep, so the
+            # flag is honored on the following step. This is the only place
+            # agents are actually removed, so without this the flag would be
+            # written and never read.
+            flagged = getattr(agent, "exit_class", "none")
+            if flagged != "none":
+                agent.exit_class = "none"
+                if flagged in self.exits:
+                    self.exits[flagged].append(agent)
+                else:
+                    logging.warning(
+                        "Agent %s was flagged for exit class '%s' (reason: %s), "
+                        "but that exit class is not active in this run; ignoring.",
+                        agent.id,
+                        flagged,
+                        getattr(agent, "death_reason", None),
+                    )
+                continue
+
             for strategy in self.params.exit_enter.values():
                 # Get parameters of the exit class
                 exit = self.params.classes.exit[strategy.exit_class]
@@ -454,23 +475,51 @@ class TITAN:
                         len(self.exits[strategy.exit_class]) * entrance.prob
                     )
 
-                # keep location and race to ensure population distribution by
-                # location and race stays consistent
+                # Keep location and race distribution consistent. Rounding each
+                # location/race cell independently does not conserve the total
+                # (with the 6-category race scheme the per-cell round() errors
+                # fail to cancel for roughly half of all totals, so the
+                # population drifts every step). Allocate by largest remainder
+                # instead, which hits num_new_agents exactly while keeping each
+                # cell within one agent of its proportional share.
+                cells = []
                 for loc in self.pop.geography.locations.values():
                     for race in self.params.classes.races:
-                        for i in range(
-                            round(
-                                num_new_agents
-                                * loc.ppl
-                                * loc.params.demographics[race].ppl
-                            )
-                        ):
-                            age = entrance.age if entrance.age_in else None
-                            new_agent = self.pop.create_agent(
-                                loc, race, self.time, age=age
-                            )
-                            self.pop.add_agent(new_agent)
+                        share = loc.ppl * loc.params.demographics[race].ppl
+                        cells.append((loc, race, num_new_agents * share))
+
+                target = int(round(num_new_agents))
+                counts = [int(cell[2]) for cell in cells]
+                leftover = max(0, target - sum(counts))
+
+                # hand the leftover agents to the cells with the largest
+                # fractional parts
+                order = sorted(
+                    range(len(cells)),
+                    key=lambda i: cells[i][2] - int(cells[i][2]),
+                    reverse=True,
+                )
+                for i in order[:leftover]:
+                    counts[i] += 1
+
+                for (loc, race, _), count in zip(cells, counts):
+                    for _ in range(count):
+                        age = entrance.age if entrance.age_in else None
+                        new_agent = self.pop.create_agent(
+                            loc, race, self.time, age=age
+                        )
+                        self.pop.add_agent(new_agent)
             elif entrance.enter_type == "replace":
+                # When oud_state is enabled, drug_type is a consequence of the
+                # agent's OUD state rather than an independent demographic axis
+                # (remission implies not currently injecting). Inheriting the
+                # exited agent's drug_type would then ratchet the injection
+                # share downward over time, since a replacement drawn into
+                # remission keeps NonInj while one drawn out of remission never
+                # gets the chance to draw Inj. Let create_agent redraw it
+                # conditional on the new agent's own OUD state instead.
+                inherit_drug_type = not self.params.features.get("oud_state", False)
+
                 for agent in self.exits[strategy.exit_class]:
                     age = entrance.age if entrance.age_in else None
                     if self.run_random.random() < entrance.prob:
@@ -479,7 +528,7 @@ class TITAN:
                             agent.race,
                             self.time,
                             sex_type=agent.sex_type,
-                            drug_type=agent.drug_type,
+                            drug_type=agent.drug_type if inherit_drug_type else None,
                             age=age,
                         )
                         # add agent to pop

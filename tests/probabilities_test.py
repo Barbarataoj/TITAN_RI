@@ -10,8 +10,8 @@ def test_get_death_rate(make_population):
     location = pop.geography.locations["world"]
     for hiv in [True, False]:
         for aids in [True, False]:
-            for race in ["white", "black"]:
-                for drug_type in ["None", "Inj"]:
+            for race in ["white_nonhispanic", "black_nonhispanic"]:
+                for drug_type in ["NonInj", "Inj"]:
                     for sex_type in ["MSM", "HM", "HF", "MTF", "WSW"]:
                         for adh in [0, 5]:
                             assert (

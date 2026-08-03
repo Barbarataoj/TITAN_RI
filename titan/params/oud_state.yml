@@ -1,26 +1,166 @@
 oud_state:
+  # =========================
+  # Baseline Initialization
+  # =========================
   init_active:
-    default: 0.50
+    default: 0.70
+    description: |
+      Proportion of agents initialized with active OUD at model start.
+      Represents individuals with ongoing opioid use.
     type: float
     min: 0.0
     max: 1.0
+
   init_remission:
-    default: 0.20
-    type: float
-    min: 0.0
-    max: 1.0
-  init_none:
     default: 0.30
+    description: |
+      Proportion of agents initialized in remission from OUD.
+      These agents have prior OUD history but are not currently using opioids.
     type: float
     min: 0.0
     max: 1.0
+
+  init_none:
+    default: 0.0
+    description: |
+      Proportion of agents with no OUD history.
+      Set to 0.0 to simulate an OUD-only population.
+    type: float
+    min: 0.0
+    max: 1.0
+
+  # =========================
+  # OUD Natural History
+  # =========================
   transitions:
+
+    # ---------- Incidence ----------
+    incidence_rate_per_year:
+      default: 0.0
+      description: |
+        Annual hazard of developing incident OUD among agents with no OUD history.
+        Disabled (0.0) for OUD-only simulations.
+      type: float
+      min: 0.0
+      max: 1.0
+
+    # ---------- Remission ----------
     remission_rate_per_year:
       default: 0.15
+      description: |
+        Annual hazard of transitioning from active OUD to remission.
+        This rate may be increased for agents on MOUD.
       type: float
+      min: 0.0
+      max: 1.0
+
+    # ---------- Relapse ----------
+    relapse_rate_per_year:
+      default: 0.35
+      description: |
+        Annual hazard of relapse from remission back to active OUD.
+        Represents long-term average relapse risk.
+      type: float
+      min: 0.0
+      max: 5.0
+
+    early_relapse_window_months:
+      default: 6.0
+      description: |
+        Length of "early remission" in MONTHS, during which relapse risk is
+        elevated by early_relapse_rr. Converted internally to timesteps using
+        model.time.steps_per_year.
+
+        Previously this was early_relapse_window, expressed in raw timesteps with
+        a default of 26 chosen for weekly steps. The model runs monthly, so it was
+        being read as 26 months (2.2 years): 63.5% of all remission person-steps
+        fell inside the "early" window and the realized relapse hazard came out at
+        0.458/yr against a configured 0.236/yr, a 1.95x inflation. See
+        EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P7.
+      type: float
+      min: 0.0
+
+    early_relapse_window:
+      default: -1
+      description: |
+        DEPRECATED -- replaced by early_relapse_window_months.
+
+        This was expressed in raw timesteps but defaulted to a weekly-step value
+        while the model runs monthly. Setting it now raises rather than silently
+        applying a ~4x-too-long elevated-relapse window.
+      type: int
+      min: -1
+
+    early_relapse_rr:
+      default: 2.5
+      description: |
+        Relative increase in relapse hazard during early remission.
+        Applied when time_in_remission is inside early_relapse_window_months.
+      type: float
+      min: 1.0
+      max: 10.0
+
+    relapse_risk_window_months:
+      default: 2.0
+      description: |
+        Length in MONTHS of the elevated-overdose-risk window following relapse
+        from remission, reflecting loss of opioid tolerance. Converted internally
+        to timesteps using model.time.steps_per_year. ~2 months corresponds to the
+        8-week upper end of the usual 4-12 week post-abstinence tolerance-loss
+        window.
+
+        Previously this was relapse_risk_window, expressed in raw timesteps with a
+        default of 8 chosen for weekly steps (i.e. ~8 weeks). On monthly steps
+        that read as 8 months, ~4x too long. oud_state.py's own fallback was
+        steps_per_year // 6 (~8 weeks), which disagreed with this default by the
+        same factor. See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P7.
+      type: float
+      min: 0.0
+
+    relapse_risk_window:
+      default: -1
+      description: |
+        DEPRECATED -- replaced by relapse_risk_window_months.
+
+        This was expressed in raw timesteps but defaulted to a weekly-step value
+        while the model runs monthly. Setting it now raises rather than silently
+        applying a ~4x-too-long tolerance-loss window.
+      type: int
+      min: -1
+
+    # ---------- Injection dynamics ----------
     inject_start_rate_per_year:
       default: 0.02
+      description: |
+        Annual hazard of initiating injection drug use among agents
+        with active non-injecting OUD.
       type: float
+      min: 0.0
+      max: 1.0
+
     inject_stop_rate_per_year:
       default: 0.10
+      description: |
+        Annual hazard of stopping injection drug use among agents
+        with active injecting OUD.
       type: float
+      min: 0.0
+      max: 1.0
+
+    relapse_to_inj_prob:
+      default: 0.5
+      description: |
+        Probability that relapse from remission returns an agent
+        to injecting use, conditional on prior injection history.
+      type: float
+      min: 0.0
+      max: 1.0
+
+    # ---------- MOUD interaction ----------
+    moud_remission_rr:
+      default: 1.5
+      description: |
+        Relative increase in remission hazard for agents actively on MOUD.
+      type: float
+      min: 1.0
+      max: 5.0

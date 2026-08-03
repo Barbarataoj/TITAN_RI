@@ -14,17 +14,20 @@ def test_location_init(params):
     assert world.ppl == 1.0
     assert world.name == location
 
-    assert params.demographics.white.sex_type.WSW.drug_type.NonInj.hiv.aids.init == 0.1
     assert (
-        world.params.demographics.white.sex_type.WSW.drug_type.NonInj.hiv.aids.init
+        params.demographics.white_nonhispanic.sex_type.WSW.drug_type.NonInj.hiv.aids.init
+        == 0.1
+    )
+    assert (
+        world.params.demographics.white_nonhispanic.sex_type.WSW.drug_type.NonInj.hiv.aids.init
         == 1.0
     )
 
-    assert "white" in world.role_weights
-    assert "black" in world.drug_weights
-    assert "white" in world.pop_weights
-    assert "values" in world.pop_weights["black"]
-    assert "weights" in world.pop_weights["white"]
+    assert "white_nonhispanic" in world.role_weights
+    assert "black_nonhispanic" in world.drug_weights
+    assert "white_nonhispanic" in world.pop_weights
+    assert "values" in world.pop_weights["black_nonhispanic"]
+    assert "weights" in world.pop_weights["white_nonhispanic"]
 
     assert len(world.neighbors) == 0
 
@@ -33,7 +36,7 @@ def test_location_init(params):
 def test_location_init_error(params):
     location = "world"
     defn = params.classes.locations[location]
-    params.demographics.white.ppl = 1.1
+    params.demographics.white_nonhispanic.ppl = 1.1
 
     with pytest.raises(AssertionError):
         world = Location(location, defn, params)

@@ -75,9 +75,12 @@ class Injection(base_interaction.BaseInteraction):
         p_unsafe_injection *= moud_mult
         # ===== END MOUD block =====
 
-        # diagnosis risk reduction
-        if rel.agent1.hiv.dx or rel.agent2.hiv.dx:  # type: ignore[attr-defined]
-            p_unsafe_injection *= 1 - model.params.hiv.dx.risk_reduction.injection
+        # Diagnosis risk reduction for a diagnosed source is applied once, as a
+        # per-act transmission-probability reduction, in
+        # HIV.get_transmission_probability() (hiv.dx.risk_reduction.injection).
+        # Applying it again here, shrinking the act count itself, would
+        # compound the same named parameter into a stronger-than-configured
+        # effect.
 
         for _ in range(share_acts):
             if model.run_random.random() > p_unsafe_injection:

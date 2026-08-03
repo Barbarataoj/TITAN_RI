@@ -1,5 +1,6 @@
 import pytest
 
+from collections import Counter
 from copy import copy, deepcopy
 import os
 import math
@@ -88,8 +89,50 @@ def test_death_none(make_model):
 
 
 @pytest.mark.unit
+def test_feature_flagged_exit_removes_agent(make_model):
+    """
+    A feature (e.g. overdose) flags a fatal event by setting agent.exit_class.
+    exit() must honor that and actually remove the agent -- previously the
+    attribute was written and never read, so fatal overdoses removed nobody.
+    """
+    model = make_model()
+    # nobody dies of background mortality
+    model.run_random = FakeRandom(0.999)
+
+    victim = next(iter(model.pop.all_agents.members))
+    victim.exit_class = "death"
+    victim.death_reason = "overdose"
+    baseline = len(model.pop.all_agents.members)
+
+    model.exit()
+
+    assert victim in model.exits["death"]
+    assert victim not in model.pop.all_agents.members
+    assert len(model.pop.all_agents.members) == baseline - 1
+    # flag is consumed so it cannot fire twice
+    assert victim.exit_class == "none"
+
+
+@pytest.mark.unit
+def test_feature_flagged_exit_unknown_class_is_ignored(make_model):
+    """An exit class that isn't active in this run must not crash or remove."""
+    model = make_model()
+    model.run_random = FakeRandom(0.999)
+
+    agent = next(iter(model.pop.all_agents.members))
+    agent.exit_class = "not_a_real_exit_class"
+    baseline = len(model.pop.all_agents.members)
+
+    model.exit()
+
+    assert agent in model.pop.all_agents.members
+    assert len(model.pop.all_agents.members) == baseline
+    assert agent.exit_class == "none"
+
+
+@pytest.mark.unit
 def test_death_incar(make_model, params):
-    params.demographics.white.sex_type.MSM.incar.init = 1.0
+    params.demographics.white_nonhispanic.sex_type.MSM.incar.init = 1.0
     model = make_model(params)
     model.run_random = FakeRandom(0.00000001)
     incar_pop = {agent for agent in model.pop.all_agents if agent.incar.active}
@@ -198,23 +241,22 @@ def test_new_agent_no_exit(make_model, params):
     model.enter()
     assert len(init_ppl) * 2 == len(model.pop.all_agents.members)
 
-    init_black = 0
-    init_white = 0
-    new_black = 0
-    new_white = 0
-    for agent in init_ppl:
-        if agent.race == "black":
-            init_black += 1
-        elif agent.race == "white":
-            init_white += 1
-    for agent in model.pop.all_agents.members:
-        if agent.race == "black":
-            new_black += 1
-        if agent.race == "white":
-            new_white += 1
-    # check that ratios are the same
-    assert init_black / len(init_ppl) == new_black / len(model.pop.all_agents.members)
-    assert init_white / len(init_ppl) == new_white / len(model.pop.all_agents.members)
+    # Check the race distribution is preserved. This previously counted the
+    # literals "black"/"white", which no race is named under the 6-category
+    # scheme -- every counter stayed 0 and the assertions reduced to 0.0 == 0.0.
+    # Count every race instead, so the check cannot silently go vacuous again.
+    init_by_race = Counter(agent.race for agent in init_ppl)
+    new_by_race = Counter(agent.race for agent in model.pop.all_agents.members)
+
+    assert set(init_by_race) == set(params.classes.races)
+    assert sum(init_by_race.values()) > 0
+
+    for race in params.classes.races:
+        init_frac = init_by_race[race] / len(init_ppl)
+        new_frac = new_by_race[race] / len(model.pop.all_agents.members)
+        assert init_frac == pytest.approx(new_frac, abs=0.01), (
+            f"race {race} share drifted: {init_frac:.4f} -> {new_frac:.4f}"
+        )
 
 
 @pytest.mark.unit

@@ -153,14 +153,53 @@ class Population:
                 raise ValueError("Agent must have sex type")
 
         # -------------------------
+        # Assign OUD state
+        #
+        # Drawn BEFORE drug_type because OUD remission implies the agent is not
+        # currently injecting. Conditioning the drug_type draw on that (rather
+        # than overwriting drug_type after the fact) keeps three things correct
+        # that used to be wrong:
+        #   * the realized injection share still matches what demographics
+        #     specifies (see conditional_drug_weights)
+        #   * agent_params / mean_num_partners / partnerable_agents are derived
+        #     from the agent's final drug_type, not a value overwritten later
+        #   * ever_injected reflects real injection history rather than the
+        #     post-override drug_type
+        # -------------------------
+        has_oud = False
+        in_remission = False
+        oud_enabled = self.params.features.get("oud_state", False)
+
+        if oud_enabled:
+            init_oud = getattr(self.params, "oud_state", None)
+            if init_oud is None:
+                raise ValueError(
+                    "features.oud_state is true, but no oud_state: section found in YAML"
+                )
+
+            r = self.pop_random.random()
+            if r < init_oud.init_active:
+                has_oud = True
+            elif r < init_oud.init_active + init_oud.init_remission:
+                in_remission = True
+            # else: no OUD
+
+        # -------------------------
         # Assign drug type
         # -------------------------
+        inj_share = self.injection_share(loc, race, sex_type)
+
         if not drug_type:
-            drug_type = utils.safe_random_choice(
-                loc.drug_weights[race][sex_type]["values"],
-                self.pop_random,
-                weights=loc.drug_weights[race][sex_type]["weights"],
-            )
+            if in_remission:
+                # In OUD remission -> not currently injecting.
+                drug_type = "NonInj"
+            else:
+                values, weights = self.conditional_drug_weights(
+                    loc, race, sex_type, oud_enabled
+                )
+                drug_type = utils.safe_random_choice(
+                    values, self.pop_random, weights=weights
+                )
             if drug_type is None:
                 raise ValueError("Agent must have drug type")
 
@@ -174,6 +213,25 @@ class Population:
         # Create agent
         # -------------------------
         agent = ag.Agent(sex_type, age, race, drug_type, loc)
+
+        # -------------------------
+        # Apply OUD state
+        #
+        # Set before exposure/feature init so MOUD.init_agent and
+        # OUDState.init_agent observe the correct state.
+        # -------------------------
+        agent.has_oud = has_oud
+        agent.is_in_remission = in_remission
+
+        # Injection history. Remission agents are not currently injecting, but
+        # many of them injected before entering remission. Drawing history from
+        # the unconditional demographic injection share keeps `ever_injected`
+        # -- which gates relapse-to-injection in oud_state -- from being
+        # systematically False for the entire baseline remission pool.
+        if in_remission:
+            agent.ever_injected = self.pop_random.random() < inj_share
+        else:
+            agent.ever_injected = drug_type == "Inj"
 
         # -------------------------
         # Assign sexual role
@@ -204,14 +262,9 @@ class Population:
         # -------------------------
         for bond, bond_def in loc.params.classes.bond_types.items():
             agent.partners[bond] = set()
-            dist_info = agent_params.num_partners[bond]
 
-            agent.mean_num_partners[bond] = ceil(
-                utils.safe_dist(dist_info, self.np_random)
-                * utils.safe_divide(
-                    agent.location.params.calibration.sex.partner,
-                    self.mean_rel_duration[bond][race],
-                )
+            agent.mean_num_partners[bond] = self.draw_mean_num_partners(
+                agent, bond, agent_params.num_partners[bond]
             )
 
             agent.target_partners[bond] = agent.mean_num_partners[bond]
@@ -224,38 +277,167 @@ class Population:
 
         # -------------------------
         # Initialize feature-level attributes
+        # (OUD state was applied above, so MOUD.init_agent sees has_oud /
+        # is_in_remission and OUDState.init_agent sees ever_injected)
         # -------------------------
         for feature in self.features:
             getattr(agent, feature.name).init_agent(self, time)
 
-        # -------------------------
-        # OUD STATE INITIALIZATION (NEW)
-        # -------------------------
-        if self.params.features.get("oud_state", False):
-            init_oud = getattr(self.params, "oud_state", None)
-
-            if init_oud is None:
-                raise ValueError("features.oud_state is true, but no oud_state: section found in YAML")
-
-            r = self.pop_random.random()
-
-            # DEFAULTS
-            agent.has_oud = False
-            agent.is_in_remission = False
-
-            if r < init_oud.init_active:
-                agent.has_oud = True
-                agent.is_in_remission = False
-
-            elif r < init_oud.init_active + init_oud.init_remission:
-                agent.has_oud = True
-                agent.is_in_remission = True
-                # Remission → forced to NonInj
-                agent.drug_type = "NonInj"
-
-            # else: no OUD
-
         return agent
+
+    def draw_mean_num_partners(self, agent: "ag.Agent", bond: str, dist_info) -> int:
+        """
+        Draw an agent's mean number of partners for `bond` from the partner-count
+        distribution in its demographics block, scaled to the bond's mean
+        relationship duration.
+
+        args:
+            agent: the agent to draw for (supplies race and location params)
+            bond: the bond type being derived
+            dist_info: the `num_partners[bond]` distribution definition
+        """
+        return ceil(
+            utils.safe_dist(dist_info, self.np_random)
+            * utils.safe_divide(
+                agent.location.params.calibration.sex.partner,
+                self.mean_rel_duration[bond][agent.race],
+            )
+        )
+
+    def sync_injection_partner_targets(self, agent: "ag.Agent") -> None:
+        """
+        Re-derive injection-bond partner targets after `agent.drug_type` changed.
+
+        `create_agent` derives `mean_num_partners` once, from the demographics
+        block matching the agent's drug_type *at creation*. `oud_state` can flip
+        drug_type at any step (OUD incidence, remission, relapse,
+        inject_start, inject_stop), and injection partner counts are configured
+        per drug_type -- `NonInj` blocks set them to 0.
+
+        Without re-deriving, drug_type transitions are inert for transmission:
+        an agent who starts injecting keeps `mean_num_partners == 0` for every
+        injection-capable bond and never enters `partnerable_agents`, so it can
+        neither seek nor be selected as an injection partner; an agent who stops
+        injecting keeps nonzero targets it can never fill, because
+        `partnering.select_partner` intersects injection candidates with
+        `pop.pwid_agents`, and so is retried every step until it hits the
+        break_point.
+
+        Only injection-capable bonds are re-derived. Sex- and PCA-only bonds are
+        deliberately left alone: `mean_num_partners` is a persistent per-agent
+        trait, and re-drawing it on every drug-type flip would destabilize
+        individual sexual activity levels -- and so the core-group structure
+        that drives sexual transmission -- for no modelling gain. `OUDState`
+        warns at `init_class` if a non-injection bond's partner counts actually
+        differ across drug_type blocks, which is the only case where that
+        restriction would lose information.
+
+        args:
+            agent: the agent whose drug_type just changed
+        """
+        agent_params = (
+            agent.location.params.demographics[agent.race]
+            .sex_type[agent.sex_type]
+            .drug_type[agent.drug_type]
+        )
+
+        for bond, bond_def in agent.location.params.classes.bond_types.items():
+            if "injection" not in bond_def.acts_allowed:
+                continue
+
+            agent.mean_num_partners[bond] = self.draw_mean_num_partners(
+                agent, bond, agent_params.num_partners[bond]
+            )
+            agent.target_partners[bond] = poisson(
+                self.np_random, agent.mean_num_partners[bond]
+            )
+
+        self.update_partnerability(agent)
+
+    def injection_share(
+        self, loc: "location.Location", race: str, sex_type: str
+    ) -> float:
+        """
+        Unconditional share of this demographic cell that injects, per
+        [params.demographics].
+        """
+        drug_weights = loc.drug_weights[race][sex_type]
+        total = sum(drug_weights["weights"])
+        if total <= 0:
+            return 0.0
+
+        for value, weight in zip(drug_weights["values"], drug_weights["weights"]):
+            if value == "Inj":
+                return weight / total
+        return 0.0
+
+    def conditional_drug_weights(
+        self,
+        loc: "location.Location",
+        race: str,
+        sex_type: str,
+        oud_enabled: bool,
+    ) -> Tuple[List[str], List[float]]:
+        """
+        Drug-type weights for an agent known NOT to be in OUD remission.
+
+        Remission agents are assigned NonInj, so drawing everyone else straight
+        from [params.demographics] would realize an injection share of
+        `p * (1 - init_remission)` rather than the specified `p`. Rescaling the
+        Inj weight by `1 / (1 - init_remission)` restores the marginal, so
+        `demographics.*.drug_type.Inj.ppl` keeps its documented meaning as a
+        population share.
+        """
+        drug_weights = loc.drug_weights[race][sex_type]
+        values = list(drug_weights["values"])
+        total = sum(drug_weights["weights"])
+
+        if total <= 0:
+            return values, list(drug_weights["weights"])
+
+        normalized = [w / total for w in drug_weights["weights"]]
+
+        remission = 0.0
+        if oud_enabled:
+            remission = getattr(self.params.oud_state, "init_remission", 0.0)
+
+        if remission <= 0.0:
+            return values, normalized
+
+        p_inj = self.injection_share(loc, race, sex_type)
+        if p_inj <= 0.0:
+            return values, normalized
+
+        p_inj_active = p_inj / (1.0 - remission)
+        if p_inj_active > 1.0:
+            logging.warning(
+                "Injection share %.3f for %s/%s is unattainable with "
+                "oud_state.init_remission=%.3f (would need %.3f of "
+                "non-remission agents to inject). Clamping: realized injection "
+                "share will be %.3f, not %.3f.",
+                p_inj,
+                race,
+                sex_type,
+                remission,
+                p_inj_active,
+                1.0 - remission,
+                p_inj,
+            )
+            p_inj_active = 1.0
+
+        non_inj = 1.0 - p_inj
+        adjusted = []
+        for value, weight in zip(values, normalized):
+            if value == "Inj":
+                adjusted.append(p_inj_active)
+            elif non_inj <= 0:
+                adjusted.append(0.0)
+            else:
+                # spread the remainder over the non-injection types in
+                # proportion to their original weights
+                adjusted.append((1.0 - p_inj_active) * (weight / non_inj))
+
+        return values, adjusted
 
 
     def add_agent(self, agent: "ag.Agent"):

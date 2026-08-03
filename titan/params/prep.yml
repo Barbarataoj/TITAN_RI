@@ -71,3 +71,12 @@ prep:
       type: float
       min: 0
       max: 1
+  acceptance:
+    default: 1.0
+    description: |
+      Probability that an agent accepts PrEP when a provider offers it. Only used
+      when features.care_seeking is enabled, in which case offers replace the cap
+      and target_model machinery as the route onto PrEP.
+    type: float
+    min: 0.0
+    max: 1.0

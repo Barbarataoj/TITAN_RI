@@ -13,13 +13,13 @@ def test_vaccine_init_agent(make_population):
     loc.params.vaccine.on_init = True
     pop.pop_random = FakeRandom(-0.1)
 
-    a = pop.create_agent(loc, "white", 0)
+    a = pop.create_agent(loc, "white_nonhispanic", 0)
     assert a.vaccine.active
     assert a.vaccine.time == 0
     assert a.vaccine.type != ""
 
     pop.pop_random = FakeRandom(1.0)
-    b = pop.create_agent(loc, "white", 0)
+    b = pop.create_agent(loc, "white_nonhispanic", 0)
     assert b.vaccine.active is False
     assert b.vaccine.time is None
     assert b.vaccine.type == ""

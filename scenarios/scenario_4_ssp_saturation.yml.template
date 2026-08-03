@@ -1,0 +1,20 @@
+# ============================================================================
+# Phase 7 Scenario 4 — Syringe Services Program (SSP) saturation
+# ----------------------------------------------------------------------------
+# Intent: every PWID has SSP access (vs baseline partial coverage), reducing
+# injection-related HIV transmission.
+#
+# HOW TO BUILD THIS FILE (Jun):
+#   1. cp scenario_1_baseline.yml scenario_4_ssp_saturation.yml
+#   2. Set the SSP/syringe-services coverage knob to full access.
+#   3. Uncomment the line in scenarios/manifest.txt.
+#
+# KNOB: FILL IN — Jun. Confirm the exact SSP feature/param path in the current
+#   scenario (grep the baseline for 'syringe' / 'ssp' / 'exchange'). If SSP is
+#   modeled as a coverage probability, set it to 1.0 for PWID; if it acts through
+#   an injection-risk multiplier, set that multiplier to its full-protection value.
+#   If SSP is NOT yet a wired feature in this build, that's an engine gap — flag to
+#   Jun before proceeding (do not fabricate a param the schema doesn't define, or
+#   paraml will silently drop it — same error_on_unused=False trap as the MOUD hooks).
+# ============================================================================
+# <SSP coverage block — FILL IN>

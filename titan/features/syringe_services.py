@@ -35,7 +35,7 @@ class SyringeServices(base_feature.BaseFeature):
         args:
             model: the instance of TITAN currently being run
         """
-        logging.info(("\n\n!!!!Engaging syringe services program"))
+        logging.debug("Engaging syringe services program")
         ssp_num_slots = 0
         ssp_agents = {
             agent for agent in model.pop.pwid_agents if agent.syringe_services.active  # type: ignore[attr-defined]
@@ -83,7 +83,7 @@ class SyringeServices(base_feature.BaseFeature):
             else:
                 break
 
-        logging.info(
+        logging.debug(
             f"SSP has {ssp_num_slots} target slots with "
             f"{len(ssp_agents)} slots filled"
         )

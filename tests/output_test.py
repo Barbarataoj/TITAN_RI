@@ -13,7 +13,7 @@ from titan import agent, features, exposures
 @pytest.fixture
 def stats(params, world_location):
     cur_time = 3
-    a = agent.Agent("MSM", 20, "black", "Inj", world_location)
+    a = agent.Agent("MSM", 20, "black_nonhispanic", "Inj", world_location)
     a.hiv.active = True
     a.hiv.time = cur_time
     a.hiv.aids = True
@@ -44,30 +44,30 @@ def stats(params, world_location):
 
 @pytest.mark.unit
 def test_get_stats(stats):
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["agents"] == 1
-    assert stats["world"]["white"]["MSM"]["0"]["Inj"]["agents"] == 0
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["incar"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["incar_hiv"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["new_release"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["new_release_hiv"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv_new"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv_new_high_risk_ever"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv_new_high_risk"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["prep"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["prep_new"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv_dx_new"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["high_risk_new"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["high_risk_new_hiv"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["high_risk_new_aids"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["high_risk_new_dx"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["high_risk_new_haart"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv_aids"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["hiv_dx"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["haart"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["death"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["age_out"] == 1
-    assert stats["world"]["black"]["MSM"]["0"]["Inj"]["death_hiv"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["agents"] == 1
+    assert stats["world"]["white_nonhispanic"]["MSM"]["0"]["Inj"]["agents"] == 0
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["incar"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["incar_hiv"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["new_release"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["new_release_hiv"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv_new"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv_new_high_risk_ever"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv_new_high_risk"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["prep"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["prep_new"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv_dx_new"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["high_risk_new"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["high_risk_new_hiv"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["high_risk_new_aids"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["high_risk_new_dx"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["high_risk_new_haart"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv_aids"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["hiv_dx"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["haart"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["death"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["age_out"] == 1
+    assert stats["world"]["black_nonhispanic"]["MSM"]["0"]["Inj"]["death_hiv"] == 1
 
 
 @pytest.mark.unit
@@ -85,7 +85,7 @@ def test_basicReport(stats, params, tmpdir):
             assert row["run_id"] == str(run_id)
             assert row["rseed"] == "1"
             if (
-                row["race"] == "black"
+                row["race"] == "black_nonhispanic"
                 and row["sex_type"] == "MSM"
                 and row["component"] == "0"
                 and row["drug_type"] == "Inj"

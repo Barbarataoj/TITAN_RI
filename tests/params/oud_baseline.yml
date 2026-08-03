@@ -12,13 +12,14 @@
 
 demographics:
   black:
-    ppl: 0.30    # ~30% of OUD population (over-represented vs gen pop to reflect higher burden)
+    ppl: 0.30    # ~3% of OUD population (over-represented vs gen pop to reflect higher burden)
     sex_type:
       MTF:
         ppl: 0.1
         drug_type: &base_drug_type
           Inj:
-            ppl: 0.35
+            # CHANGED: rescaled from 0.35 of total, now 0.5 among OUD-only (Inj+NonInj=1)
+            ppl: 0.50
             exit:
               death:
                 base: 10.8
@@ -78,22 +79,10 @@ demographics:
                 init: 0.10
                 prob: 0.10
               discontinue: 0.10
-            moud:
-              init: 0.40       # ~40% of PWID with OUD on MOUD at baseline (RI is fairly high-coverage)
-              enroll:
-                early:
-                  start: 0
-                  stop: 6
-                  prob: 0.06   # 6% per month in first 6 months among those not on MOUD
-                late:
-                  start: 6
-                  stop: 120
-                  prob: 0.015  # 1.5% per month after 6 months
-              reinit:
-                prob: 0.03      # chance to re-start MOUD if previously ever on it
-              discontinue: 0.02      # 2% per month discontinuation
+            
           NonInj: &npwid_drug_type
-            ppl: 0.35
+            # CHANGED: rescaled from 0.35 of total, now 0.5 among OUD-only (Inj+NonInj=1)
+            ppl: 0.50
             exit:
               death:
                 base: 10.8
@@ -126,55 +115,13 @@ demographics:
                 init: 0.10
                 prob: 0.10
               discontinue: 0.10
-            moud:
-              init: 0.30       # lower baseline MOUD coverage than Inj
-              enroll:
-                early:
-                  start: 0
-                  stop: 6
-                  prob: 0.04
-                late:
-                  start: 6
-                  stop: 120
-                  prob: 0.01
-              reinit:
-                prob: 0.02
-              discontinue: 0.02
-          None:   # people without OUD
-            ppl: 0.30
-            exit:
-              death:
-                base: 10.8
-              migrate:
-                prob: 0.01
-            hiv:
-              init: 0.02
-              dx:
-                init: 0.10
-                prob: 0.10
-              aids:
-                init: 0.01
-            monkeypox:
-              init: 0.02
-              dx:
-                init: 0.10
-                prob: 0.10
-            num_partners:
-              Sex:
-                dist_type: poisson
-                vars:
-                  1:
-                    value: 2
-                    value_type: float
-            haart:
-              init: 0.05
-              enroll: *haart_prob
-              reinit: *reinit_prob
-              adherence:
-                init: 0.10
-                prob: 0.10
-              discontinue: 0.10
-            # no MOUD block here (no OUD)
+            
+
+          # REMOVED: explicit non-OUD type
+          # None:
+          #   ppl: 0.30
+          #   ...
+
         incar: &base_incar
           init: 0.03
           prob: 0.03
@@ -201,6 +148,7 @@ demographics:
           booster:
             interval: 12
             prob: 0.10
+
       MSM:
         ppl: 0.30
         drug_type: *base_drug_type
@@ -214,6 +162,7 @@ demographics:
           init: 0.50
         high_risk: *base_high_risk
         vaccine: *base_vaccine
+
       HM:
         ppl: 0.30
         drug_type: *base_drug_type
@@ -223,6 +172,7 @@ demographics:
         prep: *base_prep
         high_risk: *base_high_risk
         vaccine: *base_vaccine
+
       HF:
         ppl: 0.20
         drug_type: *base_drug_type
@@ -232,6 +182,7 @@ demographics:
         prep: *base_prep
         high_risk: *base_high_risk
         vaccine: *base_vaccine
+
       WSW:
         ppl: 0.10
         drug_type: *base_drug_type
@@ -241,7 +192,6 @@ demographics:
         prep: *base_prep
         high_risk: *base_high_risk
         vaccine: *base_vaccine
-
   white:
     ppl: 0.70    # ~70% of modeled OUD + non-OUD population
     sex_type:
@@ -392,9 +342,7 @@ syringe_services:
       num_slots_stop: 200
       risk: 0.02
 
-agent_zero:
-  interaction_type: injection
-  num_partners: 1
+
 
 outputs:
   network:
@@ -421,9 +369,9 @@ features:
   haart: true
   exit_enter: true
   static_network: false
-  agent_zero: true
+  agent_zero: false
   assort_mix: false
-  vaccine: true
+  vaccine: false
   partner_tracing: true
   external_exposure: true
   syringe_services: true
@@ -431,12 +379,23 @@ features:
   moud: true
   hiv_testing: true
   overdose: true
+  oud_state: true
 
 model:
-  num_pop: 1000      # bump up for more stable prevalence
+  seed:
+    run: 0 # let TITAN pick a random positive seed
+    ppl: 12345
+  num_reps: 1   # e.g., 1000 Monte Carlo runs
+  num_pop: 100    # OUD-like population size (scaled)
+  time:
+    num_steps: 240       # 240 steps total → 20 years if 12 steps/year
+    steps_per_year: 12   # monthly time step
+    burn_steps: 120      # first 10 years = burn-in, last 10 years = calibration window
   network:
     enable: true
-  num_reps: 10       # multiple reps for variability
+    type: scale_free      # or comp_size
+    component_size:
+      max: 100
 
 location:
   scaling:
@@ -499,26 +458,73 @@ classes:
 moud:
   start_time: 0
   use_reinit: true
+
+  init: 0.02
+  reinitiation_rr: 2.0
+  post_relapse_rr: 1.5
+  post_overdose_rr: 2.0
+
+  early_window: 26
+  early_discontinue: 0.08
+  late_discontinue: 0.01
+
   overdose_scale:
-    active: 0.4   # ~60% reduction in overdose risk when on MOUD
+    active: 0.4
     inactive: 1.0
+
   injection_scale:
-    active: 0.7   # ~30% reduction in injection HIV/HCV risk
+    active: 0.7
     inactive: 1.0
+
 
 overdose:
-  # If 1 step ≈ 1 month, then:
-  #   base_prob_inj = 0.012 ≈ 0.144/year ≈ 14.4/100 person-years
-  #   base_prob_noninj = 0.007 ≈ 0.084/year ≈ 8.4/100 person-years
-  # These are in the ballpark for high-risk OUD populations and can be tuned.
   base_prob_inj: 0.50
   base_prob_noninj: 0.007
-  fatal_frac: 0.12         # 12% of overdoses are fatal; tune to RI data
-  high_risk_mult: 2.0      # double risk for high-risk flag
-  ssp_rr: 0.8              # 20% lower risk if in SSP
+  fatal_frac: 0.12
+
+  high_risk_mult: 2.0
+  ssp_rr: 0.8
+  post_relapse_od_rr: 2.0
 
 hiv_testing:
-  base_prob: 0.30          # baseline monthly testing prob
-  high_risk_mult: 2.0      # more frequent testing for high-risk agents
-  oud_mult: 1.5            # higher testing among OUD (Inj/NonInj)
-  interval: 3              # test every 3 time steps (≈ quarterly)
+  start_time: 0
+  base_prob: 0.01
+
+  pwid_mult: 2.0
+  oud_mult: 1.5
+  high_risk_mult: 2.0
+
+  moud_early_window: 26
+  moud_early_mult: 2.0
+  moud_stable_mult: 1.3
+
+  post_relapse_mult: 2.0
+  post_overdose_mult: 3.0
+
+  # =========================
+# OUD NATURAL HISTORY
+# =========================
+oud:
+  transitions:
+    # OUD incidence (for those without OUD)
+    incidence_rate_per_year: 0.02
+
+    # Active OUD → remission
+    remission_rate_per_year: 0.15
+
+    # Remission → relapse
+    relapse_rate_per_year: 0.35
+
+    # Early relapse risk (loss of tolerance)
+    early_relapse_window: 26          # ~6 months (with 12 steps/year)
+    early_relapse_rr: 2.5
+
+    # Relapse returns to injecting
+    relapse_to_inj_prob: 0.5
+
+    # Injection behavior dynamics
+    inject_start_rate_per_year: 0.02
+    inject_stop_rate_per_year: 0.10
+
+    # MOUD effect
+    moud_remission_rr: 1.5

@@ -75,3 +75,7 @@ features:
     default: true 
     description: "Dynamic OUD status and injection status transitions." 
     type: boolean
+  care_seeking:
+    default: false
+    description: "Whether agents seek care in clinical settings (primary care, emergency department, substance use treatment, mental health) and are attached to providers who may or may not offer HIV prevention services."
+    type: boolean

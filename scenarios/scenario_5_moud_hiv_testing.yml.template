@@ -1,0 +1,22 @@
+# ============================================================================
+# Phase 7 Scenario 5 — MOUD-co-located HIV testing
+# ----------------------------------------------------------------------------
+# Intent: agents on MOUD get HIV-tested more often (co-located testing at the
+# treatment site), raising diagnosis rate and shortening time-to-ART for that group.
+#
+# HOW TO BUILD THIS FILE (Jun):
+#   1. cp scenario_1_baseline.yml scenario_5_moud_hiv_testing.yml
+#   2. Raise HIV test frequency for on-MOUD agents.
+#   3. Uncomment the line in scenarios/manifest.txt.
+#
+# KNOB: baseline global HIV testing cadence is calibration.test_frequency: 1.305
+#   (trial 137), with per-demographic hiv.dx wiring. FILL IN — Jun:
+#   (a) simplest: bump calibration.test_frequency (applies to everyone — over-broad,
+#       but a defensible first cut), OR
+#   (b) targeted: add an on-MOUD test-frequency multiplier that only fires when
+#       agent.on_moud is True (engine change in the HIV dx feature — flag before doing).
+#   Prefer (b) for a clean "co-located" interpretation; (a) is acceptable as a
+#   sensitivity bound.
+# ============================================================================
+# calibration:
+#   test_frequency: <FILL IN>   # or a targeted on-MOUD multiplier

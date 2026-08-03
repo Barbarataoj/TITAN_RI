@@ -1,35 +1,72 @@
+# =========================
+# OVERDOSE PARAMETERS
+# =========================
 overdose:
+
   base_prob_inj:
     default: 0.02
-    description: Base per-timestep overdose probability for OUD agents with injecting drug use (drug_type = Inj)
+    description: |
+      Base ANNUAL overdose probability for OUD agents
+      with injecting drug use (drug_type = Inj).
+      Converted to per-timestep risk internally.
     type: float
-    min: 0
-    max: 1
+    min: 0.0
+    max: 1.0
 
   base_prob_noninj:
     default: 0.01
-    description: Base per-timestep overdose probability for OUD agents with non-injecting drug use (drug_type = NonInj)
+    description: |
+      Base ANNUAL overdose probability for OUD agents
+      with non-injecting drug use (drug_type = NonInj).
+      Converted to per-timestep risk internally.
     type: float
-    min: 0
-    max: 1
+    min: 0.0
+    max: 1.0
 
   fatal_frac:
     default: 0.15
-    description: Fraction of overdose events that are fatal (i.e., lead to death/exit)
+    description: |
+      Fraction of overdose events that are fatal
+      and trigger exit via exit_enter.
     type: float
-    min: 0
-    max: 1
+    min: 0.0
+    max: 1.0
 
   high_risk_mult:
     default: 2.0
-    description: Multiplier on overdose risk for agents flagged as high_risk
+    description: |
+      Multiplier on overdose risk for agents
+      flagged as high_risk.
     type: float
-    min: 0
-    max: 100
+    min: 0.0
+    max: 100.0
 
   ssp_rr:
     default: 0.8
-    description: Relative overdose risk for agents actively enrolled in syringe services (ssp_rr < 1 reduces risk)
+    description: |
+      Relative overdose risk for agents actively enrolled
+      in syringe services / naloxone.
+      Values < 1 reduce risk.
     type: float
+    min: 0.0
+    max: 10.0
+
+  post_relapse_od_rr:
+    default: 2.0
+    description: |
+      Multiplier on overdose risk during the elevated-risk
+      window following relapse from remission,
+      reflecting loss of opioid tolerance.
+    type: float
+    min: 1.0
+    max: 10.0
+
+  post_overdose_window:
+    default: 6
+    description: |
+      Number of timesteps after a nonfatal overdose during which the
+      `recent_overdose` flag remains True (used by MOUD uptake and HIV
+      testing multipliers). Default ~6 months at monthly timestep.
+    type: int
     min: 0
-    max: 10
+    max: 120

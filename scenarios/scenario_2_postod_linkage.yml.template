@@ -1,0 +1,22 @@
+# ============================================================================
+# Phase 7 Scenario 2 — Universal post-overdose MOUD linkage
+# ----------------------------------------------------------------------------
+# Intent: every agent who survives an overdose is linked to MOUD (vs baseline's
+# elevated-but-partial post-OD uptake).
+#
+# HOW TO BUILD THIS FILE (Jun):
+#   1. Start from the baseline:  cp scenario_1_baseline.yml scenario_2_postod_linkage.yml
+#   2. Change ONLY the post-overdose linkage knob below, leave everything else.
+#   3. Add its basename to scenarios/manifest.txt (uncomment the line).
+#
+# KNOB (baseline value shown for reference):
+#   moud.post_overdose_rr: 4.976   # baseline (trial 137) — relative-risk multiplier
+#                                    on the start prob when recent_overdose is set.
+# FILL IN — Jun: set so post-OD uptake saturates to ~1.0. Two options:
+#   (a) raise post_overdose_rr high enough that p_start*rr clamps to 1.0 for all
+#       demographics, OR
+#   (b) if a direct linkage-probability knob is preferred, add it and wire it in
+#       moud.py STEP 4 (engine change — flag to Jun before doing).
+# ============================================================================
+# moud:
+#   post_overdose_rr: <FILL IN>

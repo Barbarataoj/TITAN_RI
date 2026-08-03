@@ -1,0 +1,24 @@
+# ============================================================================
+# Phase 7 Scenario 3 — Buprenorphine expansion (post-waiver uptake ×2)
+# ----------------------------------------------------------------------------
+# Intent: double the rate at which people START MOUD in the post-X-waiver era,
+# representing expanded prescriber capacity.
+#
+# HOW TO BUILD THIS FILE (Jun):
+#   1. cp scenario_1_baseline.yml scenario_3_bup_expansion.yml
+#   2. Change ONLY the enrollment knob(s) below.
+#   3. Uncomment the line in scenarios/manifest.txt.
+#
+# KNOB: baseline enrollment is the time-windowed moud.enroll.<window>.prob series
+#   (see moud.py::_get_enroll_prob) applied to never-on agents, plus the t=0
+#   placement moud.init_coverage: 0.5024 (trial 137).
+# FILL IN — Jun: identify the post-waiver enroll window(s) and ×2 their `prob`.
+#   Decide whether init_coverage (baseline placement) also scales or stays fixed.
+#   Note the equilibrium ceiling among ever-on agents is still governed by
+#   reinit_prob/(reinit_prob+discontinue) — expansion raises the RISE, not the plateau,
+#   unless reinit_prob is also touched (discuss before changing that).
+# ============================================================================
+# moud:
+#   enroll:
+#     <window>:
+#       prob: <FILL IN — 2x baseline>

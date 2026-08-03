@@ -11,11 +11,11 @@ from conftest import FakeRandom
 
 def test_partnership_duration(params):
     # test duration with randint
-    assert get_partnership_duration(params, FakeRandom(1.0), "Inj", "white") == 3
+    assert get_partnership_duration(params, FakeRandom(1.0), "Inj", "white_nonhispanic") == 3
     # test duration with bins
-    assert get_partnership_duration(params, FakeRandom(0.1), "Sex", "white") == 1
+    assert get_partnership_duration(params, FakeRandom(0.1), "Sex", "white_nonhispanic") == 1
     # test duration with second race
-    assert get_partnership_duration(params, FakeRandom(0.1), "Sex", "black") == 3
+    assert get_partnership_duration(params, FakeRandom(0.1), "Sex", "black_nonhispanic") == 3
 
 
 @pytest.mark.unit
@@ -150,9 +150,9 @@ def test_get_random_sex_partner_bad(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_partner_race(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white")
-    p1 = make_agent(SO="MSM", race="white")
-    p2 = make_agent(SO="MSM", race="black")
+    a = make_agent(SO="MSM", race="white_nonhispanic")
+    p1 = make_agent(SO="MSM", race="white_nonhispanic")
+    p2 = make_agent(SO="MSM", race="black_nonhispanic")
     for bond in params.classes.bond_types:
         a.target_partners[bond] = 1
         p1.target_partners[bond] = 1
@@ -172,8 +172,8 @@ def test_get_assort_partner_race(make_population, make_agent, params):
             "attribute": "race",
             "partner_attribute": "__agent__",
             "bond_types": [],
-            "agent_value": "white",
-            "partner_values": {"white": 0.9, "__other__": 0.1},
+            "agent_value": "white_nonhispanic",
+            "partner_values": {"white_nonhispanic": 0.9, "__other__": 0.1},
         }
     )
     params.assort_mix["test_rule"] = test_rule
@@ -196,8 +196,8 @@ def test_get_assort_partner_race(make_population, make_agent, params):
             "attribute": "race",
             "partner_attribute": "__agent__",
             "bond_types": [],
-            "agent_value": "white",
-            "partner_values": {"white": 0.9, "__other__": 10},
+            "agent_value": "white_nonhispanic",
+            "partner_values": {"white_nonhispanic": 0.9, "__other__": 10},
         }
     )
     params.assort_mix["test_rule"] = test_rule
@@ -218,9 +218,9 @@ def test_get_assort_partner_race(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_partner_high_risk(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white")
-    p1 = make_agent(SO="MSM", race="white")
-    p2 = make_agent(SO="MSM", race="black")
+    a = make_agent(SO="MSM", race="white_nonhispanic")
+    p1 = make_agent(SO="MSM", race="white_nonhispanic")
+    p2 = make_agent(SO="MSM", race="black_nonhispanic")
 
     a.high_risk = True
     p1.high_risk = True
@@ -294,10 +294,13 @@ def test_get_assort_partner_high_risk(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_partner_drug_type(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white", DU="Inj")
-    p1 = make_agent(SO="MSM", race="white", DU="Inj")
-    p2 = make_agent(SO="MSM", race="black", DU="None")
-    p3 = make_agent(SO="MSM", race="black", DU="NonInj")
+    a = make_agent(SO="MSM", race="white_nonhispanic", DU="Inj")
+    p1 = make_agent(SO="MSM", race="white_nonhispanic", DU="Inj")
+    # p2 carries a third *race* rather than a third drug_type: classes.drug_types
+    # is now only [Inj, NonInj], so no real agent can fall into an "__other__"
+    # drug_type bucket and testing it there asserted an unreachable state.
+    p2 = make_agent(SO="MSM", race="other_nonhispanic", DU="NonInj")
+    p3 = make_agent(SO="MSM", race="black_nonhispanic", DU="NonInj")
 
     for bond in params.classes.bond_types:
         a.target_partners[bond] = 0
@@ -346,14 +349,18 @@ def test_get_assort_partner_drug_type(make_population, make_agent, params):
 
     assert partner == p1
 
-    # get __other__
+    # get __other__ -- exercised on race, where a third value actually exists
     test_rule = ObjMap(
         {
-            "attribute": "drug_type",
+            "attribute": "race",
             "partner_attribute": "__agent__",
             "bond_types": [],
-            "agent_value": "Inj",
-            "partner_values": {"Inj": 0.8, "NonInj": 0.1, "__other__": 10},
+            "agent_value": "white_nonhispanic",
+            "partner_values": {
+                "white_nonhispanic": 0.1,
+                "black_nonhispanic": 0.1,
+                "__other__": 10,
+            },
         }
     )
     params.assort_mix["test_rule"] = test_rule
@@ -373,9 +380,9 @@ def test_get_assort_partner_drug_type(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_same_race(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white")
-    p1 = make_agent(SO="MSM", race="white")
-    p2 = make_agent(SO="MSM", race="black")
+    a = make_agent(SO="MSM", race="white_nonhispanic")
+    p1 = make_agent(SO="MSM", race="white_nonhispanic")
+    p2 = make_agent(SO="MSM", race="black_nonhispanic")
     for bond in params.classes.bond_types:
         a.target_partners[bond] = 1
         p1.target_partners[bond] = 1
@@ -446,9 +453,9 @@ def test_get_assort_same_race(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_hiv(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white")
-    p1 = make_agent(SO="MSM", race="white")
-    p2 = make_agent(SO="MSM", race="black")
+    a = make_agent(SO="MSM", race="white_nonhispanic")
+    p1 = make_agent(SO="MSM", race="white_nonhispanic")
+    p2 = make_agent(SO="MSM", race="black_nonhispanic")
     a.hiv.active = True
     p1.hiv.active = True
     for bond in params.classes.bond_types:
@@ -516,9 +523,9 @@ def test_get_assort_hiv(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_hiv_prep(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white")
-    p1 = make_agent(SO="MSM", race="white")
-    p2 = make_agent(SO="MSM", race="black")
+    a = make_agent(SO="MSM", race="white_nonhispanic")
+    p1 = make_agent(SO="MSM", race="white_nonhispanic")
+    p2 = make_agent(SO="MSM", race="black_nonhispanic")
     a.hiv.active = True
     p1.prep.active = True
     for bond in params.classes.bond_types:
@@ -671,8 +678,8 @@ def test_get_assort_age_bin_other(make_population, make_agent, params):
 @pytest.mark.unit
 def test_get_assort_bond_type(make_population, make_agent, params):
     pop = make_population()
-    a = make_agent(SO="MSM", race="white")
-    p = make_agent(SO="MSM", race="white")
+    a = make_agent(SO="MSM", race="white_nonhispanic")
+    p = make_agent(SO="MSM", race="white_nonhispanic")
     a.hiv.active = True
     p.hiv.active = True
     for bond in params.classes.bond_types:
@@ -964,8 +971,8 @@ def test_get_assort_location(make_population, tmpdir, make_agent):
 
 @pytest.mark.unit
 def test_get_str_attr(make_agent):
-    a = make_agent(race="white", age=42)
-    assert get_str_attr(a, "race") == "white"
+    a = make_agent(race="white_nonhispanic", age=42)
+    assert get_str_attr(a, "race") == "white_nonhispanic"
     assert get_str_attr(a, "age") == "42"
     assert get_str_attr(a, "location.name") == "world"
     assert get_str_attr(a, "hiv.active") == "False"

@@ -1,4 +1,3 @@
-cat << 'EOF' > .gitignore
 # Python environments
 venv/
 env/
@@ -13,6 +12,9 @@ __pycache__/
 .vscode/
 
 # TITAN outputs / calibration
+# Model output CSVs are ignored wholesale. The calibration record under
+# docs/calibration_log/ is an exception and is force-added -- those Pareto
+# fronts and validation tables are the provenance for each phase decision.
 *.csv
 *.parquet
 *.h5
@@ -20,10 +22,15 @@ __pycache__/
 *.npz
 /output/
 /results/
+/results_*/
 /scratch/
 
 # Slurm / logs
 *.out
 *.err
-EOF
+
+# Timestamped scenario and target backups -- superseded by git history
+*.bak
+*.bak_*
+
 TITAN_repo/

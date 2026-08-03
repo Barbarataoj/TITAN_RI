@@ -16,7 +16,11 @@ def test_create_params_setting(tmpdir):
     assert os.path.isfile(result_file)
 
     assert "HM" not in list(params.classes.sex_types.keys())
-    assert "white" not in params.classes.races
+    # setting.yml's classes.races must REPLACE the default race list, not merge
+    # with it. Asserting on the old "white" literal was vacuous under the
+    # 6-category scheme -- no race is named "white", so it held either way.
+    assert "white_nonhispanic" not in params.classes.races
+    assert list(params.classes.races) == ["black_nonhispanic"]
     assert params.partnership.sex.acquisition.MSM.versatile == 0.00745  # from setting
     assert (
         params.partnership.sex.acquisition.MSM.insertive == 0.0011
@@ -36,7 +40,7 @@ def test_create_params_error(tmpdir):
         pp.create_params(setting, param_file_bad_val, tmpdir)
 
     assert (
-        "[.demographics.black.sex_type.MSM.drug_type.Inj.num_partners.Sex.dist_type]"
+        "[.demographics.black_nonhispanic.sex_type.MSM.drug_type.Inj.num_partners.Sex.dist_type]"
         in str(excinfo.value)
     )
 

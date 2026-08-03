@@ -1,28 +1,163 @@
 hiv_testing:
-  base_prob:
-    default: 0.01
-    description: Base per-timestep probability of HIV testing for an average (non-high-risk, non-OUD) agent
-    type: float
-    min: 0
-    max: 1
 
-  high_risk_mult:
-    default: 2.0
-    description: Multiplier on base_prob for agents flagged as high_risk (e.g., 2.0 doubles testing probability)
+  # =========================
+  # Availability
+  # =========================
+  start_time:
+    default: -9999
+    description: |
+      Time step when HIV testing becomes available. Defaults to "always
+      available" so that testing also runs during burn-in. Burn-in executes at
+      negative time steps, so this must be allowed to go negative -- a min of 0
+      meant agents acquired HIV throughout burn-in but could never be diagnosed
+      or start HAART, leaving diagnosed prevalence at t=0 below the
+      demographics hiv.dx.init it was initialized to.
+    type: int
+
+  # =========================
+  # Baseline Testing
+  # =========================
+  base_prob_annual:
+    default: 0.10
+    description: |
+      Annual probability of HIV testing for a low-risk, non-OUD agent.
+      Converted internally to a per-timestep probability via annual_to_step.
     type: float
-    min: 0
-    max: 100
+    min: 0.0
+    max: 1.0
+
+  base_prob:
+    default: -1.0
+    description: |
+      DEPRECATED -- renamed to base_prob_annual.
+
+      This key was originally a *per-timestep* probability and was silently
+      redefined as an *annual* one. Reusing an already-fitted per-timestep
+      value under the new meaning understates testing by roughly
+      steps_per_year (5-11x for the RI scenario), so setting this key now
+      raises an error instead of quietly changing behavior. Rename it to
+      base_prob_annual and refit.
+    type: float
+    min: -1.0
+    max: 1.0
+
+  # =========================
+  # Risk-Based Multipliers
+  # =========================
+  pwid_mult:
+    default: 3.0
+    description: |
+      Multiplier on HIV testing probability for people who inject drugs (PWID).
+      Reflects CDC guidance and SSP-based testing.
+    type: float
+    min: 1.0
+    max: 20.0
 
   oud_mult:
     default: 1.5
-    description: Multiplier on base_prob for agents with OUD (drug_type in {Inj, NonInj})
+    description: |
+      Multiplier for non-injecting OUD agents.
+      Weaker than PWID multiplier.
     type: float
-    min: 0
-    max: 100
+    min: 1.0
+    max: 10.0
 
-  interval:
-    default: 1
-    description: Test only on timesteps where (time % interval == 0); 1 = every timestep, 12 = once per 12 steps, etc.
+  high_risk_mult:
+    default: 2.0
+    description: |
+      Multiplier for agents flagged as high-risk via behavioral features.
+    type: float
+    min: 1.0
+    max: 20.0
+
+  # =========================
+  # Care-Linked Testing (MOUD)
+  # =========================
+  moud_early_window_months:
+    default: 3.0
+    description: |
+      Length of "early MOUD engagement" in MONTHS. Converted internally to
+      timesteps using model.time.steps_per_year.
+
+      Previously this was moud_early_window, expressed in raw timesteps with a
+      default of 13 chosen for weekly steps. The model runs monthly, so it was
+      being read as 13 months -- longer than the median MOUD episode, which
+      meant essentially no episode ever reached the "stable" branch and
+      moud_stable_mult was dead.
+    type: float
+    min: 0.0
+
+  moud_early_window:
+    default: -1
+    description: |
+      DEPRECATED -- replaced by moud_early_window_months.
+
+      This was expressed in raw timesteps but defaulted to a weekly-step value
+      while the model runs monthly. Setting it now raises an error rather than
+      silently applying a ~4x-too-long window.
     type: int
-    min: 1
-    max: 10000
+    min: -1
+
+  moud_early_mult:
+    default: 3.0
+    description: |
+      Multiplier for HIV testing during early MOUD engagement.
+      Captures intake and stabilization visits.
+    type: float
+    min: 1.0
+    max: 20.0
+
+  moud_stable_mult:
+    default: 1.5
+    description: |
+      Multiplier for HIV testing during stable MOUD treatment.
+    type: float
+    min: 1.0
+    max: 10.0
+
+  # =========================
+  # Event-Triggered Testing
+  # =========================
+  post_relapse_mult:
+    default: 2.5
+    description: |
+      Multiplier for HIV testing following relapse from remission.
+      Reflects outreach and re-engagement.
+    type: float
+    min: 1.0
+    max: 20.0
+
+  post_overdose_mult:
+    default: 4.0
+    description: |
+      Multiplier for HIV testing following a nonfatal overdose
+      (e.g., ED-based opt-out testing).
+    type: float
+    min: 1.0
+    max: 30.0
+
+  # =========================
+  # Care-seeking pathway
+  # Only used when features.care_seeking is enabled. When it is, testing is
+  # driven by clinical encounters rather than by base_prob and the multipliers
+  # above, which are then ignored.
+  # =========================
+  acceptance:
+    default: 1.0
+    description: |
+      Probability that an agent accepts an HIV test when a provider offers one.
+      This is the patient-side term. Provider willingness to offer is a
+      care_seeking parameter; this is what is fitted against observed testing
+      receipt once willingness is pinned from claims.
+    type: float
+    min: 0.0
+    max: 1.0
+  nonclinical_annual:
+    default: 0.0
+    description: |
+      Annual probability of testing outside any clinical setting, e.g. community
+      or syringe services testing. Added on top of the encounter-driven pathway.
+      Defaults to zero so that testing is entirely encounter-driven unless set.
+    type: float
+    min: 0.0
+    max: 1.0

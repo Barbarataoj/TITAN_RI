@@ -13,8 +13,8 @@ def test_init_agent(make_agent, make_population, make_model):
 
     # test allcomers (no prep)
     pop.pop_random = FakeRandom(0.9)
-    a1 = make_agent(race="black")
-    a2 = make_agent(race="white")
+    a1 = make_agent(race="black_nonhispanic")
+    a2 = make_agent(race="white_nonhispanic")
     assert not a1.prep.active and not a2.prep.active
 
     # test allcomers
@@ -79,7 +79,7 @@ def test_update_agent_prep_decrement_time(make_model, make_agent):
 @pytest.mark.unit
 def test_update_agent_prep_decrement_end(make_model, make_agent):
     model = make_model()
-    a = make_agent(race="white")
+    a = make_agent(race="white_nonhispanic")
 
     model.run_random = FakeRandom(-0.1)
     model.time = model.params.prep.start_time

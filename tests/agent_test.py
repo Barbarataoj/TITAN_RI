@@ -17,8 +17,8 @@ def test_agent_init(make_agent):
     # demographics
     assert a.sex_type == "MSM"
     assert a.age == 30
-    assert a.race == "black"
-    assert a.drug_type == "None"
+    assert a.race == "black_nonhispanic"
+    assert a.drug_type == "NonInj"
     assert a.sex_role is "versatile"
 
     # partner params

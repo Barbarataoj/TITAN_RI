@@ -50,6 +50,88 @@ class HIV(base_exposure.BaseExposure):
         }
         cls.agents = set()
 
+        cls._check_sex_acts_reachable(params)
+        cls._check_deprecated_background_keys(params)
+
+    @staticmethod
+    def _check_deprecated_background_keys(params):
+        """
+        Refuse to run on `hiv.background_sex.per_act_transmission_prob`.
+
+        The background route now reads the same sex-type/role-stratified
+        `partnership.sex.acquisition` table the network route uses, so a params
+        file that still sets this key would be silently ignored -- and the key
+        was, until 2026-07-30, both sex-type-blind and fitted, which is exactly
+        the pair of defects F1 and F9 describe. Same treatment as the
+        oud_state window keys.
+        """
+        bg = getattr(getattr(params, "hiv", None), "background_sex", None)
+        if bg is None:
+            return
+
+        found = getattr(bg, "per_act_transmission_prob", -1.0)
+        if found is not None and found >= 0.0:
+            raise ValueError(
+                "hiv.background_sex.per_act_transmission_prob is deprecated "
+                f"(found {found}). The background force-of-infection now uses "
+                "partnership.sex.acquisition[sex_type][sex_role], the same "
+                "per-act table as the network sexual route, because it is the "
+                "same biological quantity. The old key was a single blended "
+                "value applied to every sex type AND a free calibration "
+                "parameter, so the exogenous route competed with the network "
+                "routes for the PWID incidence target -- see "
+                "EPIDEMIC_DYNAMICS_AUDIT_2026-07-29b.md F9. Remove the key; "
+                "set the magnitude through rate_nonoud_per_timestep and "
+                "partner_hiv_prevalence_nonoud, which are observable inputs."
+            )
+
+    @staticmethod
+    def _check_sex_acts_reachable(params):
+        """
+        Raise if a sex-carrying bond can never generate a single sex act.
+
+        `partnership.sex.frequency` defaults to a single bin of `min: 0, max: 1`,
+        and `utils.safe_random_int` returns a value on the half-open `[min, max)`,
+        so that default yields exactly zero acts forever.
+        `BaseInteraction.interact` then returns before calling `expose`, and the
+        entire sexual transmission pathway is silently absent -- no error, no
+        warning, just an injection-only epidemic. Every RI parameter file omitted
+        this block and so ran that way (see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md,
+        finding P1).
+
+        Sexual transmission being off is a legitimate modelling choice, but it has
+        to be an explicit one, so require the zero to be written down as a zero.
+        """
+        sex_bonds = [
+            bond
+            for bond, bond_def in params.classes.bond_types.items()
+            if "sex" in bond_def.acts_allowed
+        ]
+
+        dead = []
+        for bond in sex_bonds:
+            freq = params.partnership.sex.frequency[bond]
+            if freq.type == "bins":
+                # reachable iff some bin can return >= 1, i.e. has max > 1
+                if not any(b.max > 1 for b in freq.bins.values()):
+                    dead.append(
+                        f"{bond} (bins, all max <= 1; safe_random_int is "
+                        f"half-open so these yield 0 acts)"
+                    )
+            # A `distribution` form is never dead: writing one out is itself the
+            # explicit choice this guard is asking for, including the all-zero
+            # case that means "injection-only epidemic, on purpose".
+
+        if dead and len(dead) == len(sex_bonds):
+            raise ValueError(
+                "partnership.sex.frequency can never produce a sex act for any "
+                f"sex-carrying bond ({'; '.join(dead)}), so sexual HIV "
+                "transmission would be silently disabled. Set an explicit "
+                "frequency, or -- if an injection-only epidemic is intended -- "
+                "say so with `type: distribution` and a zero-valued "
+                "distribution, which is accepted."
+            )
+
     def init_agent(self, pop: "population.Population", time: int):
         """
         Initialize the agent for this exposure during population initialization (`Population.create_agent`).  Called on only exposures that are enabled per the params.
@@ -107,13 +189,28 @@ class HIV(base_exposure.BaseExposure):
 
         # Case 1: agent is already HIV+  --> keep existing behavior
         if self.active:
-            if not self.dx:
-                test_prob = (
-                    self.agent.location.params.demographics[self.agent.race]
-                    .sex_type[self.agent.sex_type]
-                    .drug_type[self.agent.drug_type]
-                    .hiv.dx.prob
-                )
+            # This implicit per-timestep diagnosis hazard is the legacy stand-in
+            # for a testing process, from before `hiv_testing` existed. Once
+            # `hiv_testing` is enabled it is the explicit testing/diagnosis
+            # mechanism (see its own `update_agent`), so this pathway steps
+            # aside rather than diagnosing the same agent a second, independent
+            # way. Kept active for scenarios that still run without
+            # `hiv_testing` enabled.
+            if not self.dx and not model.params.features.hiv_testing:
+                # Top-level hiv.dx.prob (calibration override) takes precedence;
+                # else fall back to demographic-level (legacy) value. Mirrors the
+                # moud.post_overdose_rr / moud.discontinue_per_month pattern in moud.py.
+                hiv_global = getattr(model.params, "hiv", None)
+                dx_override = getattr(getattr(hiv_global, "dx", None), "prob", -1.0)
+                if dx_override is not None and dx_override >= 0.0:
+                    test_prob = float(dx_override)
+                else:
+                    test_prob = (
+                        self.agent.location.params.demographics[self.agent.race]
+                        .sex_type[self.agent.sex_type]
+                        .drug_type[self.agent.drug_type]
+                        .hiv.dx.prob
+                    )
 
                 # Rescale based on calibration param
                 test_prob *= model.calibration.test_frequency
@@ -366,8 +463,28 @@ class HIV(base_exposure.BaseExposure):
         # HIV prevalence among those non-OUD partners
         prev_nonoud = bg.partner_hiv_prevalence_nonoud
 
-        # Per-act transmission probability for these acts
-        p_per_act = bg.per_act_transmission_prob
+        # Per-act transmission probability for these acts.
+        #
+        # This is the same biological quantity the network route reads out of
+        # partnership.sex.acquisition, so it is looked up the same way rather
+        # than carried as an independent scalar. Until 2026-07-30 this was
+        # bg.per_act_transmission_prob -- one sex-type-blind number, and one that
+        # sat in parameters_to_optimize, which meant:
+        #   * it reproduced finding F1 (a single blended per-act value applied to
+        #     everyone) inside the background route after F1 had been fixed in the
+        #     network route -- it was fitted to 0.002805, between the heterosexual
+        #     value (0.0004-0.0008) and MSM receptive (0.015), and applied to both;
+        #   * the exogenous route had its own free lever competing with
+        #     calibration.sex.act and partnership.injection.transmission.base for
+        #     the same PWID incidence target. It won that competition: 12 of 21
+        #     infections in the post-rebuild run arrived this way. An exogenous
+        #     route is the one route no modelled intervention can touch, so a
+        #     fitted one biases every scenario contrast toward the null.
+        # See EPIDEMIC_DYNAMICS_AUDIT_2026-07-29b.md F9 and the 2026-07-30
+        # calibration-design writeup.
+        #
+        # There is no tracked source agent, so the susceptible's own role is used
+        # as-is; `versatile` is already the blended entry in that table.
 
         # Behavior multiplier for people with injecting OUD (if you use drug_type == "Inj")
         if getattr(self.agent, "drug_type", None) == "Inj":
@@ -376,13 +493,32 @@ class HIV(base_exposure.BaseExposure):
         # Expected number of acts with HIV+ non-OUD partners in this timestep
         expected_acts_with_hiv_pos = rate_nonoud * prev_nonoud
 
-        if expected_acts_with_hiv_pos <= 0.0 or p_per_act <= 0.0:
+        if expected_acts_with_hiv_pos <= 0.0:
+            return 0.0
+
+        sex_role = getattr(self.agent, "sex_role", "versatile")
+        acquisition = self.agent.location.params.partnership.sex.acquisition
+        p_per_act = acquisition[self.agent.sex_type][sex_role]
+
+        if p_per_act <= 0.0:
             return 0.0
 
         # Force-of-infection style: probability of at least one transmission event
         # assuming Poisson number of effective acts
         lambda_eff = expected_acts_with_hiv_pos * p_per_act
         p_background = 1.0 - math.exp(-lambda_eff)
+
+        # Feature-specific acquisition risk adjustment (e.g. PrEP, vaccine) -
+        # mirrors the relationship-pathway loop in get_transmission_probability.
+        # There's no tracked source agent for a background/non-network partner,
+        # so only the susceptible agent's own acquisition-side multipliers
+        # apply; use model.time rather than self.time since self.time is only
+        # set once this (currently HIV-) agent converts.
+        for feature in model.features:
+            agent_feature = getattr(self.agent, feature.name)
+            p_background *= agent_feature.get_acquisition_risk_multiplier(
+                model.time, "sex"
+            )
 
         # Optionally scale by acquisition calibration (to keep in line with other transmission)
         p_background *= model.calibration.acquisition

@@ -1,0 +1,15 @@
+# Phase 7 scenario manifest — one runnable scenario YAML per line (basename, in scenarios/).
+# The SLURM array (run_scenarios.slurm) sizes itself to the number of ACTIVE lines here:
+#   sbatch --array=1-$(grep -cv '^#\|^$' scenarios/manifest.txt) run_scenarios.slurm
+# Lines starting with # or blank are ignored. Add an intervention only AFTER its YAML
+# exists and its .template TODO markers are filled in and Jun-approved.
+#
+# ACTIVE (runnable now):
+scenario_1_baseline.yml
+#
+# PENDING — uncomment each once the matching scenarios/*.yml exists (drop the .template):
+#scenario_2_postod_linkage.yml
+#scenario_3_bup_expansion.yml
+#scenario_4_ssp_saturation.yml
+#scenario_5_moud_hiv_testing.yml
+#scenario_6_combination.yml

@@ -4,15 +4,110 @@ moud:
     description: Time step when MOUD becomes available in the model
     type: int
     min: 0
+
+  # =========================
+  # Initiation & Re-initiation
+  # =========================
+  # Top-level baseline (t=0) MOUD coverage (calibration override). When > 0, takes
+  # precedence over the per-demographic moud.init at population creation
+  # (moud.py init_agent). Sets the STARTING POINT of the coverage trajectory.
+  #
+  # NOT a useful calibration target: with use_reinit true, coverage converges to
+  # reinit_prob/(reinit_prob+discontinue_per_month) within ~3 years regardless of
+  # where it starts, so any objective scored after burn-in cannot see this value.
+  # Measured: fitted init_coverage 0.502 -> observed 0.749, matching the
+  # equilibrium 0.286/(0.286+0.104)=0.734 (EPIDEMIC_DYNAMICS_MAP_2026-07-29.md,
+  # finding P6). It was removed from parameters_to_optimize for that reason.
+  # Prefer init_at_equilibrium below, which starts the run at steady state and so
+  # has no coverage transient to burn off at all.
+  init_coverage:
+    default: 0.0
+    description: |
+      Top-level t=0 MOUD placement probability among OUD-eligible agents. If > 0,
+      overrides the per-demographic moud.init. 0.0 = disabled. Ignored when
+      init_at_equilibrium is true.
+    type: float
+    min: 0
+    max: 1
+
+  init_at_equilibrium:
+    default: false
+    description: |
+      Place agents on MOUD at t=0 with the probability the reinit/discontinue
+      dynamics settle at, reinit_prob/(reinit_prob+discontinue_per_month), rather
+      than at a separately specified init_coverage. Removes the baseline coverage
+      transient, so the MOUD trajectory objective is scored against a run that
+      starts where it is going to end up. Takes precedence over init_coverage.
+      Requires use_reinit, and both reinit_prob and discontinue_per_month > 0;
+      falls back to init_coverage / the demographic moud.init otherwise.
+    type: bool
+
   use_reinit:
     default: true
     description: Whether agents who previously discontinued MOUD can reinitiate treatment
     type: bool
 
+  # Top-level per-timestep MOUD RE-initiation probability (calibration override).
+  # When > 0, takes precedence over the per-demographic moud.reinit.prob for
+  # ever-on-MOUD agents (moud.py update_agent STEP 2). This is the equilibrium
+  # coverage CEILING lever: steady-state coverage among ever-on agents is
+  # reinit_prob / (reinit_prob + discontinue_per_month). Calibrated by Optuna;
+  # leave at 0.0 for production (falls back to demographic reinit.prob).
+  reinit_prob:
+    default: 0.0
+    description: |
+      Top-level per-timestep MOUD re-initiation probability for ever-on-MOUD
+      agents. If > 0, overrides the per-demographic moud.reinit.prob. Set for
+      calibration; 0.0 = disabled.
+    type: float
+    min: 0
+    max: 1
+
+  post_relapse_rr:
+    default: 1.5
+    description: |
+      Multiplier applied to MOUD initiation probability immediately following
+      relapse from remission.
+    type: float
+    min: 1.0
+    max: 10.0
+
+  post_overdose_rr:
+    default: 3.0
+    description: |
+      Relative increase in MOUD initiation probability following a recent
+      nonfatal overdose (ED referral / naloxone encounter).
+    type: float
+    min: 1.0
+    max: 20.0
+
+  # post_overdose_rr's active window is controlled by
+  # overdose.post_overdose_window (titan/params/overdose.yml), which owns the
+  # `recent_overdose` flag this multiplier is gated on. There is no separate
+  # moud.post_overdose_window - one flag, one window, one owner.
+
+  # =========================
+  # Persistence & Dropout
+  # =========================
+  # Top-level discontinuation rate (calibration override). When set, takes
+  # precedence over per-demographic moud.discontinue. Calibrated by Optuna.
+  discontinue_per_month:
+    default: 0.078    # Hallowell 2023 RI PDMP: 37.8% 12-mo retention → ~0.078/mo hazard
+    description: |
+      Top-level per-timestep MOUD discontinuation probability. If non-zero,
+      overrides the per-demographic moud.discontinue value. Set this for
+      calibration; leave at default for production runs.
+    type: float
+    min: 0
+    max: 1
+
+  # =========================
+  # Effect Modifiers
+  # =========================
   overdose_scale:
     active:
       default: 0.4
-      description: Relative overdose risk when actively on MOUD (0.4 ≈ 60% reduction)
+      description: Relative overdose risk when actively on MOUD
       type: float
       min: 0
       max: 1
@@ -36,3 +131,18 @@ moud:
       type: float
       min: 0
       max: 10
+
+  # =========================
+  # Care-seeking pathway
+  # Only used when features.care_seeking is enabled. When it is, MOUD initiation
+  # is driven by clinical encounters, and the post_relapse_rr / post_overdose_rr
+  # multipliers are not applied - the emergency department pathway they stood in
+  # for is represented directly by encounters in that setting.
+  # =========================
+  acceptance:
+    default: 1.0
+    description: |
+      Probability that an agent accepts MOUD when a provider offers it.
+    type: float
+    min: 0.0
+    max: 1.0

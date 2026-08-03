@@ -94,7 +94,7 @@ def test_knowledge_exposure(make_model, make_agent, params):
     params.knowledge.prob = 0.0
 
     model = make_model(params)
-    a = make_agent(race="white", DU="Inj")
+    a = make_agent(race="white_nonhispanic", DU="Inj")
     a.knowledge.opinion = 4
     model.pop.add_agent(a)
 

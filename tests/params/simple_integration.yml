@@ -12,7 +12,7 @@ classes:
         - MSM
   drug_types:
     - Inj
-    - None
+    - NonInj
 
 demographics:
   black: &race_dems
@@ -91,7 +91,7 @@ demographics:
                   1:
                     value: 2
                     type: int
-          None:
+          NonInj:
             ppl: 0.8
             hiv: *base_hiv
             haart: *base_haart

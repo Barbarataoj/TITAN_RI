@@ -1,526 +1,127 @@
+
 demographics:
-  black_nonhispanic:
-    ppl: 0.033
+  white:
+    ppl: 0.845
     sex_type:
-      MTF:
-        ppl: 0.10
-        drug_type:
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: &base_incar
-          init: 0.03
-          prob: 0.03
-        safe_sex: &safe_sex_default
-          Sex: { prob: 0.15 }
-          Inj: { prob: 0.10 }
-          SexInj: { prob: 0.10 }
-        injection: &base_injection
-          unsafe_prob: 0.10
-          num_acts: 10
-        prep: &base_prep
-          adherence: 0.10
-          discontinue: 0.10
-          cap: 0.30
-          init: 0.30
-        high_risk: &base_high_risk
-          init: 0.20
-        vaccine: &base_vaccine
-          init: 0.10
-          prob: 0.10
-          booster:
-            interval: 12
-            prob: 0.10
-
       MSM:
-        ppl: 0.30
-        drug_type:
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
+        ppl: 1.0
+        sex_role:
+          init:
+            versatile: 0.380
+            insertive: 0.356
+            receptive: 0.264
+        safe_sex:
+          Sex:
+            prob: 0.234
         prep:
-          adherence: 0.10
-          discontinue: 0.10
-          cap: 0.30
-          init: 0.50
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HM:
-        ppl: 0.30
+          discontinue: 0.125
+          adherence: 0.75
+          init: 0.045
+          cap: 0.003
         drug_type:
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HF:
-        ppl: 0.20
+          None:
+            ppl: 1.0
+            hiv:
+              init: 0.062
+              dx:
+                init: 0.881
+                prob: 0.063
+              aids:
+                init: 0.493
+            haart:
+              init: 0.723
+              enroll:
+                enroll_1:
+                  start: 0
+                  stop: 2
+                  prob: 0.918
+                enroll_2:
+                  start: 2
+                  stop: 13
+                  prob: 0.004
+              reinit:
+                prob: 0.03
+              adherence:
+                init: 0.676
+                prob: 0.112
+              discontinue: 0.022
+            exit:
+              death:
+                base: 4.565
+                hiv: 3.0
+                aids: 17.5
+                haart_adherent: 1.0
+            num_partners:
+              Sex:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 5.0
+                    value_type: float
+                  2:
+                    value: 0.40
+                    value_type: float
+  latino:
+    ppl: 0.155
+    sex_type:
+      MSM:
+        ppl: 1.0
+        sex_role:
+          init:
+            versatile: 0.418
+            insertive: 0.333
+            receptive: 0.249
+        safe_sex:
+          Sex:
+            prob: 0.312
+        prep:
+          discontinue: 0.125
+          adherence: 0.75
+          init: 0.045
+          cap: 0.003
         drug_type:
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      WSW:
-        ppl: 0.10
-        drug_type:
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.05
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-  white_nonhispanic:
-    ppl: 0.668
-    sex_type:
-      MSM:
-        ppl: 0.30
-        drug_type: 
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HM:
-        ppl: 0.30
-        drug_type: 
-          Inj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-          NonInj:
-            ppl: 0.50
-            oud_state:
-            init_active: 0.50
-            init_remission: 0.20
-            init_none: 0.30
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HF:
-        ppl: 0.20
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      WSW:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.05
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      MTF:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.08
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-  black_hispanic:
-    ppl: 0.0015
-    sex_type:
-      MSM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HF:
-        ppl: 0.20
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      WSW:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.05
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      MTF:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.08
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-  white_hispanic:
-    ppl: 0.03
-    sex_type:
-      MSM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HF:
-        ppl: 0.20
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      WSW:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.05
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      MTF:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.08
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-  other_nonhispanic:
-    ppl: 0.2545
-    sex_type:
-      MSM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HF:
-        ppl: 0.20
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      WSW:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.05
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      MTF:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.08
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-  other_hispanic:
-    ppl: 0.013
-    sex_type:
-      MSM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HM:
-        ppl: 0.30
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      HF:
-        ppl: 0.20
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection: *base_injection
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      WSW:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.05
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-      MTF:
-        ppl: 0.10
-        drug_type: { Inj: { ppl: 0.50 }, NonInj: { ppl: 0.50 } }
-        incar: *base_incar
-        safe_sex: *safe_sex_default
-        injection:
-          unsafe_prob: 0.08
-          num_acts: 10
-        prep: *base_prep
-        high_risk: *base_high_risk
-        vaccine: *base_vaccine
-
-partnership:
-  duration:
-
-    Sex:
-      white_nonhispanic:
-        type: bins
-        bins:
-          1: { prob: 1.0, min: 1, max: 2 }
-
-      white_hispanic:
-        type: bins
-        bins:
-          1: { prob: 1.0, min: 1, max: 2 }
-
-      black_nonhispanic:
-        type: bins
-        bins:
-          1: { prob: 1.0, min: 3, max: 4 }
-
-      black_hispanic:
-        type: bins
-        bins:
-          1: { prob: 1.0, min: 3, max: 4 }
-
-      other_nonhispanic:
-        type: distribution
-        distribution:
-          dist_type: poisson
-          vars:
-            1: { value: 1, value_type: float }
-          mean: 1
-
-      other_hispanic:
-        type: distribution
-        distribution:
-          dist_type: poisson
-          vars:
-            1: { value: 1, value_type: float }
-          mean: 1
-
-
-    Inj:
-      white_nonhispanic: &inj_dur_all
-        type: distribution
-        distribution:
-          dist_type: randint
-          vars:
-            1: { value: 1, value_type: int }
-            2: { value: 3, value_type: int }
-          mean: 1
-
-      white_hispanic: *inj_dur_all
-      black_nonhispanic: *inj_dur_all
-      black_hispanic: *inj_dur_all
-      other_nonhispanic: *inj_dur_all
-      other_hispanic: *inj_dur_all
-
-
-    SexInj:
-      white_nonhispanic: &poisson_one_all
-        type: distribution
-        distribution:
-          dist_type: poisson
-          vars:
-            1: { value: 1, value_type: float }
-          mean: 1
-
-      white_hispanic: *poisson_one_all
-      black_nonhispanic: *poisson_one_all
-      black_hispanic: *poisson_one_all
-      other_nonhispanic: *poisson_one_all
-      other_hispanic: *poisson_one_all
-
-
-    Social:
-      white_nonhispanic: *poisson_one_all
-      white_hispanic: *poisson_one_all
-      black_nonhispanic: *poisson_one_all
-      black_hispanic: *poisson_one_all
-      other_nonhispanic: *poisson_one_all
-      other_hispanic: *poisson_one_all
+          None:
+            ppl: 1.0
+            hiv:
+              init: 0.116
+              dx:
+                init: 0.799
+                prob: 0.063
+              aids:
+                init: 0.446
+            haart:
+              init: 0.681
+              enroll:
+                enroll_1:
+                  start: 0
+                  stop: 2
+                  prob: 0.911
+                enroll_2:
+                  start: 2
+                  stop: 13
+                  prob: 0.006
+              reinit:
+                prob: 0.03
+              adherence:
+                init: 0.608
+                prob: 0.116
+              discontinue: 0.021
+            exit:
+              death:
+                base: 2.259
+                hiv: 3.0
+                aids: 17.5
+                haart_adherent: 1.0
+            num_partners:
+              Sex:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 4.0
+                    value_type: float
+                  2:
+                    value: 0.50
+                    value_type: float
 
 prep:
   cap: 0.10
@@ -657,40 +258,120 @@ classes:
       min_age: 45
       max_age: 999
 
-# ============ TOP-LEVEL MOUD / OVERDOSE / HIV TESTING PARAMS ============
+# =========================
+# OUD STATE (GLOBAL, USED)
+# =========================
+oud_state:
+  init_active: 0.70
+  init_remission: 0.30
+  init_none: 0.0   # OUD-only population
 
+  transitions:
+    incidence_rate_per_year: 0.0
+
+    remission_rate_per_year: 0.15
+    relapse_rate_per_year: 0.35
+
+    early_relapse_window: 26
+    early_relapse_rr: 2.5
+
+    relapse_risk_window: 8
+    relapse_to_inj_prob: 0.5
+
+    inject_start_rate_per_year: 0.02
+    inject_stop_rate_per_year: 0.10
+
+    moud_remission_rr: 1.5
+
+# =========================
+# MOUD
+# =========================
 moud:
   start_time: 0
   use_reinit: true
+
+  init: 0.02
+  reinitiation_rr: 2.0
+  post_relapse_rr: 1.5
+  post_overdose_rr: 2.0
+
+  early_window: 26
+  early_discontinue: 0.08
+  late_discontinue: 0.01
+
   overdose_scale:
-    active: 0.4   # ~60% reduction in overdose risk when on MOUD
-    inactive: 1.0
-  injection_scale:
-    active: 0.7   # ~30% reduction in injection HIV risk
+    active: 0.4
     inactive: 1.0
 
+  injection_scale:
+    active: 0.7
+    inactive: 1.0
+
+# =========================
+# OVERDOSE
+# =========================
 overdose:
-  # NOTE: base_prob_inj should probably be much lower than 0.50 for realism;
-  # you can tune this during calibration.
   base_prob_inj: 0.50
   base_prob_noninj: 0.007
   fatal_frac: 0.12
+
   high_risk_mult: 2.0
   ssp_rr: 0.8
+  post_relapse_od_rr: 2.0
 
+# =========================
+# SYRINGE SERVICES
+# =========================
+syringe_services:
+  timeline:
+    ssp_open:
+      start_time: 1
+      stop_time: 240
+      num_slots_start: 100
+      num_slots_stop: 200
+      risk: 0.02
+
+# =========================
+# HIV (LEGACY DX DISABLED)
+# =========================
+
+aids:
+  prob: 0.01
+  init: 0.05
+
+background_sex:
+  rate_nonoud_per_timestep: 0.5
+  partner_hiv_prevalence_nonoud: 0.01
+  inj_multiplier: 1.5
+
+# =========================
+# HIV TESTING (PRIMARY DX MECHANISM)
+# =========================
 hiv_testing:
-  base_prob: 0.30
-  high_risk_mult: 2.0
+  start_time: 0
+  base_prob: 0.01
+
+  pwid_mult: 2.0
   oud_mult: 1.5
-  interval: 3
+  high_risk_mult: 2.0
 
-oud_state:
-  init_active: 0.50
-  init_remission: 0.20
-  init_none: 0.30
+  moud_early_window: 26
+  moud_early_mult: 2.0
+  moud_stable_mult: 1.3
 
-oud:
-  transitions:
-    remission_rate_per_year: 0.15
-    inject_start_rate_per_year: 0.02
-    inject_stop_rate_per_year: 0.10
+  post_relapse_mult: 2.0
+  post_overdose_mult: 3.0
+
+
+# =========================
+# PrEP / KNOWLEDGE / SSP
+# =========================
+prep:
+  init: 0.10
+  cap: 0.10
+  cap_as_prob: false
+
+knowledge:
+  prob: 0.30
+  opinion:
+    prob: 0.50

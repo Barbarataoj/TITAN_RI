@@ -1,5 +1,11 @@
 hiv:
   dx:
+    prob:
+      default: -1.0
+      description: "Top-level HIV diagnosis probability at a testing event (calibration override). If < 0, the engine falls back to the per-demographic demographics.<race>.sex_type.<st>.drug_type.<dt>.hiv.dx.prob value."
+      type: float
+      min: -1.0
+      max: 1.0
     risk_reduction:
       sex:
         default: 0
@@ -56,10 +62,10 @@ hiv:
       min: 0.0
       max: 1.0
     per_act_transmission_prob:
-      default: 0.0
-      description: "Per-act HIV transmission probability for sex with a non-OUD partner (no PrEP, unsuppressed partner)."
+      default: -1.0
+      description: "DEPRECATED 2026-07-30, raises if set (HIV._check_deprecated_background_keys). The per-act probability for background sex is now read from partnership.sex.acquisition[sex_type][sex_role] -- the same table the network route uses, because it is the same biological quantity. As a standalone key it was sex-type-blind and sat in parameters_to_optimize, giving the exogenous route a free lever that competed with the network routes for the PWID incidence target (audit F9)."
       type: float
-      min: 0.0
+      min: -1.0
       max: 1.0
     inj_multiplier:
       default: 1.0

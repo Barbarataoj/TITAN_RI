@@ -54,3 +54,8 @@ Results of the model are generated and aggregated into the `/results/` directory
 ## License
 
 This project is licensed under the GNU General Public License version 3 - see the [LICENSE.md](LICENSE.md) file for details
+
+
+sbatch run_calibration.slurm
+squeue -u jtao9
+

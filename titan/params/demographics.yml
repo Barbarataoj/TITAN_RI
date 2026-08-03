@@ -206,8 +206,11 @@ demographics:
               discontinue: {default: 0.0, type: float}
 
             moud:
-              init:        {default: 0.0, type: float}
-              discontinue: {default: 0.0, type: float}
+              # Non-zero defaults so MOUD can initiate even when scenario YAML
+              # doesn't override per-demographic values. Calibration targets a
+              # ~40% MOUD coverage among OUD-active (see calibration_targets.yml).
+              init:        {default: 0.30, type: float}    # baseline P(on MOUD at t=0 | OUD)
+              discontinue: {default: 0.078, type: float}   # per-month dropout (Hallowell 2023, 37.8% 12-mo retention)
               enroll:
                 type: definition
                 fields:
@@ -215,9 +218,9 @@ demographics:
                   start: {type: int}
                   stop:  {type: int}
                 default:
-                  enroll_0: {start: 0, stop: 999, prob: 0.0}
+                  enroll_0: {start: 0, stop: 999, prob: 0.05}   # per-month MOUD initiation hazard
               reinit:
-                prob: {default: 0.0, type: float}
+                prob: {default: 0.10, type: float}         # per-month re-init prob after dropout
 
             exit:
               type: sub-dict
@@ -233,7 +236,7 @@ demographics:
               type: sub-dict
               keys: [bond_types]
               default:
-                dist_type: {default: set_value, type: enum}
+                dist_type: {default: set_value, type: enum, class: distributions}
                 vars:
                   type: bin
                   fields:

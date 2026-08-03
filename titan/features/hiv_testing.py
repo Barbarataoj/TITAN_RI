@@ -1,9 +1,9 @@
 from typing import Dict, ClassVar
+import logging
+import math
 
 from . import base_feature
-from .. import agent
-from .. import population
-from .. import model
+from .. import agent, population, model
 from ..parse_params import ObjMap
 
 
@@ -11,145 +11,245 @@ class HIVTesting(base_feature.BaseFeature):
     """
     HIV testing feature.
 
-    - Applies HIV testing to agents at each time step.
-    - If an infected, undiagnosed agent is tested, they are diagnosed via
-      HIV.diagnose(), which sets hiv.dx, hiv.dx_time, and updates dx_counts.
-    - HAART then uses hiv.dx and hiv.dx_time to enroll agents on treatment.
+    Conceptual model:
+    - Background (routine) testing
+    - Elevated testing for PWID
+    - Care-linked testing during MOUD
+    - Event-triggered testing following relapse or nonfatal overdose
+
+    Design principles:
+    - Annualized probabilities converted to per-timestep hazards
+    - Testing only affects HIV diagnosis (no causal feedback)
+    - Diagnosis is delegated to HIV.exposure via HIV.diagnose()
     """
 
     name = "hiv_testing"
-    # We only add one new stat: total number of HIV tests performed.
-    # New HIV diagnoses are already tracked by HIV.set_stats via "hiv_dx_new".
     stats = ["hiv_tests"]
 
-    # Optional class-level counts (by race/sex_type) for total tests
+    # Optional class-level counts by race / sex_type
     test_counts: ClassVar[Dict] = {}
 
+    # =====================================================
+    # Initialization
+    # =====================================================
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
-        # Per-step counter (reset in set_stats)
         self.tests_this_step = 0
 
-    # ================= CLASS-LEVEL METHODS =================
-
     @classmethod
-    def init_class(cls, params: "ObjMap"):
-        """
-        Initialize the counts dictionaries for the races and sex_types in the model.
-
-        args:
-            params: the population params
-        """
+    def init_class(cls, params: ObjMap):
         cls.test_counts = {
-            race: {sex_type: 0 for sex_type in params.classes.sex_types}
+            race: {sex: 0 for sex in params.classes.sex_types}
             for race in params.classes.races
         }
 
-    # ================= AGENT INITIALIZATION =================
+        testing_params = getattr(params, "hiv_testing", None)
+        if testing_params is None:
+            return
+
+        # base_prob was silently redefined from per-timestep to annual. Refuse to
+        # run on a params file still using the old key rather than quietly
+        # applying a stale fitted value under the new meaning.
+        legacy_base_prob = getattr(testing_params, "base_prob", -1.0)
+        if legacy_base_prob >= 0:
+            raise ValueError(
+                "hiv_testing.base_prob is deprecated: it was a per-timestep "
+                "probability and is now annual. Rename it to "
+                "'base_prob_annual' and refit -- reusing the old value "
+                "unchanged understates testing by roughly steps_per_year. "
+                f"(found base_prob: {legacy_base_prob})"
+            )
+
+        legacy_early_window = getattr(testing_params, "moud_early_window", -1)
+        if legacy_early_window >= 0:
+            raise ValueError(
+                "hiv_testing.moud_early_window is deprecated: it was expressed "
+                "in raw timesteps with a weekly-step default, so on this "
+                "model's monthly steps it applied a ~4x-too-long early-MOUD "
+                "window and moud_stable_mult never took effect. Use "
+                "'moud_early_window_months' instead. "
+                f"(found moud_early_window: {legacy_early_window})"
+            )
+
+        # Testing that cannot run during burn-in leaves every agent infected
+        # during burn-in permanently undiagnosed and therefore off HAART.
+        burn_steps = params.model.time.burn_steps
+        start_time = getattr(testing_params, "start_time", -9999)
+        if burn_steps > 0 and start_time > -burn_steps:
+            logging.warning(
+                "hiv_testing.start_time=%d is later than the start of burn-in "
+                "(-%d): agents who acquire HIV before then can never be "
+                "diagnosed or enroll in HAART, so diagnosed prevalence at t=0 "
+                "will fall below demographics' hiv.dx.init.",
+                start_time,
+                burn_steps,
+            )
 
     def init_agent(self, pop: "population.Population", time: int):
-        """
-        Initialize the agent for this feature.
-
-        HIV exposure already initializes:
-          - hiv.active
-          - hiv.dx
-          - hiv.dx_time
-
-        We do not change those here; we only drive *new* diagnoses over time.
-        """
+        self.active = True  # REQUIRED
         self.tests_this_step = 0
 
-    # ================= PER-TIME-STEP UPDATE =================
-
+    # =====================================================
+    # Per-step update
+    # =====================================================
     def update_agent(self, model: "model.TITAN"):
-        """
-        Apply HIV testing to this agent at the current time step.
+        if not self.active:
+            return
 
-        args:
-            model: the instance of TITAN currently being run
-        """
-        # Reset per-step counter for this agent
-        self.tests_this_step = 0
-
-        # Agent must have the HIV exposure feature
+        # Agent must have HIV exposure
         if not hasattr(self.agent, "hiv"):
             return
 
         hiv_feat = self.agent.hiv  # type: ignore[attr-defined]
 
-        # Global testing params (top-level block: params.hiv_testing)
         testing_params = getattr(model.params, "hiv_testing", None)
         if testing_params is None:
             return
 
-        # Respect HIV start_time for testing as well (optional but consistent)
-        if model.time < model.params.hiv.start_time:
+        # Testing availability start time (negative values allow burn-in testing)
+        start_time = getattr(testing_params, "start_time", -9999)
+        if model.time < start_time:
             return
 
-        base_prob = getattr(testing_params, "base_prob", 0.0)
-        high_risk_mult = getattr(testing_params, "high_risk_mult", 1.0)
-        oud_mult = getattr(testing_params, "oud_mult", 1.0)
-        interval = getattr(testing_params, "interval", 1)
+        steps_per_year = model.params.model.time.steps_per_year
 
-        # Only test on specific time steps if interval > 1
-        if interval > 1 and (model.time % interval != 0):
-            return
+        if model.params.features.care_seeking:
+            prob = self.encounter_prob(testing_params, steps_per_year)
+        else:
+            prob = self.state_proxy_prob(testing_params, steps_per_year)
 
-        # ---- Compute testing probability for this agent ----
-        prob = base_prob
-
-        # Increase for high_risk agents (assuming high_risk is a feature with .active)
-        high_risk_feat = getattr(self.agent, "high_risk", None)
-        if high_risk_feat is not None and getattr(high_risk_feat, "active", False):
-            prob *= high_risk_mult
-
-        # Increase for OUD agents (Inj / NonInj)
-        if getattr(self.agent, "drug_type", None) in ("Inj", "NonInj"):
-            prob *= oud_mult
-
-        # Clamp to [0, 1]
+        # Clamp
         prob = max(0.0, min(1.0, prob))
 
-        # Decide if a test occurs
+        # =================================================
+        # Apply test
+        # =================================================
         if model.run_random.random() >= prob:
             return
 
-        # A test happened
+        # Test occurred
         self.tests_this_step += 1
         self.test_counts[self.agent.race][self.agent.sex_type] += 1
 
-        # ---- Determine infection + diagnosis status ----
+        # =================================================
+        # Diagnosis logic (delegated to HIV exposure)
+        # =================================================
+        if hiv_feat.active and not hiv_feat.dx:
+            hiv_feat.diagnose(model)
 
-        # Infection flag in HIV exposure is `active`
-        is_infected = bool(hiv_feat.active)
+    # =====================================================
+    # Testing probability, two pathways
+    # =====================================================
+    def encounter_prob(self, testing_params: ObjMap, steps_per_year: int) -> float:
+        """
+        Testing probability when the care-seeking feature is enabled.
 
-        # If not infected, nothing to diagnose (but test still counted)
-        if not is_infected:
-            return
+        A test happens because a provider offered one at a visit and the agent
+        accepted. Nothing here depends on the agent's state directly - who gets
+        tested follows from where they seek care and which provider they are
+        attached to.
 
-        # Already diagnosed? Nothing more to do here; HIV.set_stats will handle hiv_dx_new
-        if hiv_feat.dx:
-            return
+        The multipliers used by the state-proxy pathway are deliberately not
+        applied. They stood in for care settings, and the care settings now
+        exist; applying both would count the same pathway twice.
 
-        # NEW diagnosis: use HIV.diagnose() so dx, dx_time, and dx_counts are consistent
-        hiv_feat.diagnose(model)
+        args:
+            testing_params: the hiv_testing params
+            steps_per_year: number of time steps per year
 
-        # We do NOT manually modify dx_counts or hiv_dx_new here; HIV.exposure
-        # will update hiv_dx_new in HIV.set_stats() when dx_time == current time.
+        returns:
+            probability of being tested this time step
+        """
+        offered = getattr(self.agent, "care_offer", {}).get("hiv_test", False)
+        if offered:
+            return getattr(testing_params, "acceptance", 1.0)
 
-    # ================= STATS =================
+        # testing that happens outside any clinical setting, e.g. community or
+        # syringe services testing; zero unless the parameter is set
+        nonclinical_annual = getattr(testing_params, "nonclinical_annual", 0.0)
+        return self.annual_to_step(nonclinical_annual, steps_per_year)
 
+    def state_proxy_prob(self, testing_params: ObjMap, steps_per_year: int) -> float:
+        """
+        Testing probability from the original state-proxy pathway, used when the
+        care-seeking feature is disabled.
+
+        A base annual rate is modified by agent state - injecting, on MOUD,
+        recently relapsed, recently overdosed - each standing in for a care
+        setting that the model did not otherwise represent.
+
+        args:
+            testing_params: the hiv_testing params
+            steps_per_year: number of time steps per year
+
+        returns:
+            probability of being tested this time step
+        """
+        base_annual_prob = getattr(testing_params, "base_prob_annual", 0.0)
+        prob = self.annual_to_step(base_annual_prob, steps_per_year)
+
+        # PWID-specific testing
+        if self.agent.drug_type == "Inj":
+            prob *= getattr(testing_params, "pwid_mult", 1.0)
+
+        # Non-injecting OUD (weaker)
+        elif self.agent.drug_type == "NonInj":
+            prob *= getattr(testing_params, "oud_mult", 1.0)
+
+        # High-risk behavior (if present)
+        high_risk_feat = getattr(self.agent, "high_risk", None)
+        if high_risk_feat is not None and getattr(high_risk_feat, "active", False):
+            prob *= getattr(testing_params, "high_risk_mult", 1.0)
+
+        # Care-linked testing (MOUD)
+        if getattr(self.agent, "on_moud", False):
+            moud_feat = getattr(self.agent, "moud", None)
+            if moud_feat is not None:
+                # window is configured in months; time_on_moud is in timesteps
+                early_months = getattr(
+                    testing_params, "moud_early_window_months", 0.0
+                )
+                early_window = early_months * steps_per_year / 12.0
+                if moud_feat.time_on_moud < early_window:
+                    prob *= getattr(testing_params, "moud_early_mult", 1.0)
+                else:
+                    prob *= getattr(testing_params, "moud_stable_mult", 1.0)
+
+        # Recent relapse from remission
+        if getattr(self.agent, "recent_relapse", False):
+            prob *= getattr(testing_params, "post_relapse_mult", 1.0)
+
+        # Recent nonfatal overdose (ED pathway)
+        if getattr(self.agent, "recent_overdose", False):
+            prob *= getattr(testing_params, "post_overdose_mult", 1.0)
+
+        return prob
+
+    @staticmethod
+    def annual_to_step(annual_prob: float, steps_per_year: int) -> float:
+        """
+        Convert an annual probability to a per-time-step probability via the
+        hazard rate.
+
+        args:
+            annual_prob: probability of the event over one year
+            steps_per_year: number of time steps per year
+
+        returns:
+            probability of the event over one time step
+        """
+        if annual_prob <= 0:
+            return 0.0
+        if annual_prob >= 1:
+            return 1.0
+
+        hazard = -math.log(1.0 - annual_prob)
+        return 1.0 - math.exp(-hazard / steps_per_year)
+
+    # =====================================================
+    # Stats
+    # =====================================================
     def set_stats(self, stats: Dict[str, int], time: int):
-        """
-        Contribute HIV testing stats for this agent to the global stats dict.
-
-        stats keys:
-          * hiv_tests
-        """
         if self.tests_this_step > 0:
-            stats.setdefault("hiv_tests", 0)
             stats["hiv_tests"] += self.tests_this_step
-
-        # Reset per-step counter
         self.tests_this_step = 0

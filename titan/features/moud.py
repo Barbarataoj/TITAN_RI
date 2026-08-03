@@ -1,4 +1,5 @@
 from typing import Dict, ClassVar
+import logging
 
 from . import base_feature
 from .. import agent
@@ -16,7 +17,7 @@ class MOUD(base_feature.BaseFeature):
     """
 
     name = "moud"
-    stats = ["moud"]
+    stats = ["moud", "moud_active"]
     """
         MOUD collects the following stats:
 
@@ -30,6 +31,7 @@ class MOUD(base_feature.BaseFeature):
 
         self.active = False  # currently on MOUD
         self.ever = False    # ever been on MOUD
+        self.time_on_moud = 0  # consecutive steps on current MOUD episode
 
     # ================= CLASS-LEVEL METHODS =================
 
@@ -45,6 +47,16 @@ class MOUD(base_feature.BaseFeature):
             race: {sex_type: 0 for sex_type in params.classes.sex_types}
             for race in params.classes.races
         }
+
+        # Eligibility (_is_oud) reads has_oud / is_in_remission, both of which
+        # are only ever set by the oud_state feature. With oud_state off, no
+        # agent is ever eligible and MOUD silently never initiates.
+        if not params.features.get("oud_state", False):
+            logging.warning(
+                "features.moud is enabled but features.oud_state is not. MOUD "
+                "eligibility depends on has_oud / is_in_remission, which only "
+                "oud_state sets, so no agent will ever initiate MOUD."
+            )
 
     @classmethod
     def add_agent(cls, agent: "agent.Agent"):
@@ -74,8 +86,18 @@ class MOUD(base_feature.BaseFeature):
             pop: the population this agent is a part of
             time: the current time step
         """
+        # Always publish the agent-level flag so downstream features can read it.
+        self.agent.on_moud = False
+
         if not self._is_oud():
             return
+
+        # ---- passive hooks only ----
+        if not hasattr(self.agent, "recent_overdose"):
+            self.agent.recent_overdose = False
+
+        if not hasattr(self.agent, "recent_relapse"):
+            self.agent.recent_relapse = False
 
         moud_params = (
             self.agent.location.params.demographics[self.agent.race]
@@ -84,26 +106,64 @@ class MOUD(base_feature.BaseFeature):
             .moud
         )
 
-        if pop.pop_random.random() < moud_params.init:
+        # t=0 placement probability. Precedence: init_at_equilibrium, then the
+        # top-level moud.init_coverage calibration override, then the
+        # per-demographic moud.init. Accessed via location.params (same pattern as
+        # the effect-scale readers below), since init_agent runs during population
+        # creation and has no model handle. Mirrors the discontinue_per_month
+        # override in update_agent.
+        moud_global = getattr(self.agent.location.params, "moud", None)
+        equilibrium = self._equilibrium_coverage(moud_global)
+        if equilibrium is not None:
+            init_prob = equilibrium
+        elif moud_global is not None and getattr(moud_global, "init_coverage", 0) > 0:
+            init_prob = float(moud_global.init_coverage)
+        else:
+            init_prob = moud_params.init
+
+        if pop.pop_random.random() < init_prob:
             self.initiate(pop.pop_random, moud_params, "init")
+
+    @staticmethod
+    def _equilibrium_coverage(moud_global):
+        """
+        Steady-state MOUD coverage implied by the reinit/discontinue dynamics, or
+        None if `init_at_equilibrium` is off or the inputs are unusable.
+
+        Once an agent has been on MOUD, STEP 2 of `update_agent` restarts them
+        with probability `reinit_prob` per step and STEP 5 stops them with
+        probability `discontinue_per_month`, so the ever-on pool settles at
+        `reinit / (reinit + discontinue)` regardless of the t=0 placement. Placing
+        agents there at creation removes the coverage transient rather than making
+        the burn-in absorb it.
+        """
+        if moud_global is None:
+            return None
+        if not getattr(moud_global, "init_at_equilibrium", False):
+            return None
+        if not getattr(moud_global, "use_reinit", False):
+            return None
+
+        reinit = float(getattr(moud_global, "reinit_prob", 0.0) or 0.0)
+        discontinue = float(getattr(moud_global, "discontinue_per_month", 0.0) or 0.0)
+        if reinit <= 0.0 or discontinue <= 0.0:
+            return None
+
+        return reinit / (reinit + discontinue)
 
     # ================= PER-TIME-STEP UPDATE =================
 
     def update_agent(self, model: "model.TITAN"):
-        """
-        Update MOUD status for this agent at each time step.
 
-        MOUD is available only after `model.params.moud.start_time`.
-        Agents must have OUD (drug_type in {Inj, NonInj}).
-
-        args:
-            model: the TITAN model instance
-        """
+        # ===============================
+        # STEP 1: Eligibility
+        # ===============================
         if not self._is_oud():
-            # If agent is no longer OUD, turn off MOUD and adjust counts
             if self.active:
                 self.active = False
                 self.remove_agent(self.agent)
+            self.time_on_moud = 0
+            self.agent.on_moud = False
             return
 
         moud_global = getattr(model.params, "moud", None)
@@ -111,11 +171,9 @@ class MOUD(base_feature.BaseFeature):
             start_time = getattr(moud_global, "start_time", 0)
             use_reinit = getattr(moud_global, "use_reinit", True)
         else:
-            # Sensible defaults if not specified
             start_time = 0
             use_reinit = True
 
-        # Before MOUD becomes available
         if model.time < start_time:
             return
 
@@ -126,23 +184,98 @@ class MOUD(base_feature.BaseFeature):
             .moud
         )
 
-        # Go on (or back on) MOUD
+        # ======================================================
+        # NOT CURRENTLY ON MOUD
+        # ======================================================
         if not self.active:
-            # Re-init behavior if configured globally
-            if self.ever and use_reinit:
-                if model.run_random.random() < moud_params.reinit.prob:
-                    self.initiate(model.run_random, moud_params, "prob")
-            else:
-                # New initiation based on time-varying enrollment prob
-                enroll_prob = self._get_enroll_prob(model.time, moud_params)
-                if model.run_random.random() < enroll_prob:
-                    self.initiate(model.run_random, moud_params, "prob")
 
-        # Already on MOUD: possible discontinuation
+            # ===============================
+            # STEP 2a: Care-seeking pathway
+            # ===============================
+            # When care settings are modelled, MOUD starts because a provider
+            # offered it at a visit and the agent accepted. The post-relapse and
+            # post-overdose multipliers below are skipped in that case: they
+            # stood in for the emergency department pathway, which encounters in
+            # that setting now represent directly.
+            if model.params.features.care_seeking:
+                if getattr(self.agent, "care_offer", {}).get("moud", False):
+                    acceptance = (
+                        getattr(moud_global, "acceptance", 1.0)
+                        if moud_global is not None
+                        else 1.0
+                    )
+                    if model.run_random.random() < acceptance:
+                        self.initiate(model.run_random, moud_params, "prob")
+                return
+
+            # ===============================
+            # STEP 2: Baseline vs re-initiation
+            # ===============================
+            if self.ever and use_reinit:
+                # Previously on MOUD → re-initiation probability.
+                # Top-level moud.reinit_prob (calibration override) takes precedence;
+                # else fall back to demographic-level moud_params.reinit.prob. This is
+                # the equilibrium-coverage ceiling lever (steady-state coverage among
+                # ever-on agents ≈ reinit_prob / (reinit_prob + discontinue_per_month)).
+                if moud_global is not None and getattr(moud_global, "reinit_prob", 0) > 0:
+                    p_start = float(moud_global.reinit_prob)
+                else:
+                    p_start = moud_params.reinit.prob
+            else:
+                # Never on MOUD → baseline enrollment
+                p_start = self._get_enroll_prob(model.time, moud_params)
+
+            # ===============================
+            # STEP 3: Post-relapse uptake
+            # Top-level moud.post_relapse_rr (calibration override) takes
+            # precedence; else fall back to demographic-level (legacy)
+            # moud_params.post_relapse_rr. Mirrors the post_overdose_rr
+            # precedence below - demographics.yml doesn't define a
+            # post_relapse_rr field, so without this override the demographic
+            # fallback silently no-ops to the getattr default of 1.0.
+            # ===============================
+            if getattr(self.agent, "recent_relapse", False):
+                if moud_global is not None and hasattr(moud_global, "post_relapse_rr"):
+                    p_start *= float(moud_global.post_relapse_rr)
+                else:
+                    p_start *= getattr(moud_params, "post_relapse_rr", 1.0)
+
+            # ===============================
+            # STEP 4: Post-overdose uptake
+            # ===============================
+            # Top-level moud.post_overdose_rr (calibration override) takes precedence;
+            # else fall back to demographic-level (legacy) moud_params.post_overdose_rr.
+            if getattr(self.agent, "recent_overdose", False):
+                if moud_global is not None and hasattr(moud_global, "post_overdose_rr"):
+                    p_start *= float(moud_global.post_overdose_rr)
+                else:
+                    p_start *= getattr(moud_params, "post_overdose_rr", 1.0)
+
+            # Safety clamp
+            p_start = min(1.0, max(0.0, p_start))
+
+            if model.run_random.random() < p_start:
+                self.initiate(model.run_random, moud_params, "prob")
+
+        # ======================================================
+        # STEP 5: Persistence / discontinuation
+        # Top-level moud.discontinue_per_month (calibration override) takes
+        # precedence; else fall back to demographic-level (legacy) moud_params.discontinue.
+        # ======================================================
         else:
-            if model.run_random.random() < moud_params.discontinue:
+            if moud_global is not None and getattr(moud_global, "discontinue_per_month", 0) > 0:
+                discontinue_prob = float(moud_global.discontinue_per_month)
+            else:
+                discontinue_prob = moud_params.discontinue
+
+            if model.run_random.random() < discontinue_prob:
                 self.active = False
+                self.time_on_moud = 0
+                self.agent.on_moud = False
                 self.remove_agent(self.agent)
+            else:
+                self.time_on_moud += 1
+                self.agent.on_moud = True
 
     # ================= STATS & SCALING =================
 
@@ -152,6 +285,13 @@ class MOUD(base_feature.BaseFeature):
         """
         if self.active:
             stats["moud"] += 1
+            # MOUD among ACTIVE OUD only. This is the correct numerator for a MOUD
+            # coverage whose denominator is oud_active, matching the APCD target
+            # ("MOUD fills among F11-diagnosed OUD in year Y"). Remission agents are
+            # MOUD-eligible and counted in `moud`, but must be excluded here so the
+            # coverage ratio's numerator and denominator share the same population.
+            if getattr(self.agent, "has_oud", False):
+                stats["moud_active"] += 1
 
     def get_overdose_risk_multiplier(self) -> float:
         """
@@ -200,9 +340,15 @@ class MOUD(base_feature.BaseFeature):
 
     def _is_oud(self) -> bool:
         """
-        Define who is considered to have OUD: Inj or NonInj drug_type.
+        MOUD eligibility: active OUD or stable remission. Gating on has_oud
+        (rather than drug_type) so that non-OUD recreational PWID — who keep
+        their demographic drug_type but were never diagnosed with OUD — are
+        not made MOUD-eligible.
         """
-        return getattr(self.agent, "drug_type", None) in ("Inj", "NonInj")
+        return (
+            getattr(self.agent, "has_oud", False)
+            or getattr(self.agent, "is_in_remission", False)
+        )
 
     def _get_enroll_prob(self, time: int, moud_params: ObjMap) -> float:
         """
@@ -240,4 +386,6 @@ class MOUD(base_feature.BaseFeature):
         # you can extend this later if you want subtypes.
         self.active = True
         self.ever = True
+        self.time_on_moud = 0
+        self.agent.on_moud = True
         self.add_agent(self.agent)

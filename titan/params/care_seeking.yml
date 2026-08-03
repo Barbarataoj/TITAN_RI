@@ -1,0 +1,130 @@
+care_seeking:
+  n_ri_oud:
+    default: 13704
+    description: "Size of the real Rhode Island OUD population that the simulated population represents. Used to scale provider pool sizes from real-world counts down to the simulated population. Default is the T3 (2021-2022) average from APCD parameter #39."
+    type: int
+    min: 1
+  shared_trait_prob:
+    default: 0.0
+    description: "Mixture weight (not a correlation coefficient) giving the probability that a provider's willingness across all services is drawn from a single shared draw rather than independently per service. 0 = each service drawn independently; 1 = a single underlying willingness trait ranks the provider identically for every service. Parameterized from the APCD provider service-pattern pull (Pull 5b). Previously named trait_correlation; renamed because it is a mixture weight, not a conventional correlation coefficient."
+    type: float
+    min: 0.0
+    max: 1.0
+  reassign_on_attrition:
+    default: true
+    description: "Whether patients attached to a provider who leaves practice are reassigned to a new provider in the same setting."
+    type: boolean
+  setting:
+    type: definition
+    fields:
+      visit_rate_annual:
+        type: float
+        description: "Expected number of distinct visit-days per agent per year in this setting, among agents with OUD. From the APCD encounter pull."
+        min: 0.0
+      n_providers_ri:
+        type: int
+        description: "Number of real Rhode Island providers serving people with OUD in this setting. Scaled to the simulated population at model init by num_pop / n_ri_oud. From APCD Pull 1."
+        min: 0
+      panel_skew:
+        type: float
+        description: "Shape of the gamma distribution used to weight this setting's providers when patients are assigned to them. Lower values concentrate patients on fewer providers; 1.0 is exponential; large values approach an even split. Parameterized from the APCD panel size distribution (Pull 2), which measures concentration separately by setting."
+        default: 1.0
+        min: 0.01
+      visit_heterogeneity_shape:
+        type: float
+        description: |
+          Gamma shape parameter for a per-agent, per-setting visit-rate
+          frailty drawn once at agent init. Mixing the homogeneous Poisson
+          visit rate with this Gamma frailty (mean 1) produces a
+          Negative-Binomial visit-count distribution in cross-section, for
+          matching over-dispersed utilization data. Smaller values mean more
+          heterogeneity (heavier-tailed utilization); 0 (default) disables
+          heterogeneity and reproduces a homogeneous Poisson exactly.
+        default: 0.0
+        min: 0.0
+      attrition_annual:
+        type: float
+        description: "Annual probability that a provider in this setting leaves practice and is replaced by a new draw. From APCD Pull 4."
+        min: 0.0
+        max: 1.0
+      p_willing_hiv_test:
+        type: float
+        description: "Proportion of providers in this setting willing to order an HIV test. Estimated from the APCD Pull 5 cross-tab, not read off the raw share who ever ordered one."
+        min: 0.0
+        max: 1.0
+      p_willing_prep:
+        type: float
+        description: "Proportion of providers in this setting willing to prescribe PrEP."
+        min: 0.0
+        max: 1.0
+      p_willing_moud:
+        type: float
+        description: |
+          Proportion of providers in this setting willing to prescribe MOUD.
+          MOUD is available in every setting, not only substance use treatment -
+          primary care and emergency providers prescribe it too, and that is what
+          the intervention acts on. Estimate this from the medications a setting
+          can actually dispense: methadone for OUD is restricted to opioid
+          treatment programs, so for primary care and the emergency department
+          this should come from buprenorphine prescribing rather than from all
+          MOUD pooled, or regulatory restriction will be read as unwillingness.
+        min: 0.0
+        max: 1.0
+      p_willing_counseling:
+        type: float
+        description: "Proportion of providers in this setting willing to deliver HIV prevention counseling."
+        min: 0.0
+        max: 1.0
+      intensity_hiv_test:
+        type: float
+        description: "Among willing providers in this setting, probability that an eligible patient is offered an HIV test at a given visit. From APCD Pull 6."
+        min: 0.0
+        max: 1.0
+      intensity_prep:
+        type: float
+        description: "Among willing providers, probability that an eligible patient is offered PrEP at a given visit."
+        min: 0.0
+        max: 1.0
+      intensity_moud:
+        type: float
+        description: "Among willing providers, probability that an eligible patient is offered MOUD at a given visit."
+        min: 0.0
+        max: 1.0
+      intensity_counseling:
+        type: float
+        description: "Among willing providers, probability that an eligible patient is offered counseling at a given visit."
+        min: 0.0
+        max: 1.0
+      visit_mult_moud:
+        type: float
+        description: "Multiplier on visit_rate_annual for agents currently on MOUD in this setting. Part of the APCD-requested stratification by MOUD status; 1.0 (default) means no adjustment."
+        default: 1.0
+        min: 0.0
+      visit_mult_inj:
+        type: float
+        description: "Multiplier on visit_rate_annual for agents whose drug_type is Inj (the injection-status proxy) in this setting. Part of the APCD-requested stratification by injection status; 1.0 (default) means no adjustment."
+        default: 1.0
+        min: 0.0
+      visit_mult_hiv_positive:
+        type: float
+        description: "Multiplier on visit_rate_annual for agents with active HIV in this setting. Part of the APCD-requested stratification by HIV status; 1.0 (default) means no adjustment."
+        default: 1.0
+        min: 0.0
+    default:
+      primary_care:
+        visit_rate_annual: 0.0
+        n_providers_ri: 0
+        panel_skew: 1.0
+        visit_heterogeneity_shape: 0.0
+        attrition_annual: 0.0
+        p_willing_hiv_test: 0.0
+        p_willing_prep: 0.0
+        p_willing_moud: 0.0
+        p_willing_counseling: 0.0
+        intensity_hiv_test: 0.0
+        intensity_prep: 0.0
+        intensity_moud: 0.0
+        intensity_counseling: 0.0
+        visit_mult_moud: 1.0
+        visit_mult_inj: 1.0
+        visit_mult_hiv_positive: 1.0

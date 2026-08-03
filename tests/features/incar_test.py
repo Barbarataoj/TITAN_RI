@@ -37,7 +37,7 @@ def test_incarcerate_unincarcerate(make_model, make_agent):
 def test_incarcerate_not_diagnosed(make_model, make_agent):
     model = make_model()
     model.time = model.params.partner_tracing.start_time + 1
-    a = make_agent(SO="HM", race="white")  # incarceration only for HM and HF?
+    a = make_agent(SO="HM", race="white_nonhispanic")  # incarceration only for HM and HF?
     a.hiv.active = True
     a.hiv.time = model.time - 1
     a.partners["Sex"] = set()
@@ -58,10 +58,10 @@ def test_incarcerate_not_diagnosed(make_model, make_agent):
 @pytest.mark.unit
 def test_incarcerate_not_hiv(make_model, make_agent):
     model = make_model()
-    a = make_agent(SO="HM", race="white")
-    p = make_agent(SO="HF", race="white")
+    a = make_agent(SO="HM", race="white_nonhispanic")
+    p = make_agent(SO="HF", race="white_nonhispanic")
     rel = Relationship(a, p, 10, "Sex")
-    a.location.params.demographics.white.sex_type.HM.incar.prob = 1.0
+    a.location.params.demographics.white_nonhispanic.sex_type.HM.incar.prob = 1.0
 
     a.incar.update_agent(model)
     assert a.incar.active
@@ -71,7 +71,7 @@ def test_incarcerate_not_hiv(make_model, make_agent):
 def test_incarcerate_diagnosed(make_model, make_agent):
     model = make_model()
     model.time = 10
-    a = make_agent(SO="HM", race="white")  # incarceration only for HM and HF?
+    a = make_agent(SO="HM", race="white_nonhispanic")  # incarceration only for HM and HF?
     a.hiv.active = True
     a.hiv.dx = True
     a.partners["Sex"] = set()
@@ -86,7 +86,7 @@ def test_incarcerate_diagnosed(make_model, make_agent):
     assert a.haart.adherent is True
 
     # Goes on haart but nonadherent
-    a = make_agent(SO="HM", race="white")
+    a = make_agent(SO="HM", race="white_nonhispanic")
     a.location.params.incar.haart.adherence = -1.0
     a.hiv.active = True
     a.hiv.dx = True

@@ -165,6 +165,10 @@ class Prep(base_feature.BaseFeature):
 
         params = self.agent.location.params
 
+        if params.features.care_seeking and not force:
+            self.initiate_from_encounter(model)
+            return
+
         if force:
             self.enroll(model.run_random, model.time)
         elif params.prep.cap_as_prob:
@@ -200,6 +204,33 @@ class Prep(base_feature.BaseFeature):
 
             if num_prep_agents < target_prep:
                 self.enroll(model.run_random, model.time)
+
+    def initiate_from_encounter(self, model: "model.TITAN"):
+        """
+        Place an agent on PrEP because a provider offered it at a visit and the
+        agent accepted.
+
+        Used instead of the cap and target_model machinery when the care-seeking
+        feature is enabled. Those mechanisms allocate PrEP to a target share of
+        the population by rule; this routes it through the encounters that
+        actually deliver it, so coverage becomes a consequence of where agents
+        seek care and which providers they are attached to.
+
+        This is also where PrEP becomes coupled to MOUD, without a term for it.
+        Agents on MOUD attend substance use treatment often, and providers in
+        that setting have their own willingness to prescribe PrEP, so the
+        coupling follows from attendance rather than from a multiplier. Adding an
+        explicit MOUD term on top would count the same pathway twice.
+
+        args:
+            model: instance of TITAN being run
+        """
+        if not getattr(self.agent, "care_offer", {}).get("prep", False):
+            return
+
+        acceptance = getattr(self.agent.location.params.prep, "acceptance", 1.0)
+        if model.run_random.random() < acceptance:
+            self.enroll(model.run_random, model.time)
 
     def enroll(self, rand_gen, time):
         """

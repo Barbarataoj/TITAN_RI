@@ -1,0 +1,18 @@
+# ============================================================================
+# Phase 7 Scenario 6 — Combination (post-OD linkage + bup expansion + MOUD HIV testing)
+# ----------------------------------------------------------------------------
+# Intent: scenarios 2 + 3 + 5 applied together (the runbook's combination arm,
+# CALIBRATION_PLAN.md:434), to measure interaction effects vs the sum of singles.
+#
+# HOW TO BUILD THIS FILE (Jun):
+#   1. cp scenario_1_baseline.yml scenario_6_combination.yml
+#   2. Apply ALL of the deltas from scenarios 2, 3, and 5 in the one file:
+#        - moud.post_overdose_rr        (from scenario 2)
+#        - moud.enroll.<window>.prob    (from scenario 3)
+#        - HIV testing knob             (from scenario 5)
+#   3. Uncomment the line in scenarios/manifest.txt.
+#
+# FILL IN — Jun: use the SAME values chosen for the individual arms so the
+# combination is directly decomposable against them. (SSP / scenario 4 is NOT in
+# this combination per the runbook; add it only if the analysis plan changes.)
+# ============================================================================

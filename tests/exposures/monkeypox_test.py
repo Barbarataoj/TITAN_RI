@@ -99,10 +99,10 @@ def test_diagnose_monkeypox(make_model, make_agent):
 @pytest.mark.unit
 def test_get_transmission_probability(make_model, make_agent):
     model = make_model()
-    a = make_agent(race="white", SO="MSM")
+    a = make_agent(race="white_nonhispanic", SO="MSM")
     a.sex_role = "versatile"
 
-    p = make_agent(race="white", SO="MSM")
+    p = make_agent(race="white_nonhispanic", SO="MSM")
     p.sex_role = "versatile"
 
     # test versatile-versatile relationship

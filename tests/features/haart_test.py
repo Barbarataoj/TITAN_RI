@@ -7,7 +7,7 @@ from conftest import FakeRandom
 def test_update_haart_t1(make_model, make_agent):
     model = make_model()
     model.time = 1
-    a = make_agent(race="white")
+    a = make_agent(race="white_nonhispanic")
 
     a.hiv.active = True
 
@@ -67,7 +67,7 @@ def test_update_haart_t1(make_model, make_agent):
 def test_update_haart_dx_time(make_model, make_agent):
     model = make_model()
     model.time = 1
-    a = make_agent(race="white")
+    a = make_agent(race="white_nonhispanic")
     model.run_random = FakeRandom(0.5)
 
     a.hiv.active = True
@@ -84,7 +84,7 @@ def test_update_haart_dx_time(make_model, make_agent):
 def test_update_haart_reinit(make_model, make_agent):
     model = make_model()
     model.time = 1
-    a = make_agent(race="white")
+    a = make_agent(race="white_nonhispanic")
 
     a.hiv.active = True
     a.hiv.dx = True

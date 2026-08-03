@@ -54,7 +54,9 @@ class ObjMap(dict):
 def check_params(params: ObjMap):
     """
     Consistency checks for param populations
+    
     """
+
     race_pop = 0
     for race in params.classes.races:
         r_dems = params.demographics[race]
@@ -142,8 +144,10 @@ def create_params(
     )
 
     parsed = ObjMap(parsed)
+    parsed.classes.races = list(parsed.demographics.keys())
     check_params(parsed)
-
+    print("RACES USED:", parsed.classes.races)
+    print("DEMOGRAPHICS:", list(parsed.demographics.keys()))
     # copy migration file if enabled
     if parsed.location.migration.enabled:
         shutil.copy(

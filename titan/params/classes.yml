@@ -3,6 +3,11 @@ classes:
     type: definition
     description: Races included in model
     fields:
+      ppl:
+        type: float
+        min: 0
+        max: 1.0
+        default: 0.0
       hispanic:
         type: boolean
     default:
@@ -94,13 +99,13 @@ classes:
     default:
       - Inj
       - NonInj
-      - None
+     
     description: Types of drugs that an agent can use in the model
     type: array
     values:
       - Inj
       - NonInj
-      - None
+    
   distributions:
     default:
       - poisson

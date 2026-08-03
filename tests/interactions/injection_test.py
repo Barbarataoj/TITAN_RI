@@ -13,8 +13,8 @@ def test_injection_transmission(make_model, make_agent):
     model.np_random = FakeRandom(1.0)
     model.run_random = FakeRandom(-0.1)
     model.time = model.params.hiv.start_time + 2
-    a = make_agent(race="black", DU="Inj", SO="HM")
-    p = make_agent(race="black", DU="Inj", SO="HF")
+    a = make_agent(race="black_nonhispanic", DU="Inj", SO="HM")
+    p = make_agent(race="black_nonhispanic", DU="Inj", SO="HF")
     rel = Relationship(a, p, 10, bond_type="Inj")
 
     Injection.interact(model, rel)
@@ -54,7 +54,11 @@ def test_injection_num_acts(make_model, make_agent):
     a.hiv.dx = True
     model.params.hiv.dx.risk_reduction.injection = 1.0
 
-    assert Injection.get_num_acts(model, rel) == 0
+    # Diagnosis risk reduction no longer shrinks the act count itself here -
+    # that would double-count the same hiv.dx.risk_reduction.injection value
+    # already applied once, as a per-act probability reduction, in
+    # HIV.get_transmission_probability(). get_num_acts is unaffected by dx.
+    assert Injection.get_num_acts(model, rel) > 0
     assert p.hiv
 
 
@@ -62,8 +66,8 @@ def test_injection_num_acts(make_model, make_agent):
 def test_injection_get_num_acts_do_nothing(make_model, make_agent):
     model = make_model()
     model.time = model.params.hiv.start_time + 2
-    a = make_agent(race="white", DU="Inj", SO="HM")
-    p_inj = make_agent(race="white", DU="Inj", SO="HF")
+    a = make_agent(race="white_nonhispanic", DU="Inj", SO="HM")
+    p_inj = make_agent(race="white_nonhispanic", DU="Inj", SO="HF")
     rel_Inj = Relationship(a, p_inj, 10, bond_type="Inj")
 
     model.run_random = FakeRandom(-0.1)

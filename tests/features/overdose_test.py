@@ -1,156 +1,180 @@
-from typing import Dict, ClassVar
+"""
+Tests for Overdose build a minimal, hand-rolled harness (ObjMap params,
+SimpleNamespace agent/model), the same pattern `care_seeking_test.py` uses -
+see that file's module docstring for why.
 
-from . import base_feature
-from .. import agent
-from .. import population
-from .. import model
-from ..parse_params import ObjMap
+Overdose reads only `params.overdose`, `params.model.time.steps_per_year` and a
+few plain attributes off `agent`/`model`, so the harness keeps these tests
+independent of the demographics/classes machinery the shared fixtures build.
+"""
+
+from types import SimpleNamespace
+
+import pytest
+
+from conftest import FakeRandom
+
+from titan.features import Overdose
 
 
-class Overdose(base_feature.BaseFeature):
+DEFAULT_OVERDOSE_PARAMS = {
+    "base_prob_inj": 0.5,
+    "base_prob_noninj": 0.25,
+    "fatal_frac": 0.0,
+    "high_risk_mult": 1.0,
+    "ssp_rr": 1.0,
+    "post_relapse_od_rr": 1.0,
+    "post_overdose_window": 6,
+}
+
+
+def make_params(**overrides):
+    overdose = dict(DEFAULT_OVERDOSE_PARAMS)
+    overdose.update(overrides)
+    return SimpleNamespace(
+        overdose=SimpleNamespace(**overdose),
+        model=SimpleNamespace(time=SimpleNamespace(steps_per_year=12)),
+    )
+
+
+def make_fake_agent(params, drug_type="Inj", has_oud=True, race="black", sex_type="MSM"):
+    fake_agent = SimpleNamespace(
+        race=race,
+        sex_type=sex_type,
+        drug_type=drug_type,
+        has_oud=has_oud,
+        location=SimpleNamespace(params=params),
+    )
+    fake_agent.overdose = Overdose(fake_agent)
+    return fake_agent
+
+
+def make_fake_model(params, run_random, agents):
+    return SimpleNamespace(
+        params=params,
+        run_random=run_random,
+        pop=SimpleNamespace(all_agents=agents),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _reset_counts():
+    Overdose.event_counts = {"black": {"MSM": 0}}
+    Overdose.death_counts = {"black": {"MSM": 0}}
+    yield
+
+
+@pytest.mark.unit
+def test_init_agent():
+    params = make_params()
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+
+    assert a.overdose.active
+    assert a.recent_overdose is False
+    assert a.recent_overdose_timer == 0
+
+
+@pytest.mark.unit
+def test_nonfatal_event():
+    params = make_params(fatal_frac=0.0)
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+
+    model = make_fake_model(params, FakeRandom(0.0), [a])
+    a.overdose.update_agent(model)
+
+    assert a.overdose.events_this_step == 1
+    assert a.overdose.deaths_this_step == 0
+    assert a.recent_overdose is True
+    assert a.recent_overdose_timer == 0
+    assert getattr(a, "exit_class", None) != "death"
+
+
+@pytest.mark.unit
+def test_fatal_event_sets_exit():
+    params = make_params(fatal_frac=1.0)
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+
+    model = make_fake_model(params, FakeRandom(0.0), [a])
+    a.overdose.update_agent(model)
+
+    assert a.overdose.deaths_this_step == 1
+    assert a.exit_class == "death"
+    assert a.death_reason == "overdose"
+
+
+@pytest.mark.unit
+def test_ineligible_agent_no_event():
+    params = make_params()
+    a = make_fake_agent(params, has_oud=False)
+    a.overdose.init_agent(None, 0)
+
+    model = make_fake_model(params, FakeRandom(0.0), [a])
+    a.overdose.update_agent(model)
+
+    assert a.overdose.events_this_step == 0
+
+
+@pytest.mark.unit
+def test_recent_overdose_window_boundary():
     """
-    Overdose feature.
-
-    - Applies only to OUD agents (drug_type in {Inj, NonInj}).
-    - Simulates non-fatal and fatal overdoses.
-    - Fatal overdoses trigger death via exit_enter.
+    A nonfatal overdose sets `recent_overdose` for exactly
+    `post_overdose_window` subsequent `update_pop` calls, then clears it -
+    not window + 1. `Overdose.update_pop` is where the window is now
+    advanced/expired (moved out of this feature's own `update_agent`), so
+    that `moud`/`hiv_testing` - declared earlier in
+    `titan/features/__init__.py` and so reading this flag before `overdose`
+    runs within a timestep - see this step's expiry rather than a stale
+    value carried over from the step before.
     """
+    window = 6
+    params = make_params(post_overdose_window=window)
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
 
-    name = "overdose"
-    # Stats we will contribute to:
-    #   * overdose_events: number of overdoses (fatal + non-fatal) this step
-    #   * overdose_deaths: number of fatal overdoses this step
-    stats = ["overdose_events", "overdose_deaths"]
+    a.recent_overdose = True
+    a.recent_overdose_timer = 0
 
-    # Class-level cumulative counts by race/sex_type (optional)
-    event_counts: ClassVar[Dict] = {}
-    death_counts: ClassVar[Dict] = {}
+    model = make_fake_model(params, FakeRandom(1.1), [a])
+    for step in range(1, window + 1):
+        Overdose.update_pop(model)
+        assert a.recent_overdose is True, f"expected True at step {step} (window={window})"
 
-    def __init__(self, agent: "agent.Agent"):
-        super().__init__(agent)
+    Overdose.update_pop(model)
+    assert a.recent_overdose is False
+    assert a.recent_overdose_timer == 0
 
-        # Agent-level counters
-        self.overdose_count = 0  # cumulative overdoses over the agent's life
-        self.events_this_step = 0
-        self.deaths_this_step = 0
 
-    # ================= CLASS-LEVEL METHODS =================
+@pytest.mark.unit
+def test_update_pop_skips_inactive_and_unflagged_agents():
+    params = make_params()
+    inactive = make_fake_agent(params)
+    inactive.overdose.active = False
+    inactive.recent_overdose = True
+    inactive.recent_overdose_timer = 999
 
-    @classmethod
-    def init_class(cls, params: "ObjMap"):
-        """
-        Initialize the counts dictionaries for the races and sex_types in the model.
+    unflagged = make_fake_agent(params)
+    unflagged.overdose.init_agent(None, 0)  # recent_overdose False
 
-        args:
-            params: the population params
-        """
-        cls.event_counts = {
-            race: {sex_type: 0 for sex_type in params.classes.sex_types}
-            for race in params.classes.races
-        }
-        cls.death_counts = {
-            race: {sex_type: 0 for sex_type in params.classes.sex_types}
-            for race in params.classes.races
-        }
+    model = make_fake_model(params, FakeRandom(1.1), [inactive, unflagged])
+    Overdose.update_pop(model)  # must not raise, must not touch either agent
 
-    # ================= AGENT INITIALIZATION =================
+    assert inactive.recent_overdose_timer == 999
+    assert unflagged.recent_overdose is False
 
-    def init_agent(self, pop: "population.Population", time: int):
-        """
-        Initialize agent-level overdose tracking variables.
-        """
-        self.overdose_count = 0
-        self.events_this_step = 0
-        self.deaths_this_step = 0
 
-    # ================= PER-TIME-STEP UPDATE =================
+@pytest.mark.unit
+def test_set_stats():
+    params = make_params()
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+    a.overdose.events_this_step = 2
+    a.overdose.deaths_this_step = 1
 
-    def update_agent(self, model: "model.TITAN"):
-        """
-        Simulate overdose events for this agent at the current time step.
+    stats = {stat: 0 for stat in Overdose.stats}
+    a.overdose.set_stats(stats, 0)
 
-        args:
-            model: the instance of TITAN currently being run
-        """
-        # Reset per-step counters for this agent
-        self.events_this_step = 0
-        self.deaths_this_step = 0
-
-        # Only agents with OUD (Inj / NonInj) are eligible
-        if getattr(self.agent, "drug_type", None) not in ("Inj", "NonInj"):
-            return
-
-        overdose_params = getattr(model.params, "overdose", None)
-        if overdose_params is None:
-            return
-
-        # Base risk by drug_type
-        if self.agent.drug_type == "Inj":
-            base_prob = getattr(overdose_params, "base_prob_inj", 0.0)
-        else:
-            base_prob = getattr(overdose_params, "base_prob_noninj", 0.0)
-
-        fatal_frac = getattr(overdose_params, "fatal_frac", 0.0)
-        high_risk_mult = getattr(overdose_params, "high_risk_mult", 1.0)
-        ssp_rr = getattr(overdose_params, "ssp_rr", 1.0)
-
-        # Start from base probability
-        prob = base_prob
-
-        # MOUD effect: ask the MOUD feature for an overdose risk multiplier
-        moud_feat = getattr(self.agent, "moud", None)
-        if moud_feat is not None and hasattr(moud_feat, "get_overdose_risk_multiplier"):
-            prob *= moud_feat.get_overdose_risk_multiplier()
-
-        # High-risk multiplier
-        if hasattr(self.agent, "high_risk") and self.agent.high_risk:  # type: ignore[attr-defined]
-            prob *= high_risk_mult
-
-        # Syringe services (if you believe SSP reduces overdose risk, e.g. via naloxone)
-        if hasattr(self.agent, "syringe_services") and self.agent.syringe_services.active:  # type: ignore[attr-defined]
-            prob *= ssp_rr
-
-        # Clamp probability into [0, 1]
-        prob = max(0.0, min(1.0, prob))
-
-        # Decide whether an overdose occurs this step
-        if model.run_random.random() >= prob:
-            return
-
-        # Overdose occurred
-        self.events_this_step += 1
-        self.overdose_count += 1
-        self.event_counts[self.agent.race][self.agent.sex_type] += 1
-
-        # Decide if fatal
-        if model.run_random.random() < fatal_frac:
-            self.deaths_this_step += 1
-            self.death_counts[self.agent.race][self.agent.sex_type] += 1
-
-            # Mark this agent for death via exit_enter.
-            # NOTE: adjust field names here to match your actual exit_enter implementation.
-            self.agent.exit_class = "death"
-            # Optional: label reason for later analysis
-            self.agent.death_reason = "overdose"
-
-    # ================= STATS =================
-
-    def set_stats(self, stats: Dict[str, int], time: int):
-        """
-        Contribute overdose stats for this agent to the global stats dict.
-
-        stats keys:
-          * overdose_events
-          * overdose_deaths
-        """
-        if self.events_this_step > 0:
-            stats.setdefault("overdose_events", 0)
-            stats["overdose_events"] += self.events_this_step
-
-        if self.deaths_this_step > 0:
-            stats.setdefault("overdose_deaths", 0)
-            stats["overdose_deaths"] += self.deaths_this_step
-
-        # Reset per-step counters after stats collection
-        self.events_this_step = 0
-        self.deaths_this_step = 0
+    assert stats["overdose_events"] == 2
+    assert stats["overdose_deaths"] == 1
