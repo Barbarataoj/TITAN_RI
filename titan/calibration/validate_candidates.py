@@ -26,6 +26,8 @@ import pandas as pd
 
 from titan.calibration.optuna_calibration import (
     CALIB_YAML,
+    COMPOSITE_CLIP_QUANTILE,
+    SQUARED_OBJECTIVES,
     load_yaml,
     multi_error,
     run_titan,
@@ -287,13 +289,16 @@ def _rank_candidates(df):
     Without this the script only reports pass/fail per objective, which does not
     decide anything once more than one candidate passes all six -- the gap that
     forced the manual trial 5 -> 101 swap in Phase 4. The composite is the same
-    one select_canonical() uses (min-max normalize each objective across the
-    candidate pool, then sum), but computed on means over 5 population seeds x 10
-    reps instead of the single 10-rep value NSGA-II sorted on.
+    one select_canonical() uses, but computed on means over 5 population seeds x
+    10 reps instead of the single 10-rep value NSGA-II sorted on: square-root the
+    SQUARED_OBJECTIVES slots so all six enter on the scale of the quantity they
+    measure, normalize each onto [min, COMPOSITE_CLIP_QUANTILE] of the pool with
+    anything above the anchor clipped to 1.0, then sum. Both halves matter -- see
+    select_canonical for the job-4586902 measurement that motivated them.
 
-    Min-max normalization is relative to the pool being ranked, so these scores
-    are NOT comparable to the composite printed by the calibration run, which
-    normalized over all 640 front members.
+    Normalization is relative to the pool being ranked, so these scores are NOT
+    comparable to the composite printed by the calibration run, which normalizes
+    over the eligible members of the whole front.
     """
     trials = list(df["trial"].unique())
     if len(trials) < 2:
@@ -305,9 +310,13 @@ def _rank_candidates(df):
          for i in range(len(OBJECTIVES))]
         for t in trials
     ])
-    lo, hi = means.min(axis=0), means.max(axis=0)
+    scaled = means.copy()
+    for i in SQUARED_OBJECTIVES:
+        scaled[:, i] = np.sqrt(scaled[:, i])
+    lo = scaled.min(axis=0)
+    hi = np.quantile(scaled, COMPOSITE_CLIP_QUANTILE, axis=0)
     span = np.where(hi > lo, hi - lo, 1.0)
-    composite = np.where(hi > lo, (means - lo) / span, 0.0).sum(axis=1)
+    composite = np.where(hi > lo, np.minimum(1.0, (scaled - lo) / span), 0.0).sum(axis=1)
 
     n_pass = [(means[k] <= [tgt for _, tgt in OBJECTIVES]).sum() for k in range(len(trials))]
     hiv_pooled = [float(np.mean(df[df["trial"] == t]["hiv_new_pooled"].to_numpy()))

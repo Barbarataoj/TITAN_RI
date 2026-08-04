@@ -191,6 +191,40 @@ calibration:
   # denominator as `pwid_recent`/`pwid_recent_hiv` so both are visible in
   # validate_candidates; decide before committing compute to the refit.
   #
+  # RESOLVED 2026-08-04: keep `drug_type == "Inj"`. The choice no longer matters.
+  # Re-measured over job 4586902's front (2000 trials, transmission live on both
+  # the injection and sexual routes), the two denominators now agree to within a
+  # percentage point at every prevalence level:
+  #
+  #     trial   prev(Inj now)   prev(last 12 mo)   pooled infections
+  #      1165       0.158            0.159                217
+  #       803       0.096            0.092                115
+  #      1333       0.077            0.081                 60
+  #      1038       0.058            0.058                 51
+  #
+  # The 2026-07-30 factor of ~1.5 was measured in the pre-P1-P8 regime where PWID
+  # HIV transmission was effectively zero and prevalence was a decaying seed
+  # redistributing out of the Inj compartment; the gap between the denominators was
+  # a property of that decay, not of the definitions. With transmission sustaining
+  # the compartment, HIV+ agents are no longer concentrated among the recently-
+  # stopped, and the look-back adds denominator and numerator in nearly equal
+  # proportion. Swapping it would not move prevalence toward the target, so the
+  # incidence cost it was being weighed against buys nothing. `pwid_recent` /
+  # `pwid_recent_hiv` stay reported as an unscored diagnostic.
+  #
+  # WHAT THE PREVALENCE GAP ACTUALLY IS, same measurement: prevalence and incidence
+  # are two readings of one equilibrium, and the front trades them off (Spearman
+  # rho = -0.43 between hiv_prev_err and hiv_traj_rmse). Trials reproducing the
+  # target-implied ~90 pooled infections land at 0.077-0.096 prevalence; trials at
+  # 0.062 run 16-51 infections, at or under the transmission floor. Prevalence is
+  # also flat across all 11 scored years in every trial (1165: 0.152 -> 0.159;
+  # 803: 0.091 -> 0.083), i.e. it is set by the burn-in equilibrium and not
+  # accumulated over the scored window -- note 1165 enters 2012 at 0.152 from a
+  # 0.075 `hiv.init` seed. `initial_prevalence_pwid_2012` below is still never
+  # applied as a constraint (CODE_REVIEW_2026-07-28 D9), so nothing pins the level
+  # the burn-in hands to the scored window. That, not the denominator, is the open
+  # question.
+  #
   # SEPARATE, AND UNRESOLVED: every stratum in demographics carries
   # hiv.init = 0.075 for Inj and 0.0 for NonInj, identically across all six races
   # and all four sex types. Non-injecting agents therefore start with ZERO HIV --

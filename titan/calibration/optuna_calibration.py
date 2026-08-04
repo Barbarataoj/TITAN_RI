@@ -1,12 +1,18 @@
 # titan/calibration/optuna_calibration.py
 #
 # Multi-objective Optuna calibration for TITAN_RI.
-# Objectives (NSGA-II Pareto front):
+# Objectives (NSGA-II Pareto front), in the order multi_error() returns them:
 #   1. oud_rmse              — RMSE of (oud_active, oud_remission, oud_none) at final timestep
-#   2. hiv_traj_rmse         — RMSE of model annual PWID HIV incidence vs APCD 2012–2022 series
+#   2. hiv_traj_rmse         — period-mean RMSE of model PWID HIV incidence vs APCD 2012–2022
 #   3. hiv_prev_err          — squared error of final PWID HIV prevalence vs target
-#   4. od_err                — squared error of fatal + nonfatal annual OD rates vs targets
-#   5. moud_err              — squared error of MOUD uptake vs target
+#   4. od_err                — summed squared error of fatal + nonfatal annual OD rates vs targets
+#   5. moud_traj_rmse        — RMSE of model MOUD uptake series vs APCD 2012–2022
+#   6. inj_share_err         — squared error of injection share among active OUD vs target
+#
+# Note the mixed units: slots 1/2/5 are RMSEs (in the units of the quantity), slots
+# 3/4/6 are SQUARED errors. NSGA-II does not care -- it only ever compares an
+# objective against itself -- but any cross-objective aggregation does. See
+# SQUARED_OBJECTIVES and select_canonical().
 #
 # Reads basicReport.txt as TSV (one row per timestep × demographic stratum).
 
@@ -52,6 +58,26 @@ MIN_HIV_TRANSMISSION_EVENTS = 2
 # nothing in false rejections while excluding trials running an order of magnitude
 # cold. Added 2026-07-30.
 MIN_HIV_TRANSMISSION_FRACTION = 0.25
+
+# Which slots of multi_error()'s return are SQUARED errors rather than RMSEs.
+# Indices are positional and must be updated whenever an objective is appended.
+# Used only by select_canonical, to square-root those slots before the composite
+# so all six are compared in the units of the quantity they measure.
+SQUARED_OBJECTIVES = (2, 3, 5)   # hiv_prev_err, od_err, inj_share_err
+
+# Upper anchor for the composite's per-objective normalization, as a quantile of
+# the candidate pool rather than its max. Scores above the anchor clip to 1.0.
+#
+# WHY, measured on job 4586902's 637-member front: the objectives are heavy-tailed
+# and each one's own tail sets its normalizer, so a plain min-max hands the widest
+# objective the least influence. hiv_prev_err ranged [0, 0.347] on that front (a
+# 65% PWID prevalence at the top end), which normalized the canonical pick's own
+# 0.00926 -- a 9.6-percentage-point prevalence miss, 15.8% against a 6.2% target --
+# down to a 0.027 contribution, less than the 0.081 it took from od_err. 272 of the
+# 637 front members sat within 2 points of the prevalence target and none of them
+# was picked. Clipping at the 90th percentile drops that trial from 1st to 36th of
+# the 507 members clearing the transmission floor. Added 2026-08-04.
+COMPOSITE_CLIP_QUANTILE = 0.90
 
 # =====================================================
 # Utilities
@@ -646,28 +672,47 @@ def objective(trial):
 # =====================================================
 # Canonical-pick selection
 # =====================================================
+def _quantile(values, q):
+    """Linear-interpolated quantile of a list, without pulling in numpy for one call."""
+    s = sorted(values)
+    if len(s) == 1:
+        return s[0]
+    k = (len(s) - 1) * q
+    f = int(k)
+    if f + 1 >= len(s):
+        return s[-1]
+    return s[f] + (k - f) * (s[f + 1] - s[f])
+
 def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS):
     """
     Pick the canonical Pareto-front member to save as calibrated_scenario_best.yml.
 
     NOT pareto[0] -- optuna's study.best_trials order is arbitrary, not ranked by
-    quality. Ranks by composite min-max-normalized error across all objectives,
+    quality. Ranks by a composite of normalized errors across all objectives,
     restricted to trials with >= min_events pooled HIV infections (see
     min_transmission_events for how that floor is derived). Falls back to the full
     front, with a warning, if no trial clears the transmission-activity bar.
 
+    The composite normalizes each objective onto [0, 1] and sums, with two
+    corrections added 2026-08-04 after job 4586902 picked a trial whose PWID HIV
+    prevalence was 2.5x its target:
+
+      1. The SQUARED_OBJECTIVES slots are square-rooted first, so all six enter on
+         the scale of the quantity rather than its square. Mixing the two is what
+         let a large error in a squared objective read as a small normalized one.
+      2. The upper anchor is COMPOSITE_CLIP_QUANTILE of the pool, not its max, with
+         scores above it clipped to 1.0. A single runaway trial can otherwise set an
+         objective's normalizer and mute that objective for every other trial.
+
+    Normalization is over the filtered pool, not the whole front: trials excluded
+    for insufficient transmission are not eligible to be picked, so they should not
+    be setting the scale the eligible ones are judged on either.
+
+    Composite scores are therefore NOT comparable to those printed by runs before
+    2026-08-04, and their magnitude is only meaningful relative to the same pool.
+
     Returns (best_trial, composite_score, used_transmission_filter).
     """
-    n_obj = len(pareto[0].values)
-    lo = [min(t.values[i] for t in pareto) for i in range(n_obj)]
-    hi = [max(t.values[i] for t in pareto) for i in range(n_obj)]
-
-    def composite(t):
-        return sum(
-            (t.values[i] - lo[i]) / (hi[i] - lo[i]) if hi[i] > lo[i] else 0.0
-            for i in range(n_obj)
-        )
-
     candidates = [
         t for t in pareto
         if t.user_attrs.get("hiv_new_pooled", 0) >= min_events
@@ -682,6 +727,25 @@ def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS):
         pool, used_filter = pareto, False
     else:
         pool, used_filter = candidates, True
+
+    n_obj = len(pareto[0].values)
+
+    def scaled(t):
+        return [
+            t.values[i] ** 0.5 if i in SQUARED_OBJECTIVES else t.values[i]
+            for i in range(n_obj)
+        ]
+
+    cols = list(zip(*[scaled(t) for t in pool]))
+    lo = [min(c) for c in cols]
+    hi = [_quantile(list(c), COMPOSITE_CLIP_QUANTILE) for c in cols]
+
+    def composite(t):
+        v = scaled(t)
+        return sum(
+            min(1.0, (v[i] - lo[i]) / (hi[i] - lo[i])) if hi[i] > lo[i] else 0.0
+            for i in range(n_obj)
+        )
 
     best = min(pool, key=composite)
     return best, composite(best), used_filter
@@ -782,9 +846,15 @@ def main():
     best, best_composite, used_transmission_filter = select_canonical(pareto, min_events)
     print(
         f"Canonical pick: trial {best.number} (composite={best_composite:.4f} across "
-        f"{len(pareto[0].values)} min-max-normalized objectives, pooled hiv_new="
+        f"{len(pareto[0].values)} objectives normalized to the eligible pool's "
+        f"[min, p{int(COMPOSITE_CLIP_QUANTILE * 100)}], pooled hiv_new="
         f"{best.user_attrs.get('hiv_new_pooled', 'n/a')}, "
         f"transmission filter {'applied' if used_transmission_filter else 'had no eligible trials'})"
+    )
+    print(
+        "Composite definition changed 2026-08-04 (squared objectives square-rooted, "
+        "upper anchor clipped to a pool quantile); scores are not comparable to "
+        "earlier runs. See select_canonical."
     )
 
     # ---- HIV null-transmission diagnostic ----

@@ -46,4 +46,4 @@ echo "Config: TRIALS=${TITAN_VAL_TRIALS} SEEDS=${TITAN_VAL_SEEDS} REPS=${TITAN_V
 python -m titan.calibration.validate_candidates
 
 echo "Job ${SLURM_JOB_ID} finished at $(date)"
-echo "Outputs: /oscar/scratch/${USER}/titan_calibration/validation/validation_summary.csv"
+echo "Outputs: ${TITAN_VAL_OUT:-/oscar/scratch/${USER}/titan_calibration/validation}/validation_summary.csv"
