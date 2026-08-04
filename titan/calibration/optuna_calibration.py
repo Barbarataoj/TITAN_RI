@@ -3,16 +3,21 @@
 # Multi-objective Optuna calibration for TITAN_RI.
 # Objectives (NSGA-II Pareto front), in the order multi_error() returns them:
 #   1. oud_rmse              — RMSE of (oud_active, oud_remission, oud_none) at final timestep
-#   2. hiv_traj_rmse         — period-mean RMSE of model PWID HIV incidence vs APCD 2012–2022
-#   3. hiv_prev_err          — squared error of final PWID HIV prevalence vs target
-#   4. od_err                — summed squared error of fatal + nonfatal annual OD rates vs targets
-#   5. moud_traj_rmse        — RMSE of model MOUD uptake series vs APCD 2012–2022
-#   6. inj_share_err         — squared error of injection share among active OUD vs target
+#   2. ridoh_idu_err         — RMSE, statewide cases/yr, of injection-attributed HIV
+#                              diagnoses vs RIDOH's pooled IDU windows
+#   3. od_err                — summed squared error of fatal + nonfatal annual OD rates vs targets
+#   4. moud_traj_rmse        — RMSE of model MOUD uptake series vs APCD 2012–2022
+#   5. inj_share_err         — squared error of injection share among active OUD vs target
 #
-# Note the mixed units: slots 1/2/5 are RMSEs (in the units of the quantity), slots
-# 3/4/6 are SQUARED errors. NSGA-II does not care -- it only ever compares an
+# Note the mixed units: slots 1/2/4 are RMSEs (in the units of the quantity), slots
+# 3/5 are SQUARED errors. NSGA-II does not care -- it only ever compares an
 # objective against itself -- but any cross-objective aggregation does. See
 # SQUARED_OBJECTIVES and select_canonical().
+#
+# The HIV objective changed on 2026-08-04 from an APCD per-PWID-year incidence
+# series to RIDOH IDU-attributed diagnosis counts, and HIV prevalence was dropped
+# as an objective at the same time. See multi_error() for why, and
+# calibration_targets.yml hiv.ridoh_idu_dx for the target derivation.
 #
 # Reads basicReport.txt as TSV (one row per timestep × demographic stratum).
 
@@ -33,6 +38,18 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 CALIB_YAML = REPO_ROOT / "titan/calibration/calibration_targets.yml"
 BASE_SCENARIO = REPO_ROOT / "calibrated_scenario_multi_5obj.yml"
+
+# Where main() writes the canonical pick. Overridable because it is the one
+# output that is NOT under SCRATCH: setting SCRATCH to a temp dir isolates the
+# trial directories, the study journal and the front CSV, but a short smoke run
+# would still land on the repo's real calibrated_scenario_best.yml and destroy
+# the last completed calibration's output. That happened on 2026-08-04; a 2-trial
+# 1-rep test overwrote job 4586902's pick, which had to be reconstructed from
+# trial_1165.yml. Point TITAN_CALIB_BEST_OUT somewhere disposable when smoke
+# testing.
+BEST_SCENARIO_OUT = Path(
+    os.environ.get("TITAN_CALIB_BEST_OUT", REPO_ROOT / "calibrated_scenario_best.yml")
+)
 
 SCRATCH = Path(os.environ.get("SCRATCH", f"/oscar/scratch/{os.environ['USER']}"))
 OUTPUT_DIR = SCRATCH / "titan_calibration" / "optuna_multi_runs"
@@ -59,11 +76,19 @@ MIN_HIV_TRANSMISSION_EVENTS = 2
 # cold. Added 2026-07-30.
 MIN_HIV_TRANSMISSION_FRACTION = 0.25
 
+# Timesteps per calendar year. Was a parse_basic_report default only; promoted to
+# a module constant 2026-08-04 so the null-transmission screen can work out how
+# many model years the scored window covers without restating the number.
+STEPS_PER_YEAR = 12
+
 # Which slots of multi_error()'s return are SQUARED errors rather than RMSEs.
-# Indices are positional and must be updated whenever an objective is appended.
-# Used only by select_canonical, to square-root those slots before the composite
-# so all six are compared in the units of the quantity they measure.
-SQUARED_OBJECTIVES = (2, 3, 5)   # hiv_prev_err, od_err, inj_share_err
+# Indices are positional and must be updated whenever an objective is added,
+# removed or reordered. Used only by select_canonical, to square-root those slots
+# before the composite so all objectives are compared in the units of the
+# quantity they measure.
+#
+# Reindexed 2026-08-04 when hiv_prev_err was dropped and the vector went 6 -> 5.
+SQUARED_OBJECTIVES = (2, 4)   # od_err, inj_share_err
 
 # Upper anchor for the composite's per-objective normalization, as a quantile of
 # the candidate pool rather than its max. Scores above the anchor clip to 1.0.
@@ -171,7 +196,7 @@ def run_titan(params_file, output_dir, n_reps=None):
 # =====================================================
 # basicReport.txt parser (TSV, per-timestep × stratum)
 # =====================================================
-def parse_basic_report(path, steps_per_year=12):
+def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
     """
     Parse basicReport.txt (TSV, one row per timestep × demographic stratum) into
     an aggregated stats dict.
@@ -285,6 +310,27 @@ def parse_basic_report(path, steps_per_year=12):
     # systematic). Reported so the discrepancy is visible rather than absorbed
     # silently into hiv_traj_rmse.
     stats["hiv_dx_incidence_series_pwid"] = annual_series(df_pwid, "hiv_dx_new", "agents")
+
+    # Injection-attributed diagnoses per model-year, as a COUNT rather than a
+    # rate: this is what the RIDOH IDU target is scored against, and counts are
+    # the whole point of the swap -- RIDOH's IDU category has no PWID
+    # denominator, so a rate cannot be built from it (see calibration_targets.yml
+    # hiv.ridoh_idu_dx). Divided by n_runs because reps append into one
+    # basicReport.txt and are pooled by the groupby above.
+    #
+    # `hiv_dx_new_inj`, not `hiv_new_inj`: RIDOH counts diagnoses, not true
+    # conversions. And not `hiv_dx_new`, which includes the sexual and background
+    # routes -- only ~31% of new infections among PWID are injection-acquired, so
+    # the all-route count overstates the target quantity roughly threefold.
+    #
+    # Reps are counted off run_id rather than passed in, so the divisor cannot
+    # drift out of sync with a report written at a different -n than the caller
+    # assumes.
+    n_reps = int(df["run_id"].nunique()) if "run_id" in df.columns else 1
+    stats["n_reps"] = n_reps
+    stats["idu_dx_counts_per_year"] = (
+        annual_series(df_pwid, "hiv_dx_new_inj", None) / n_reps
+    )
 
     first_post_burn_pwid = max(1, df_pwid.index.min()) if len(df_pwid) else 1
     stats["hiv_new_pooled"] = int(df_pwid.loc[
@@ -415,6 +461,11 @@ def _period_groups(years, periods):
     return [np.where((yrs >= a) & (yrs <= b))[0] for a, b in periods]
 
 
+# _period_rmse, null_period_rmse and null_traj_rmse are off the scored path as of
+# 2026-08-04, when the HIV objective moved to RIDOH counts. They are retained so
+# the APCD comparison stays computable as a diagnostic -- being able to say how a
+# candidate scores against the old target is useful when explaining the swap --
+# and because parse_basic_report still emits the series they consume.
 def _period_rmse(model_series, target_series, years, periods):
     """
     RMSE between period MEANS of a model series and a target series.
@@ -457,22 +508,131 @@ def null_period_rmse(target_series, years, periods):
     target = np.asarray(target_series, dtype=float)
     return float(np.sqrt(np.mean(np.array([target[g].mean() for g in groups]) ** 2)))
 
+def ridoh_idu_rmse(idu_counts_per_year, first_year, targets):
+    """
+    RMSE, in statewide cases per year, of the model's injection-attributed HIV
+    diagnoses against RIDOH's pooled IDU windows.
+
+    `idu_counts_per_year` is per model-year per model population; multiplying by
+    targets["pop_scale"] puts it on RIDOH's statewide footing. Each RIDOH window
+    is compared against the mean of the model years it spans, because RIDOH
+    publishes 5-year pooled shares and suppresses single years below 5.
+
+    The pre-2015 bound is one-sided: PMC6055286 bounds IDU-attributed diagnoses
+    at <6/yr over 2009-2014, which is a ceiling and not an estimate, so it costs
+    nothing until the model exceeds it.
+
+    Returns the max-penalty value when the model produced no usable series, so a
+    failed parse cannot look like a good fit.
+    """
+    windows = targets["ridoh_windows"]
+    if idu_counts_per_year is None or len(idu_counts_per_year) == 0:
+        return float(np.sqrt(np.mean([w["cases_per_year"] ** 2 for w in windows])))
+
+    series = np.asarray(idu_counts_per_year, dtype=float) * targets["pop_scale"]
+    years = first_year + np.arange(len(series))
+
+    errs = []
+    for w in windows:
+        lo, hi = w["years"]
+        sel = (years >= lo) & (years <= hi)
+        if not sel.any():
+            continue
+        errs.append(float(series[sel].mean()) - float(w["cases_per_year"]))
+
+    bound = targets.get("ridoh_upper_bound")
+    if bound is not None:
+        lo, hi = bound["years"]
+        sel = (years >= lo) & (years <= hi)
+        if sel.any():
+            excess = float(series[sel].mean()) - float(bound["max_cases_per_year"])
+            errs.append(max(0.0, excess))
+
+    if not errs:
+        return float(np.sqrt(np.mean([w["cases_per_year"] ** 2 for w in windows])))
+
+    return float(np.sqrt(np.mean(np.square(errs))))
+
+def build_targets(calib):
+    """
+    Build the targets dict multi_error() reads, from the parsed
+    calibration_targets.yml `calibration` block.
+
+    Single definition on purpose. objective() and validate_candidates both need
+    this and used to construct it separately; when inj_share_err was added as an
+    objective on 2026-07-29 only one of the two was updated, and every
+    validate_candidates run from then until 2026-08-03 died with
+    KeyError: 'inj_share' on its first trial.
+
+    args:
+        calib: the "calibration" mapping from calibration_targets.yml
+    """
+    hiv = calib["hiv"]
+    ridoh = hiv["ridoh_idu_dx"]
+
+    # Model counts are per model population; RIDOH counts are statewide. See
+    # calibration_targets.yml hiv.population_scale for why the anchor is APCD's
+    # F11-dx OUD count against oud_active rather than PROFOUND's wider at-risk
+    # figure.
+    active_frac = calib["oud_baseline"]["oud_active"]
+    pop_size = calib["population"]["size"]
+    pop_scale = hiv["population_scale"]["ri_active_oud"] / (active_frac * pop_size)
+
+    return {
+        "oud": calib["oud_baseline"],
+        "od_fatal": calib["overdose"]["fatal_rate_annual"],
+        "od_nonfatal_inj": calib["overdose"]["nonfatal_rate_inj_annual"],
+        "od_nonfatal_noninj": calib["overdose"]["nonfatal_rate_noninj_annual"],
+        "moud_series": calib["moud"]["uptake_series_per_yr"],
+        "inj_share": calib["injecting"]["injecting_pct"],
+        "ridoh_windows": ridoh["windows"],
+        "ridoh_upper_bound": ridoh.get("upper_bound_pre_2015"),
+        "pop_scale": pop_scale,
+        # First calendar year of the scored window. Still taken from the APCD
+        # series' year list, which is retained for provenance even though its
+        # values are no longer scored -- it is the only place the window's
+        # calendar anchor is written down.
+        "first_year": hiv["incidence_series_years"][0],
+        # Reported but no longer scored; kept so validate_candidates can display
+        # PWID HIV prevalence against the old APCD figure as a diagnostic.
+        "hiv_prev": hiv["baseline_prevalence_pct"],
+    }
+
 def multi_error(stats, targets):
     """
-    Return 6 scalar errors for NSGA-II:
-      (oud_rmse, hiv_traj_rmse, hiv_prev_err, od_err, moud_traj_rmse,
-       inj_share_err)
+    Return 5 scalar errors for NSGA-II:
+      (oud_rmse, ridoh_idu_err, od_err, moud_traj_rmse, inj_share_err)
 
-    OD error now folds in stratified targets (inj / non-inj nonfatal + fatal).
-    MOUD error is now a trajectory RMSE against mofan's APCD #16/#43 series.
+    OD error folds in stratified targets (inj / non-inj nonfatal + fatal).
+    MOUD error is a trajectory RMSE against mofan's APCD #16/#43 series.
 
     inj_share_err was added 2026-07-29. `calibration.injecting.injecting_pct` had
     been defined in calibration_targets.yml since the OUD redesign but was never
-    read here, so the injection share -- the denominator of the HIV incidence
-    objective and the population the whole intervention analysis is about -- was
-    an unscored consequence of five fitted transition rates. New objectives are
-    appended, never inserted, because select_canonical and the null-trial screen
-    index into `trial.values` positionally.
+    read here, so the injection share -- the population the whole intervention
+    analysis is about -- was an unscored consequence of five fitted transition
+    rates.
+
+    CHANGED 2026-08-04, and this is a reindexing, not an append. Two slots moved:
+
+      * `hiv_traj_rmse` (APCD per-PWID-year incidence series) is replaced by
+        `ridoh_idu_err`, RMSE in statewide cases per year against RIDOH's
+        IDU-attributed diagnosis counts. The APCD series measures diagnoses in a
+        claims-identified OUD population on any transmission route; fitting it
+        drove the model to 4-6x RIDOH's observed IDU counts. See
+        calibration_targets.yml hiv.ridoh_idu_dx for the derivation.
+      * `hiv_prev_err` is REMOVED. Its target (APCD #25) has the same
+        any-transmission-route problem, RIDOH publishes no PLWH breakdown by
+        transmission category to replace it with (checked across the 2019, 2022
+        and 2024 surveillance reports), and paired with the incidence target it
+        was jointly infeasible -- the two implied a 9.4-year HIV+ dwell time in
+        the PWID compartment against the model's 22.9. PWID HIV prevalence is
+        still reported by parse_basic_report and checked by validate_candidates;
+        it is simply no longer optimized against.
+
+    Everything that indexes `trial.values` positionally -- SQUARED_OBJECTIVES,
+    select_canonical, the null-transmission screen, validate_candidates.OBJECTIVES
+    -- was updated with this change. No study persisted before 2026-08-04 can be
+    resumed against it.
     """
     oud_rmse = float(np.sqrt(
         sum(
@@ -481,19 +641,11 @@ def multi_error(stats, targets):
         ) / 3
     ))
 
-    # Period means since 2026-08-03, annual points before that. Objective slot 1
-    # is reused rather than appended: the quantity being scored is the same one,
-    # measured at a coarser resolution, and select_canonical / the null screen
-    # index into trial.values positionally. Studies persisted before this date
-    # cannot be resumed against it -- the objective changed meaning, not position.
-    hiv_traj_rmse = _period_rmse(
-        stats.get("hiv_incidence_series_pwid"),
-        targets["hiv_inc_series"],
-        targets["hiv_inc_years"],
-        targets["hiv_inc_periods"],
+    ridoh_idu_err = ridoh_idu_rmse(
+        stats.get("idu_dx_counts_per_year"),
+        targets["first_year"],
+        targets,
     )
-
-    hiv_prev_err = float((stats.get("hiv_prevalence_pwid", 0) - targets["hiv_prev"]) ** 2)
 
     od_err = float(
         (stats.get("fatal_od_rate", 0)             - targets["od_fatal"])    ** 2
@@ -512,8 +664,7 @@ def multi_error(stats, targets):
 
     return (
         oud_rmse,
-        hiv_traj_rmse,
-        hiv_prev_err,
+        ridoh_idu_err,
         od_err,
         moud_traj_rmse,
         inj_share_err,
@@ -528,18 +679,7 @@ def objective(trial):
     base = load_yaml(BASE_SCENARIO)
     scenario = copy.deepcopy(base)
 
-    targets = {
-        "oud":              calib["calibration"]["oud_baseline"],
-        "hiv_prev":         calib["calibration"]["hiv"]["baseline_prevalence_pct"],
-        "hiv_inc_series":   calib["calibration"]["hiv"]["incidence_series_per_pwid_yr"],
-        "hiv_inc_years":    calib["calibration"]["hiv"]["incidence_series_years"],
-        "hiv_inc_periods":  calib["calibration"]["hiv"]["incidence_periods"],
-        "od_fatal":         calib["calibration"]["overdose"]["fatal_rate_annual"],
-        "od_nonfatal_inj":  calib["calibration"]["overdose"]["nonfatal_rate_inj_annual"],
-        "od_nonfatal_noninj": calib["calibration"]["overdose"]["nonfatal_rate_noninj_annual"],
-        "moud_series":      calib["calibration"]["moud"]["uptake_series_per_yr"],
-        "inj_share":        calib["calibration"]["injecting"]["injecting_pct"],
-    }
+    targets = build_targets(calib["calibration"])
 
     # YAML-backed parameters.
     #
@@ -805,12 +945,12 @@ def main():
         print(f"Study storage: JournalStorage at {journal_path}")
 
     study = optuna.create_study(
-        # 6 objectives since 2026-07-29 (inj_share_err appended). Studies persisted
-        # from the 5-objective era cannot be resumed against this. Nor can any
-        # study persisted before 2026-08-03: objective slot 1 was redefined from
-        # an 11-point annual RMSE to a 3-period one, and two search dimensions
-        # were added. Same slots, different meaning.
-        directions=["minimize"] * 6,
+        # 5 objectives since 2026-08-04, when hiv_prev_err was dropped and slot 1
+        # became ridoh_idu_err. No earlier study can be resumed against this: the
+        # vector changed length AND meaning. History of the same problem -- 6
+        # objectives from 2026-07-29 (inj_share_err appended), slot 1 redefined
+        # from an 11-point annual RMSE to a 3-period one on 2026-08-03.
+        directions=["minimize"] * 5,
         storage=storage,
         study_name=os.environ.get("TITAN_CALIB_STUDY", "titan_ri_multi"),
         load_if_exists=True,
@@ -858,20 +998,33 @@ def main():
     )
 
     # ---- HIV null-transmission diagnostic ----
-    # hiv_traj_rmse == null_traj_rmse(target) exactly when a trial's simulated PWID
-    # HIV incidence is flat zero -- see docs/calibration_log/
-    # phase_4_oud_addendum_2026-07-20.md (the RMSE floor a null model scores by
-    # construction) and phase_4_ridoh_idu_validation_2026-07-21.md (why this check
-    # exists, and why it alone isn't sufficient -- see select_canonical above).
-    null_value = null_period_rmse(
-        calib["calibration"]["hiv"]["incidence_series_per_pwid_yr"],
-        calib["calibration"]["hiv"]["incidence_series_years"],
-        calib["calibration"]["hiv"]["incidence_periods"],
+    # A trial simulating zero injection-attributed transmission scores exactly the
+    # RMSE of the RIDOH window targets about zero -- the value a null model gets
+    # for free. See docs/calibration_log/phase_4_oud_addendum_2026-07-20.md for
+    # the original version of this floor and
+    # phase_4_ridoh_idu_validation_2026-07-21.md for why the check exists and why
+    # it is not sufficient alone (see select_canonical above).
+    #
+    # Rewritten 2026-08-04 with the objective: the floor is now in statewide cases
+    # per year against the RIDOH windows, not the APCD per-PWID-year series, and
+    # it reads objective slot 1, which is ridoh_idu_err.
+    #
+    # Derived by calling the objective on an all-zero series rather than by
+    # restating its formula here. Restating it gets the wrong answer: the
+    # one-sided pre-2015 bound contributes a zero term to the RMSE that a
+    # windows-only expression misses, giving 2.178 where the objective actually
+    # returns 1.779, and the screen would then never fire.
+    targets_for_null = build_targets(calib["calibration"])
+    n_model_years = calib["calibration"]["population"]["steps"] // STEPS_PER_YEAR
+    null_value = ridoh_idu_rmse(
+        np.zeros(n_model_years),
+        targets_for_null["first_year"],
+        targets_for_null,
     )
     null_trials = [t for t in pareto if abs(t.values[1] - null_value) < 1e-6]
     print(
         f"HIV null-transmission check: {len(null_trials)}/{len(pareto)} Pareto trials "
-        f"have hiv_traj_rmse == {null_value:.6f} (zero simulated PWID HIV incidence)."
+        f"have ridoh_idu_err == {null_value:.6f} (zero injection-attributed diagnoses)."
     )
     ridoh = calib["calibration"]["hiv"].get("ridoh_idu_validation")
     if ridoh:
@@ -926,7 +1079,7 @@ def main():
     )
 
     # Write the canonical pick to a SEPARATE file so the base scenario stays intact
-    outpath = REPO_ROOT / "calibrated_scenario_best.yml"
+    outpath = BEST_SCENARIO_OUT
     try:
         write_yaml(outpath, calibrated)
         print(f"Saved canonical Pareto pick to {outpath}")

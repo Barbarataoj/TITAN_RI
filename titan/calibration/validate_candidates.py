@@ -28,6 +28,7 @@ from titan.calibration.optuna_calibration import (
     CALIB_YAML,
     COMPOSITE_CLIP_QUANTILE,
     SQUARED_OBJECTIVES,
+    build_targets,
     load_yaml,
     multi_error,
     run_titan,
@@ -65,12 +66,25 @@ OBJECTIVES = [
     #
     # Reference values on the period scale: zero-transmission 0.00684,
     # flat-at-mean 0.00121, pre-refit candidates 0.00258-0.00505.
-    ("HIV trajectory", 0.0012),
-    # Squared error on PWID prevalence against a 0.062 target. 0.001 accepts
-    # 0.030-0.094 -- a 3x range, wider than the quantity being fitted. 0.0003
-    # accepts 0.045-0.079, about 2.5 SE at 50 runs, so it binds without
-    # rejecting on noise.
-    ("HIV prevalence", 0.0003),
+    #
+    # SUPERSEDED 2026-08-04. The objective this gate scored is gone; slot 1 is now
+    # ridoh_idu_err. The reasoning above is kept because it applies verbatim to
+    # the replacement: do not raise a gate until something passes.
+    #
+    # The new gate is in statewide IDU-attributed diagnoses per year, RMSE across
+    # RIDOH's two pooled windows (1.8/yr for 2015-2019, 2.5/yr for 2018-2022).
+    # 1.0 means "within about one case per year of RIDOH", which is inside the
+    # width of RIDOH's own suppression -- single-year counts are published only as
+    # "fewer than 5" -- so a tighter gate would be scoring precision the source
+    # data does not have. A null model, simulating zero injection transmission,
+    # scores 2.18 by construction, so the gate rejects one outright.
+    ("RIDOH IDU diagnoses", 1.0),
+    # HIV prevalence was dropped as an objective on 2026-08-04 -- APCD #25 has the
+    # same any-transmission-route problem as the incidence series it was paired
+    # with, and RIDOH publishes no PLWH breakdown by transmission category to
+    # replace it (checked across the 2019, 2022 and 2024 surveillance reports).
+    # It is still reported per-trial through the VALIDATION list below as an
+    # unscored diagnostic; it is simply no longer gated.
     ("Overdose", 0.005),
     ("MOUD trajectory", 0.10),
     # Squared error on the injection share among active OUD. Threshold 0.0025 =
@@ -100,24 +114,17 @@ POP_SEEDS = [12345, 20260720, 8675309, 314159, 271828, 1618033, 42424242, 99991]
 
 
 def load_targets():
-    calib = load_yaml(CALIB_YAML)["calibration"]
-    return {
-        "oud": calib["oud_baseline"],
-        "hiv_prev": calib["hiv"]["baseline_prevalence_pct"],
-        "hiv_inc_series": calib["hiv"]["incidence_series_per_pwid_yr"],
-        "hiv_inc_years": calib["hiv"]["incidence_series_years"],
-        "hiv_inc_periods": calib["hiv"]["incidence_periods"],
-        "od_fatal": calib["overdose"]["fatal_rate_annual"],
-        "od_nonfatal_inj": calib["overdose"]["nonfatal_rate_inj_annual"],
-        "od_nonfatal_noninj": calib["overdose"]["nonfatal_rate_noninj_annual"],
-        "moud_series": calib["moud"]["uptake_series_per_yr"],
-        # Added 2026-08-03. multi_error() grew inj_share_err as a 6th objective on
-        # 2026-07-29 and reads targets["inj_share"] unconditionally, but this
-        # loader was not updated with it, so every invocation since died with
-        # KeyError: 'inj_share' on the first trial. The OBJECTIVES list here was
-        # updated at the time, which hid the omission -- the script looked current.
-        "inj_share": calib["injecting"]["injecting_pct"],
-    }
+    """
+    Delegates to optuna_calibration.build_targets so this script and the
+    calibration cannot score against different target dicts.
+
+    This used to be a second hand-maintained copy. When inj_share_err was added
+    as an objective on 2026-07-29 only the calibration copy was updated, and
+    every run of this script from then until 2026-08-03 died with
+    KeyError: 'inj_share' on its first trial -- while the OBJECTIVES list below
+    had been updated, so the script looked current.
+    """
+    return build_targets(load_yaml(CALIB_YAML)["calibration"])
 
 
 # Data-anchored inputs, reported but never scored. (stat key, label, target,
@@ -129,6 +136,14 @@ VALIDATION = [
     ("incar_share",         "incarcerated share",   0.0552, 0.015),
     ("art_among_dx",        "on ART | diagnosed",   0.780,  0.06),
     ("suppressed_among_dx", "suppressed | diagnosed", 0.572, 0.08),
+    # Added 2026-08-04, when PWID HIV prevalence stopped being an objective.
+    # Dropping it from the score should not drop it from view: it is the quantity
+    # that exposed the APCD targets as jointly infeasible, and a refit that sends
+    # it somewhere implausible needs to be visible even though nothing penalises
+    # it. The 0.062 reference is APCD #25, retained as a comparison point and NOT
+    # as a target -- it measures a claims-identified OUD population on any
+    # transmission route. Tolerance is wide to signal that.
+    ("hiv_prevalence_pwid", "PWID HIV prev (unscored)", 0.062, 0.04),
 ]
 
 
@@ -220,10 +235,21 @@ def main():
             # on HIV trajectory with 0-1 stochastic infections (see
             # docs/calibration_log/phase_4_ridoh_idu_validation_2026-07-21.md).
             row["hiv_new_pooled"] = stats.get("hiv_new_pooled", 0)
+            # Injection-attributed diagnoses on RIDOH's statewide footing, which
+            # is what objective slot 1 actually compares. Carried as a raw
+            # quantity for the same reason hiv_new_pooled is: the RMSE alone does
+            # not say whether a good score came from matching RIDOH or from
+            # simulating almost no injection transmission at all.
+            idu = stats.get("idu_dx_counts_per_year")
+            row["idu_dx_per_year_ri"] = (
+                float(np.mean(idu)) * targets["pop_scale"]
+                if idu is not None and len(idu)
+                else float("nan")
+            )
             # Validation quantities -- carried through but NOT scored, see
             # calibration_targets.yml `validation_targets`.
             for k in ("incar_share", "art_among_dx", "suppressed_among_dx",
-                      "dx_among_hiv"):
+                      "dx_among_hiv", "hiv_prevalence_pwid"):
                 row[k] = stats.get(k, float("nan"))
             rows.append(row)
             print(

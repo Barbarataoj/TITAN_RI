@@ -10,7 +10,15 @@ from .. import utils
 
 class HIV(base_exposure.BaseExposure):
     name: str = "hiv"
-    stats: List[str] = ["hiv", "hiv_dx", "hiv_aids", "hiv_new", "hiv_dx_new"]
+    stats: List[str] = [
+        "hiv",
+        "hiv_dx",
+        "hiv_aids",
+        "hiv_new",
+        "hiv_dx_new",
+        "hiv_new_inj",
+        "hiv_dx_new_inj",
+    ]
     """
         HIV collects the following stats:
 
@@ -19,6 +27,35 @@ class HIV(base_exposure.BaseExposure):
         * hiv_aids - number of agents with aids
         * hiv_new - number of agents converted to hiv this timestep
         * hiv_dx_new - number of agents with diagnosed with hiv this timestep
+        * hiv_new_inj - of hiv_new, those who acquired via the injection route
+        * hiv_dx_new_inj - of hiv_dx_new, those who acquired via the injection route
+
+        The two `_inj` stats exist to compare against RIDOH's IDU transmission
+        category, which is assigned from case-investigation risk-factor
+        interviews and counts only infections attributed to injection. Since the
+        sexual route went live, `hiv_new` among PWID also contains infections
+        RIDOH would classify as GBMSM or heterosexual, so it is not the right
+        comparator for that target. `hiv_dx_new_inj` is the closer match of the
+        two, because RIDOH counts diagnoses rather than true conversions.
+    """
+
+    ACQUISITION_ROUTES: Set[str] = {"injection", "sex", "background", "seed"}
+    """
+        How an agent's HIV was acquired. "injection" and "sex" come from a
+        network transmission event and carry that event's interaction type;
+        "background" is the non-network force of infection, which represents
+        partners outside the modelled OUD population and is sexual by
+        construction; "seed" is initial prevalence or agent zero, i.e. not
+        incident within the run at all.
+
+        The `external_exposure` feature also converts agents, through a generic
+        `convert(model)` call it shares with the knowledge and monkeypox
+        exposures, so it cannot pass a route without changing their signatures
+        too. Those infections therefore land as "seed". The feature defaults to
+        false and is not enabled in any RI scenario; if it is ever turned on,
+        its infections will be counted in `hiv_new` but excluded from
+        `hiv_new_inj`, which is the right side to err on -- an out-of-model
+        exposure is not injection-attributed evidence.
     """
 
     dx_counts: Dict[str, Dict[str, int]] = {}
@@ -35,6 +72,7 @@ class HIV(base_exposure.BaseExposure):
         self.dx = False
         self.dx_time: Optional[int] = None
         self.aids = False
+        self.acquisition_route: Optional[str] = None
 
     @classmethod
     def init_class(cls, params):
@@ -154,6 +192,9 @@ class HIV(base_exposure.BaseExposure):
             and time >= pop.params.hiv.start_time
         ):
             self.active = True
+            # Prevalent at population creation, not incident within the run, so
+            # it must not count toward the injection-attributed incidence stats.
+            self.acquisition_route = "seed"
 
             # if HIV, when did the agent convert? Random sample
             self.time = utils.safe_random_int(
@@ -225,7 +266,10 @@ class HIV(base_exposure.BaseExposure):
         p_background = self.get_background_foi_probability(model)  # NEW
 
         if p_background > 0.0 and model.run_random.random() < p_background:
-            self.convert(model)
+            # Background FOI stands in for partners outside the modelled OUD
+            # population and is sexual by construction, so it is not attributed
+            # to the injection route.
+            self.convert(model, "background")
 
     @classmethod
     def add_agent(cls, agent: "agent.Agent"):
@@ -260,14 +304,19 @@ class HIV(base_exposure.BaseExposure):
     def set_stats(self, stats: Dict[str, int], time: int):
         if self.active:
             stats["hiv"] += 1
+            injection_acquired = self.acquisition_route == "injection"
             if self.time == time:
                 stats["hiv_new"] += 1
+                if injection_acquired:
+                    stats["hiv_new_inj"] += 1
             if self.aids:
                 stats["hiv_aids"] += 1
             if self.dx:
                 stats["hiv_dx"] += 1
                 if self.dx_time == time:
                     stats["hiv_dx_new"] += 1
+                    if injection_acquired:
+                        stats["hiv_dx_new_inj"] += 1
 
     @staticmethod
     def expose(
@@ -304,7 +353,7 @@ class HIV(base_exposure.BaseExposure):
 
         if model.run_random.random() < p:
             # if agent HIV+ partner becomes HIV+
-            partner.hiv.convert(model)  # type: ignore[attr-defined]
+            partner.hiv.convert(model, interaction)  # type: ignore[attr-defined]
 
     def get_transmission_probability(
         self,
@@ -382,16 +431,29 @@ class HIV(base_exposure.BaseExposure):
 
         return utils.total_probability(p, num_acts)
 
-    def convert(self, model: "model.TITAN"):
+    def convert(self, model: "model.TITAN", acquisition_route: str = "seed"):
         """
         Agent becomes HIV agent. Update all appropriate attributes, sets and dictionaries.
 
         args:
             model: The model being run
+            acquisition_route: how the agent acquired HIV, one of
+                ACQUISITION_ROUTES. Recorded so incidence can be attributed to
+                the injection route and compared against RIDOH's IDU
+                transmission category. Defaults to "seed" so that callers
+                representing initial prevalence or agent zero -- which are not
+                incident infections -- do not have to pass it explicitly.
         """
+        if acquisition_route not in self.ACQUISITION_ROUTES:
+            raise ValueError(
+                f"unknown HIV acquisition_route {acquisition_route!r}; "
+                f"expected one of {sorted(self.ACQUISITION_ROUTES)}"
+            )
+
         if not self.active:
             self.active = True
             self.time = model.time
+            self.acquisition_route = acquisition_route
             self.agent.vaccine.active = False  # type: ignore[attr-defined]
             self.add_agent(self.agent)
 
