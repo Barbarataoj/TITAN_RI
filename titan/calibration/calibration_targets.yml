@@ -44,10 +44,46 @@ calibration:
   #     hiv_dx_incidence_series_pwid (from hiv_dx_new) so the gap is visible. The
   #     two coincide only at equilibrium in the undiagnosed pool; post-rebuild
   #     dx_among_hiv is ~0.97, so the bias is small but systematic.
+  # PINNED 2026-08-04. burn_steps is a STRUCTURAL CHOICE that sets the level the
+  # HIV objective sees, not a neutral warm-up, and it must not be changed without
+  # re-deriving every HIV target comparison.
+  #
+  # Measured by titan/calibration/probe_burnin_length.py (4 burn lengths x 3
+  # population seeds x 10 reps, figure at docs/figures/burnin_probe.png):
+  #
+  #   burn_steps            60      120      240      360
+  #   PWID HIV prev      0.115    0.153    0.204    0.270
+  #   NonInj HIV prev    0.073    0.102    0.127    0.170
+  #   IDU dx/model-yr    0.279    0.342    0.485    0.479
+  #   injection share    0.383    0.397    0.458    0.486
+  #   MOUD coverage      0.703    0.714    0.707    0.719
+  #   active OUD share   0.569    0.558    0.552    0.548
+  #
+  # Two separate findings in that table:
+  #
+  # (a) HIV NEVER EQUILIBRATES. Prevalence rises monotonically and roughly
+  #     exponentially in burn length with no sign of turning over -- 30 years of
+  #     burn-in and still climbing, against a 6.2% reference. There is no endemic
+  #     equilibrium to burn in to at this transmission level, so no burn_steps
+  #     value absorbs the initial conditions and a longer burn-in strictly makes
+  #     the HIV level worse. This is the same fact as the dwell-time wall
+  #     documented under hiv.incidence_series_per_pwid_yr, shown directly.
+  #
+  # (b) The OUD side IS equilibrated and is insensitive to burn length: MOUD and
+  #     active-OUD share move <2% across a 6x sweep. Injection share is the one
+  #     exception -- it is still transient at 60 and settles near 0.486, ABOVE
+  #     its 0.45 target, so the current fit reaches 0.45 only by scoring a
+  #     transient.
+  #
+  # 60 is KEPT because the two findings pull opposite ways: lengthening fixes the
+  # injection-share transient and worsens HIV, and HIV is the binding constraint.
+  # Revisit once the HIV level is RIDOH-consistent -- at that point prevalence may
+  # plateau and a longer burn-in becomes free. Re-running the probe is the
+  # acceptance test.
   population:
     size: 500
     steps: 132        # 11 years × 12 months
-    burn_steps: 60    # 5-yr burn (was 36, which was measurably too short)
+    burn_steps: 60    # PINNED -- see above. Was 36, which was measurably too short.
 
   n_runs: 10
 
@@ -364,6 +400,58 @@ calibration:
       # Single-year values are suppressed by RIDOH below 5 ("fewer than 5 ... in
       # 2024", "less than five ... in 2022"), so an annual series cannot be built
       # and is not attempted.
+
+    # ALL new HIV diagnoses among people who inject drugs, whatever the route.
+    # Added 2026-08-04, scored in the same objective slot as ridoh_idu_dx.
+    #
+    # WHY THIS EXISTS. ridoh_idu_dx alone constrains one route. Measured on the
+    # 2026-08-04 front, the model's HIV module runs 1.8-4.8x above RIDOH on ALL
+    # diagnoses among PWID while `calibration.acquisition` scales every route at
+    # once -- injection, sex and background alike. With only the IDU objective in
+    # play, the cheapest way for the optimizer to hit it is to crush
+    # partnership.injection.transmission.base and leave the global scalar high:
+    # IDU counts land on target, sexual and background transmission stay several
+    # times too hot, and the injection route -- the one every planned
+    # intervention acts on -- goes inert. The objective would look better than
+    # the model. Scoring both series together closes that.
+    #
+    # DERIVATION, same three RIDOH surveillance reports as ridoh_idu_dx. RIDOH
+    # splits people who inject drugs across TWO exposure categories: `IDU`
+    # (attributed to injection) and `MSM/IDU` (called GBMSM/IDU from the 2022
+    # edition) for men who both inject and have sex with men, whose route is not
+    # resolved. Their sum is diagnoses among people who inject, all routes.
+    #
+    #   window      IDU   MSM/IDU   sum   known n   cases   per year
+    #   2015-2019    3%      6%      9%     ~300      27       5.4
+    #   2018-2022    4%     10%     14%     ~312      43.7     8.7
+    #   2020-2024    6%      9%     15%      312      46.8     9.4
+    #
+    # Denominators and their cross-check are documented under ridoh_idu_dx.
+    #
+    # This also anchors the route MIX, which nothing else in the objective does.
+    # RIDOH's injection-attributed share of PWID diagnoses is IDU/(IDU+MSM/IDU) =
+    # 33% / 29% / 40% across the three windows. The model measured 47.7% on
+    # 2026-08-04, so it is modestly injection-heavy -- the injection route needs
+    # to come down somewhat MORE than the sexual route, which is not what the
+    # IDU-only objective would have implied.
+    #
+    # CAVEAT: IDU + MSM/IDU is a LOWER BOUND on diagnoses among people who
+    # inject. RIDOH assigns a case by presumed route, so someone who injects but
+    # whose infection was attributed to heterosexual contact lands in the
+    # heterosexual category instead. Scoring it two-sided therefore biases the
+    # model slightly low. That is accepted while the model sits 2-5x ABOVE the
+    # target; revisit if a refit brings it close.
+    ridoh_pwid_dx_all_routes:
+      windows:
+        - years: [2015, 2019]
+          cases_per_year: 5.4
+        - years: [2018, 2022]
+          cases_per_year: 8.7
+      # 2020-2024 (9.4/yr) is not scored: the model horizon ends in 2022, so the
+      # window is only half covered. Recorded as a forward check.
+      forward_check:
+        years: [2020, 2024]
+        cases_per_year: 9.4
 
     # Model-to-Rhode-Island population scale, needed to compare model case counts
     # against statewide surveillance counts.

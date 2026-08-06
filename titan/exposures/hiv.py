@@ -18,6 +18,10 @@ class HIV(base_exposure.BaseExposure):
         "hiv_dx_new",
         "hiv_new_inj",
         "hiv_dx_new_inj",
+        "hiv_new_sex",
+        "hiv_dx_new_sex",
+        "hiv_new_background",
+        "hiv_dx_new_background",
     ]
     """
         HIV collects the following stats:
@@ -27,16 +31,27 @@ class HIV(base_exposure.BaseExposure):
         * hiv_aids - number of agents with aids
         * hiv_new - number of agents converted to hiv this timestep
         * hiv_dx_new - number of agents with diagnosed with hiv this timestep
-        * hiv_new_inj - of hiv_new, those who acquired via the injection route
-        * hiv_dx_new_inj - of hiv_dx_new, those who acquired via the injection route
+        * hiv_new_inj / hiv_dx_new_inj - of those, acquired by the injection route
+        * hiv_new_sex / hiv_dx_new_sex - acquired by sex on the modelled network
+        * hiv_new_background / hiv_dx_new_background - acquired from the
+          non-network force of infection
 
-        The two `_inj` stats exist to compare against RIDOH's IDU transmission
+        The `_inj` stats exist to compare against RIDOH's IDU transmission
         category, which is assigned from case-investigation risk-factor
         interviews and counts only infections attributed to injection. Since the
         sexual route went live, `hiv_new` among PWID also contains infections
         RIDOH would classify as GBMSM or heterosexual, so it is not the right
         comparator for that target. `hiv_dx_new_inj` is the closer match of the
         two, because RIDOH counts diagnoses rather than true conversions.
+
+        `_sex` and `_background` were split apart on 2026-08-04. They had been
+        pooled as "everything that is not injection", which hid the quantity that
+        matters most for a scenario analysis: the background route represents
+        partners outside the modelled population, so no modelled intervention can
+        touch it. If it carries a large share of infections, every scenario
+        contrast is biased toward the null, and until these counters existed
+        there was no way to see that. Seeded prevalence is not counted under any
+        of the three -- it is recoverable as hiv_new minus their sum.
     """
 
     ACQUISITION_ROUTES: Set[str] = {"injection", "sex", "background", "seed"}
@@ -304,19 +319,27 @@ class HIV(base_exposure.BaseExposure):
     def set_stats(self, stats: Dict[str, int], time: int):
         if self.active:
             stats["hiv"] += 1
-            injection_acquired = self.acquisition_route == "injection"
+            # One counter per incident route. "seed" is deliberately not counted:
+            # it is prevalence at initialisation, not an event, and it is
+            # recoverable as hiv_new minus the three incident routes.
+            route = self.acquisition_route
+            suffix = {
+                "injection": "_inj",
+                "sex": "_sex",
+                "background": "_background",
+            }.get(route)
             if self.time == time:
                 stats["hiv_new"] += 1
-                if injection_acquired:
-                    stats["hiv_new_inj"] += 1
+                if suffix:
+                    stats[f"hiv_new{suffix}"] += 1
             if self.aids:
                 stats["hiv_aids"] += 1
             if self.dx:
                 stats["hiv_dx"] += 1
                 if self.dx_time == time:
                     stats["hiv_dx_new"] += 1
-                    if injection_acquired:
-                        stats["hiv_dx_new_inj"] += 1
+                    if suffix:
+                        stats[f"hiv_dx_new{suffix}"] += 1
 
     @staticmethod
     def expose(

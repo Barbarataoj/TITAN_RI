@@ -25,14 +25,24 @@ source /oscar/data/jtao9/envs/titan_env/bin/activate
 cd /oscar/data/jtao9/TITAN_RI
 
 # Trial budget. The default of 120 was set when the search space was smaller; at
-# 21 dimensions and 6 objectives it is ~2 generations of a 50-member population,
+# 19 dimensions and 5 objectives it is ~2 generations of a 50-member population,
 # which is not a search. Measured cost 2026-07-30: ~80 s/trial at n_runs=10 and
 # size=500, so 4000 trials across 16 workers is ~6 h against a 24 h wall.
 # TITAN_CALIB_POP=100 (see optuna_calibration.py) makes that 40 generations.
 #
-# 21, not 19, since 2026-08-03: calibration.noninj_hiv_init_het and
-# ..._msm were added (see objective()). Both are strongly identified by
-# hiv_prev_err (variance decomposition below).
+# DIMENSION COUNT, 2026-08-06: 19 free parameters against 5 objectives. 18 come
+# from calibration_targets.yml parameters_to_optimize and one is
+# calibration.noninj_hiv_init_het, suggested directly in objective(). Was 20
+# until calibration.acquisition left the search on 2026-08-06 as an exactly
+# redundant dimension -- it multiplied both routes on top of their own bases, so
+# `injection.transmission.base x acquisition` had one identifiable product and
+# NSGA-II was searching a ridge. See the block in objective().
+#
+# The starting region is known from probe_transmission_feasibility (job 4738184)
+# and probe_pwid_share (job 4740073), converted to the acquisition=1.0
+# parameterisation: injection.transmission.base ~0.0038 of [0.001, 0.012],
+# calibration.sex.act ~0.87 of [0.25, 3.0], noninj_hiv_init_het 0.02-0.028 of
+# [0.0, 0.04]. All three sit well inside their bounds, so no bound needs moving.
 #
 # REPS RAISED 10 -> 20 AND TRIALS CUT 4000 -> 2000, 2026-08-03.
 #

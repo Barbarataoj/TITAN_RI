@@ -3,9 +3,11 @@
 # Multi-objective Optuna calibration for TITAN_RI.
 # Objectives (NSGA-II Pareto front), in the order multi_error() returns them:
 #   1. oud_rmse              — RMSE of (oud_active, oud_remission, oud_none) at final timestep
-#   2. ridoh_idu_err         — RMSE, statewide cases/yr, of injection-attributed HIV
-#                              diagnoses vs RIDOH's pooled IDU windows
-#   3. od_err                — summed squared error of fatal + nonfatal annual OD rates vs targets
+#   2. ridoh_hiv_err         — RMSE, statewide cases/yr, of HIV diagnoses among PWID vs
+#                              RIDOH's pooled windows: injection-attributed against the IDU
+#                              category, and all-route against IDU + MSM/IDU
+#   3. od_err                — mean squared PROPORTIONAL error of fatal + nonfatal annual
+#                              OD rates vs targets (relative since 2026-08-04)
 #   4. moud_traj_rmse        — RMSE of model MOUD uptake series vs APCD 2012–2022
 #   5. inj_share_err         — squared error of injection share among active OUD vs target
 #
@@ -144,6 +146,16 @@ def set_nested(block, path, val, is_int=False):
     ref[keys[-1]] = int(val) if is_int else float(val)
 
 MSM_SEX_TYPES = ("MSM", "MSMW")
+
+# MSM/MSMW NonInj HIV seed as a multiple of the HF/HM one. Module scope, not a
+# local, because objective() applies it per trial and main() re-applies it when
+# writing the canonical scenario -- two call sites that must not drift. A
+# duplicated targets dict of exactly this kind broke validate_candidates for five
+# days in July (see build_targets).
+#
+# An ASSUMPTION, not a derivation; see the block in objective() for what supports
+# it and what does not.
+NONINJ_HIV_MSM_TO_HET_RATIO = 3.4
 
 def set_noninj_hiv_init(scenario, het, msm, dx_init=0.9):
     """
@@ -332,6 +344,16 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
         annual_series(df_pwid, "hiv_dx_new_inj", None) / n_reps
     )
 
+    # ALL diagnoses among PWID, whatever the route, as a count on the same
+    # footing. Scored against RIDOH's IDU + MSM/IDU categories combined, which is
+    # what constrains the sexual and background routes; without it the objective
+    # sees only the injection route while calibration.acquisition scales all
+    # three. See ridoh_hiv_rmse and calibration_targets.yml
+    # hiv.ridoh_pwid_dx_all_routes.
+    stats["pwid_dx_counts_per_year"] = (
+        annual_series(df_pwid, "hiv_dx_new", None) / n_reps
+    )
+
     first_post_burn_pwid = max(1, df_pwid.index.min()) if len(df_pwid) else 1
     stats["hiv_new_pooled"] = int(df_pwid.loc[
         (df_pwid.index >= first_post_burn_pwid) & (df_pwid.index <= last_t), "hiv_new"
@@ -508,15 +530,63 @@ def null_period_rmse(target_series, years, periods):
     target = np.asarray(target_series, dtype=float)
     return float(np.sqrt(np.mean(np.array([target[g].mean() for g in groups]) ** 2)))
 
-def ridoh_idu_rmse(idu_counts_per_year, first_year, targets):
+def _window_errors(counts_per_year, first_year, pop_scale, windows):
     """
-    RMSE, in statewide cases per year, of the model's injection-attributed HIV
-    diagnoses against RIDOH's pooled IDU windows.
+    Signed error, in statewide cases per year, of one model series against one
+    set of RIDOH pooled windows.
 
-    `idu_counts_per_year` is per model-year per model population; multiplying by
-    targets["pop_scale"] puts it on RIDOH's statewide footing. Each RIDOH window
-    is compared against the mean of the model years it spans, because RIDOH
-    publishes 5-year pooled shares and suppresses single years below 5.
+    `counts_per_year` is per model-year per model population; multiplying by
+    pop_scale puts it on RIDOH's statewide footing. Each RIDOH window is compared
+    against the mean of the model years it spans, because RIDOH publishes 5-year
+    pooled shares and suppresses single years below 5.
+
+    Returns [] when the series is empty or spans none of the windows; the caller
+    decides what that means.
+    """
+    if counts_per_year is None or len(counts_per_year) == 0:
+        return []
+
+    series = np.asarray(counts_per_year, dtype=float) * pop_scale
+    years = first_year + np.arange(len(series))
+
+    errs = []
+    for w in windows:
+        lo, hi = w["years"]
+        sel = (years >= lo) & (years <= hi)
+        if sel.any():
+            errs.append(float(series[sel].mean()) - float(w["cases_per_year"]))
+    return errs
+
+
+def ridoh_hiv_rmse(idu_counts_per_year, pwid_counts_per_year, first_year, targets):
+    """
+    RMSE, in statewide cases per year, of the model's HIV diagnoses among people
+    who inject drugs against RIDOH's pooled exposure-category windows.
+
+    TWO series are scored together, not one:
+
+      * `idu_counts_per_year` -- diagnoses the model attributes to the injection
+        route, against RIDOH's `IDU` category (1.8 and 2.5 per year).
+      * `pwid_counts_per_year` -- ALL diagnoses among PWID whatever the route,
+        against RIDOH's `IDU` + `MSM/IDU` categories (5.4 and 8.7 per year).
+
+    Both are statewide cases per year, so they share units and combine into a
+    single RMSE with no normalization step. They are deliberately one objective
+    rather than two: NSGA-II loses selection pressure as the objective count
+    grows -- at six, nearly every candidate is non-dominated -- and these two
+    quantities are nested measurements of the same thing.
+
+    Scoring only the injection series leaves the sexual route unconstrained. The
+    optimizer's cheapest route to a good IDU score is then to crush
+    partnership.injection.transmission.base while calibration.sex.act stays high,
+    which inerts the one route the interventions act on. Scoring both series
+    together closes that. See calibration_targets.yml
+    hiv.ridoh_pwid_dx_all_routes.
+
+    (Until 2026-08-06 the mechanism named here was `calibration.acquisition`,
+    a global scalar over both routes. It has since left the search as a redundant
+    dimension -- see the block in objective() -- but the argument is unchanged:
+    two route-specific levers still need two constraints between them.)
 
     The pre-2015 bound is one-sided: PMC6055286 bounds IDU-attributed diagnoses
     at <6/yr over 2009-2014, which is a ceiling and not an estimate, so it costs
@@ -525,23 +595,21 @@ def ridoh_idu_rmse(idu_counts_per_year, first_year, targets):
     Returns the max-penalty value when the model produced no usable series, so a
     failed parse cannot look like a good fit.
     """
-    windows = targets["ridoh_windows"]
-    if idu_counts_per_year is None or len(idu_counts_per_year) == 0:
-        return float(np.sqrt(np.mean([w["cases_per_year"] ** 2 for w in windows])))
+    idu_windows = targets["ridoh_windows"]
+    pwid_windows = targets["ridoh_pwid_windows"]
+    scale = targets["pop_scale"]
 
-    series = np.asarray(idu_counts_per_year, dtype=float) * targets["pop_scale"]
-    years = first_year + np.arange(len(series))
+    def max_penalty():
+        cases = [w["cases_per_year"] for w in idu_windows + pwid_windows]
+        return float(np.sqrt(np.mean(np.square(cases))))
 
-    errs = []
-    for w in windows:
-        lo, hi = w["years"]
-        sel = (years >= lo) & (years <= hi)
-        if not sel.any():
-            continue
-        errs.append(float(series[sel].mean()) - float(w["cases_per_year"]))
+    errs = _window_errors(idu_counts_per_year, first_year, scale, idu_windows)
+    errs += _window_errors(pwid_counts_per_year, first_year, scale, pwid_windows)
 
     bound = targets.get("ridoh_upper_bound")
-    if bound is not None:
+    if bound is not None and idu_counts_per_year is not None and len(idu_counts_per_year):
+        series = np.asarray(idu_counts_per_year, dtype=float) * scale
+        years = first_year + np.arange(len(series))
         lo, hi = bound["years"]
         sel = (years >= lo) & (years <= hi)
         if sel.any():
@@ -549,7 +617,7 @@ def ridoh_idu_rmse(idu_counts_per_year, first_year, targets):
             errs.append(max(0.0, excess))
 
     if not errs:
-        return float(np.sqrt(np.mean([w["cases_per_year"] ** 2 for w in windows])))
+        return max_penalty()
 
     return float(np.sqrt(np.mean(np.square(errs))))
 
@@ -586,6 +654,7 @@ def build_targets(calib):
         "moud_series": calib["moud"]["uptake_series_per_yr"],
         "inj_share": calib["injecting"]["injecting_pct"],
         "ridoh_windows": ridoh["windows"],
+        "ridoh_pwid_windows": hiv["ridoh_pwid_dx_all_routes"]["windows"],
         "ridoh_upper_bound": ridoh.get("upper_bound_pre_2015"),
         "pop_scale": pop_scale,
         # First calendar year of the scored window. Still taken from the APCD
@@ -601,7 +670,7 @@ def build_targets(calib):
 def multi_error(stats, targets):
     """
     Return 5 scalar errors for NSGA-II:
-      (oud_rmse, ridoh_idu_err, od_err, moud_traj_rmse, inj_share_err)
+      (oud_rmse, ridoh_hiv_err, od_err, moud_traj_rmse, inj_share_err)
 
     OD error folds in stratified targets (inj / non-inj nonfatal + fatal).
     MOUD error is a trajectory RMSE against mofan's APCD #16/#43 series.
@@ -641,17 +710,38 @@ def multi_error(stats, targets):
         ) / 3
     ))
 
-    ridoh_idu_err = ridoh_idu_rmse(
+    ridoh_hiv_err = ridoh_hiv_rmse(
         stats.get("idu_dx_counts_per_year"),
+        stats.get("pwid_dx_counts_per_year"),
         targets["first_year"],
         targets,
     )
 
-    od_err = float(
-        (stats.get("fatal_od_rate", 0)             - targets["od_fatal"])    ** 2
-        + (stats.get("nonfatal_od_rate_inj", 0)    - targets["od_nonfatal_inj"]) ** 2
-        + (stats.get("nonfatal_od_rate_noninj", 0) - targets["od_nonfatal_noninj"]) ** 2
-    )
+    # RELATIVE, changed 2026-08-04. This was a sum of ABSOLUTE squared errors,
+    # which weighted each component by the square of its own scale and so let the
+    # smallest one drift unpenalised. The fatal rate's target is 0.015 against
+    # 0.091 for nonfatal-injection -- a 36x ratio once squared -- so on the
+    # canonical trial a fatal rate 52% BELOW target and a non-injection nonfatal
+    # rate 44% below target still summed to 0.000598 against a 0.005 gate, an
+    # apparent 0.12x pass. Every trial on the 2026-08-04 front was 2-5x low on
+    # fatal overdose and every one of them passed this objective.
+    #
+    # Scaling each residual by its own target makes the three commensurate: the
+    # value is now the RMS proportional miss, so 0.10 means "within 10% on all
+    # three". Splitting fatal into its own objective would have been the other
+    # fix and was rejected -- six objectives collapses NSGA-II's selection
+    # pressure (see ridoh_hiv_rmse for the same reasoning).
+    #
+    # This changes the objective's SCALE by ~3 orders of magnitude. The
+    # validate_candidates gate moved with it; no earlier study is comparable.
+    od_err = float(np.mean([
+        ((stats.get("fatal_od_rate", 0) - targets["od_fatal"])
+         / targets["od_fatal"]) ** 2,
+        ((stats.get("nonfatal_od_rate_inj", 0) - targets["od_nonfatal_inj"])
+         / targets["od_nonfatal_inj"]) ** 2,
+        ((stats.get("nonfatal_od_rate_noninj", 0) - targets["od_nonfatal_noninj"])
+         / targets["od_nonfatal_noninj"]) ** 2,
+    ]))
 
     moud_traj_rmse = _traj_rmse(
         stats.get("moud_uptake_series"),
@@ -664,7 +754,7 @@ def multi_error(stats, targets):
 
     return (
         oud_rmse,
-        ridoh_idu_err,
+        ridoh_hiv_err,
         od_err,
         moud_traj_rmse,
         inj_share_err,
@@ -723,7 +813,45 @@ def objective(trial):
     # objective, which degrades the NSGA-II front by making distinct parameter
     # vectors score identically. HIV testing intensity is calibrated through
     # hiv_testing.base_prob_annual instead.
-    acq_scale = trial.suggest_float("calibration.acquisition", 0.1, 3.0)
+    #
+    # calibration.acquisition is NOT optimized either, as of 2026-08-06. It was
+    # `trial.suggest_float("calibration.acquisition", 0.1, 3.0)` and it is now
+    # pinned at the base scenario's 1.0, for two reasons.
+    #
+    # (1) IT WAS REDUNDANT. It multiplies the per-act probability of BOTH routes
+    # at titan/exposures/hiv.py, after the route branch closes, on top of the
+    # route-specific bases those routes already have:
+    #
+    #     injection level  ~  partnership.injection.transmission.base x acquisition
+    #     sexual level     ~  partnership.sex.acquisition[type][role]
+    #                             x calibration.sex.act x acquisition
+    #
+    # `calibration.injection.act` is not fitted, so `base x acquisition` is
+    # EXACTLY degenerate -- only the product is identifiable -- and
+    # `sex.act x acquisition` is near-degenerate wherever 1-(1-p)^n ~= np, which
+    # is the whole operating range here. Three parameters spanned two effective
+    # degrees of freedom, so NSGA-II was searching a ridge rather than a peak.
+    # Dropping it costs no reachable model: the target region measured by
+    # probe_transmission_feasibility and probe_pwid_share (acquisition ~0.5 with
+    # base 0.0076 and sex.act 1.75) is reproduced at acquisition 1.0 by base
+    # 0.0038 and sex.act 0.87, both comfortably inside their existing bounds.
+    #
+    # (2) IT MADE THE EXOGENOUS ROUTE IMPLICITLY FITTED. hiv.py also applies it
+    # to the background force of infection, whose own inputs
+    # (hiv.background_sex.rate_nonoud_per_timestep, .partner_hiv_prevalence_nonoud)
+    # are data-anchored and deliberately NOT in parameters_to_optimize -- see the
+    # F9 fix, which removed that route's free lever precisely because an
+    # exogenous route no intervention can reach biases every scenario contrast
+    # toward the null. A fitted global scalar on top of fixed inputs re-created
+    # the same defect at one remove. At 1.0 the background route finally runs at
+    # exactly its documented intensity.
+    #
+    # CONSEQUENCE TO WATCH: relative to the acquisition ~0.5 region the probes
+    # identified, the background route is now 2x hotter, because it no longer
+    # rides down with the scalar. It carried 1-6% of infections across the
+    # 2026-08-05 sweep, so the effect is bounded, but its share is worth checking
+    # on the refit's canonical pick. If it has grown materially, the fix is to
+    # re-derive rate_nonoud_per_timestep, NOT to restore this parameter.
 
     # BUG FIXED 2026-08-03: this block used to be assigned as
     #     scenario["calibration"] = {"acquisition": acq_scale}
@@ -749,7 +877,8 @@ def objective(trial):
     for path, val in calib_block_params.items():
         # strip the leading "calibration." -- the rest is the path within the block
         set_nested(calib_block, path.split(".", 1)[1], val)
-    calib_block["acquisition"] = acq_scale
+    # acquisition is no longer overridden here -- it stays at the base scenario's
+    # 1.0. See the block above for why it left the search.
     scenario["calibration"] = calib_block
 
     # NonInj HIV seed. Added 2026-08-03.
@@ -774,30 +903,45 @@ def objective(trial):
     #   seed 0.020   -0.00201   t = -3.50
     #   seed 0.030   -0.00297   t = -2.74      (target slope -0.00295)
     #
-    # FITTED rather than fixed, because it trades directly against hiv_prev_err:
-    # over the same sweep PWID prevalence rose 0.066 -> 0.117 against a 0.062
-    # target, while T1 and T3 both rose with the seed (corr +0.46, +0.54). The
-    # seed lifts the whole curve as well as tilting it, so any hardcoded value
-    # forces the fit to trade shape against level with no freedom to compensate.
-    # Letting transmission absorb the level is the whole point.
-    #
     # MSM/MSMW are split from HF/HM. They are ~5% of the population, so a single
     # uniform seed cannot place a realistic MSM reservoir without swamping
-    # aggregate prevalence with heterosexual seeding. Bounds are wide priors, NOT
-    # data anchors -- the fitted values still need checking against APCD (RI HIV
-    # prevalence among non-injecting people with OUD, and separately among MSM),
-    # and validate_candidates.py reports them unscored for that purpose.
+    # aggregate prevalence with heterosexual seeding.
     #
     # dx.init is seeded at the same 0.9 the Inj strata carry. Seeding prevalence
     # without diagnosis would place the entire new reservoir outside the ART
     # cascade and inflate transmission for a reason unrelated to the mechanism
     # being fitted.
     #
-    # NOTE: this adds two search dimensions. Studies persisted before this date
-    # cannot be resumed against it.
+    # COLLAPSED TO ONE DIMENSION 2026-08-04. These were two independently fitted
+    # parameters. The stated justification was that they trade against
+    # hiv_prev_err -- "the seed lifts the whole curve as well as tilting it, so
+    # any hardcoded value forces the fit to trade shape against level" -- and
+    # hiv_prev_err was dropped as an objective on the same day. That left two free
+    # parameters with no objective constraining them.
+    #
+    # Restoring a prevalence objective was not an option: RIDOH publishes no PLWH
+    # breakdown by transmission category (checked across the 2019, 2022 and 2024
+    # reports). Rebuilding the burn-in so the reservoir grows endogenously was
+    # measured and refuted -- probe_burnin_length showed HIV prevalence still
+    # climbing after 360 burn steps with no plateau, so there is no equilibrium to
+    # burn in to. What remains is to fit the LEVEL and fix the RATIO.
+    #
+    # RATIO = 3.4, and it is an ASSUMPTION, not a derivation. Two independent
+    # numbers land within 5% of it:
+    #   * the pre-refit fitted ratio on job 4586902's canonical trial, 0.0953 /
+    #     0.0283 = 3.37;
+    #   * RIDOH's 2020-2024 exposure shares, GBMSM 65.5% of known-mode diagnoses
+    #     against all-heterosexual 18.5%, a ratio of 3.54.
+    # Those are different quantities -- one is a seeded prevalence, the other a
+    # diagnosis share, and converting between them would need the MSM population
+    # share (0.05 here) and would give a far larger number. Their agreement is
+    # support, not proof. Revisit if a prevalence-side anchor ever appears.
     noninj_hiv_het = trial.suggest_float("calibration.noninj_hiv_init_het", 0.0, 0.04)
-    noninj_hiv_msm = trial.suggest_float("calibration.noninj_hiv_init_msm", 0.0, 0.20)
-    set_noninj_hiv_init(scenario, het=noninj_hiv_het, msm=noninj_hiv_msm)
+    set_noninj_hiv_init(
+        scenario,
+        het=noninj_hiv_het,
+        msm=noninj_hiv_het * NONINJ_HIV_MSM_TO_HET_RATIO,
+    )
 
     # Run TITAN
     trial_yaml = OUTPUT_DIR / f"trial_{trial.number}.yml"
@@ -1007,16 +1151,23 @@ def main():
     #
     # Rewritten 2026-08-04 with the objective: the floor is now in statewide cases
     # per year against the RIDOH windows, not the APCD per-PWID-year series, and
-    # it reads objective slot 1, which is ridoh_idu_err.
+    # it reads objective slot 1, which is ridoh_hiv_err.
     #
-    # Derived by calling the objective on an all-zero series rather than by
+    # BOTH series are zeroed, because slot 1 now scores injection-attributed AND
+    # all-route PWID diagnoses together. Zeroing only the injection one would
+    # define a "null" that still carries the all-route error and never matches
+    # any real trial.
+    #
+    # Derived by calling the objective on all-zero series rather than by
     # restating its formula here. Restating it gets the wrong answer: the
     # one-sided pre-2015 bound contributes a zero term to the RMSE that a
     # windows-only expression misses, giving 2.178 where the objective actually
-    # returns 1.779, and the screen would then never fire.
+    # returned 1.779 under the IDU-only version, and the screen would then never
+    # fire.
     targets_for_null = build_targets(calib["calibration"])
     n_model_years = calib["calibration"]["population"]["steps"] // STEPS_PER_YEAR
-    null_value = ridoh_idu_rmse(
+    null_value = ridoh_hiv_rmse(
+        np.zeros(n_model_years),
         np.zeros(n_model_years),
         targets_for_null["first_year"],
         targets_for_null,
@@ -1024,7 +1175,7 @@ def main():
     null_trials = [t for t in pareto if abs(t.values[1] - null_value) < 1e-6]
     print(
         f"HIV null-transmission check: {len(null_trials)}/{len(pareto)} Pareto trials "
-        f"have ridoh_idu_err == {null_value:.6f} (zero injection-attributed diagnoses)."
+        f"have ridoh_hiv_err == {null_value:.6f} (zero HIV diagnoses among PWID)."
     )
     ridoh = calib["calibration"]["hiv"].get("ridoh_idu_validation")
     if ridoh:
@@ -1065,17 +1216,20 @@ def main():
     calib_block = copy.deepcopy(load_yaml(BASE_SCENARIO).get("calibration") or {})
     for path, val in calib_block_best.items():
         set_nested(calib_block, path.split(".", 1)[1], val)
-    calib_block["acquisition"] = best.params["calibration.acquisition"]
+    # No acquisition override: it is not a suggested parameter as of 2026-08-06,
+    # so best.params has no such key and the base scenario's 1.0 stands. Reading
+    # it here would KeyError on every run of a post-2026-08-06 study.
     calibrated["calibration"] = calib_block
 
     # The NonInj HIV seed lives in `demographics`, not in a suggest path, so it
     # has to be re-applied here the same way objective() applied it. Without
     # this the canonical scenario would run with the reservoir back at zero --
     # a different model from the one that won the fit.
+    het_seed = best.params["calibration.noninj_hiv_init_het"]
     set_noninj_hiv_init(
         calibrated,
-        het=best.params["calibration.noninj_hiv_init_het"],
-        msm=best.params["calibration.noninj_hiv_init_msm"],
+        het=het_seed,
+        msm=het_seed * NONINJ_HIV_MSM_TO_HET_RATIO,
     )
 
     # Write the canonical pick to a SEPARATE file so the base scenario stays intact

@@ -71,21 +71,56 @@ OBJECTIVES = [
     # ridoh_idu_err. The reasoning above is kept because it applies verbatim to
     # the replacement: do not raise a gate until something passes.
     #
-    # The new gate is in statewide IDU-attributed diagnoses per year, RMSE across
-    # RIDOH's two pooled windows (1.8/yr for 2015-2019, 2.5/yr for 2018-2022).
-    # 1.0 means "within about one case per year of RIDOH", which is inside the
-    # width of RIDOH's own suppression -- single-year counts are published only as
-    # "fewer than 5" -- so a tighter gate would be scoring precision the source
-    # data does not have. A null model, simulating zero injection transmission,
-    # scores 2.18 by construction, so the gate rejects one outright.
-    ("RIDOH IDU diagnoses", 1.0),
+    # The new gate is in statewide diagnoses per year among people who inject
+    # drugs, RMSE across four RIDOH pooled windows: injection-attributed against
+    # the IDU category (1.8 and 2.5 per year) and all-route against IDU + MSM/IDU
+    # (5.4 and 8.7 per year), plus the one-sided pre-2015 bound.
+    #
+    # WIDENED 2026-08-04 from IDU-only to both series. The IDU-only version left
+    # the sexual and background routes unconstrained while
+    # calibration.acquisition scales all three at once, so a candidate could
+    # score well by inerting the injection route. See ridoh_hiv_rmse.
+    #
+    # Reference values on this scale, all computed rather than estimated:
+    #
+    #   zero transmission (null)                     4.78
+    #   best pre-refit candidate (trial 1283)        ~4.27
+    #   injection route inerted, all-route on target  1.73
+    #   BEST POSSIBLE FLAT series                     1.07
+    #   flat series 20% high                          1.40
+    #
+    # The gate is 1.1, just above that flat-predictor floor, so passing means the
+    # LEVEL is right on both series. It cannot be set below 1.07 without
+    # demanding the model also reproduce RIDOH's rise (1.8 -> 2.5 and 5.4 -> 8.7),
+    # and a shape-demanding HIV gate is exactly what produced 0/8 passes and
+    # weeks of dead refits through July. Shape is reported separately instead.
+    #
+    # Nothing passes at 1.1 today either -- the best candidate is at 4.27, barely
+    # better than a null model. That is the finding, not a reason to move the
+    # gate.
+    #
+    # Note what the 1.73 row buys: a candidate that zeroes injection transmission
+    # while matching all-route diagnoses scores WORSE than a real fit, so the
+    # degenerate solution the IDU-only objective invited is now penalised.
+    ("RIDOH PWID diagnoses", 1.1),
     # HIV prevalence was dropped as an objective on 2026-08-04 -- APCD #25 has the
     # same any-transmission-route problem as the incidence series it was paired
     # with, and RIDOH publishes no PLWH breakdown by transmission category to
     # replace it (checked across the 2019, 2022 and 2024 surveillance reports).
     # It is still reported per-trial through the VALIDATION list below as an
     # unscored diagnostic; it is simply no longer gated.
-    ("Overdose", 0.005),
+    # RESCALED 2026-08-04 with the objective. od_err was a sum of ABSOLUTE
+    # squared errors, so each component was weighted by the square of its own
+    # scale and the smallest one drifted unpenalised: the canonical trial sat 52%
+    # BELOW the fatal-overdose target and 44% below the non-injection nonfatal
+    # target, scored 0.000598, and passed this gate at 0.12x. Every trial on the
+    # 2026-08-04 front was 2-5x low on fatal overdose and every one passed.
+    #
+    # It is now the mean squared PROPORTIONAL error, so 0.01 means "within 10% on
+    # all three components" -- the gate below is that, in the objective's squared
+    # units. The canonical trial scores 0.1609, i.e. an RMS proportional miss of
+    # 40%.
+    ("Overdose", 0.01),
     ("MOUD trajectory", 0.10),
     # Squared error on the injection share among active OUD. Threshold 0.0025 =
     # 0.05 absolute, i.e. accept 0.40-0.50 against the 0.45 target. Added
@@ -240,12 +275,20 @@ def main():
             # quantity for the same reason hiv_new_pooled is: the RMSE alone does
             # not say whether a good score came from matching RIDOH or from
             # simulating almost no injection transmission at all.
-            idu = stats.get("idu_dx_counts_per_year")
-            row["idu_dx_per_year_ri"] = (
-                float(np.mean(idu)) * targets["pop_scale"]
-                if idu is not None and len(idu)
-                else float("nan")
-            )
+            # Both series the objective compares, so a good RMSE can be read
+            # against RIDOH's own numbers: IDU 1.8-2.5/yr, IDU + MSM/IDU
+            # 5.4-8.7/yr. Their ratio is the model's injection-attributed share
+            # of PWID diagnoses, which RIDOH puts at 29-40%.
+            for key, col in (
+                ("idu_dx_counts_per_year", "idu_dx_per_year_ri"),
+                ("pwid_dx_counts_per_year", "pwid_dx_per_year_ri"),
+            ):
+                series = stats.get(key)
+                row[col] = (
+                    float(np.mean(series)) * targets["pop_scale"]
+                    if series is not None and len(series)
+                    else float("nan")
+                )
             # Validation quantities -- carried through but NOT scored, see
             # calibration_targets.yml `validation_targets`.
             for k in ("incar_share", "art_among_dx", "suppressed_among_dx",
