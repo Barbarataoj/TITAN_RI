@@ -936,12 +936,34 @@ def objective(trial):
     # diagnosis share, and converting between them would need the MSM population
     # share (0.05 here) and would give a far larger number. Their agreement is
     # support, not proof. Revisit if a prevalence-side anchor ever appears.
-    noninj_hiv_het = trial.suggest_float("calibration.noninj_hiv_init_het", 0.0, 0.04)
-    set_noninj_hiv_init(
-        scenario,
-        het=noninj_hiv_het,
-        msm=noninj_hiv_het * NONINJ_HIV_MSM_TO_HET_RATIO,
-    )
+    # LEFT THE SEARCH 2026-08-07, and the reason is job 4779604. Everything above
+    # this line is the history of a parameter that no longer needs to exist.
+    #
+    # The argument for fitting it rested on one measured claim: "rebuilding the
+    # burn-in so the reservoir grows endogenously was measured and refuted --
+    # probe_burnin_length showed HIV prevalence still climbing after 360 burn
+    # steps with no plateau, so there is no equilibrium to burn in to." That was
+    # measured at a transmission level roughly 3x too hot, where nothing
+    # equilibrates at any burn length.
+    #
+    # Extending the sweep to 1440 burn steps across three transmission levels
+    # shows the equilibrium exists and is reached by 720. At the RIDOH-consistent
+    # level the NonInj reservoir builds itself from trial 1267's floor seed of
+    # 0.000398 up to 0.0367 and holds flat to 1440, while the Inj compartment
+    # relaxes DOWN from its 0.075 seed to 0.0431. Two compartments starting two
+    # orders of magnitude apart converge -- the seed sets nothing but how long
+    # the burn-in takes to get there.
+    #
+    # So it is seeded at zero and the burn-in does the work. This also removes
+    # the degeneracy that let NSGA-II fix the allele at its search floor on job
+    # 4743939 while leaving PWID prevalence unconstrained. The ratio constant
+    # NONINJ_HIV_MSM_TO_HET_RATIO is retained for the MSM reservoir work but is
+    # not exercised here.
+    #
+    # Requires burn_steps >= 720. At the pinned 60 this zeroes a reservoir that
+    # has no time to rebuild. See
+    # docs/calibration_log/phase_6_burnin_equilibrium_2026-08-07.md.
+    set_noninj_hiv_init(scenario, het=0.0, msm=0.0)
 
     # Run TITAN
     trial_yaml = OUTPUT_DIR / f"trial_{trial.number}.yml"
@@ -1223,14 +1245,13 @@ def main():
 
     # The NonInj HIV seed lives in `demographics`, not in a suggest path, so it
     # has to be re-applied here the same way objective() applied it. Without
-    # this the canonical scenario would run with the reservoir back at zero --
-    # a different model from the one that won the fit.
-    het_seed = best.params["calibration.noninj_hiv_init_het"]
-    set_noninj_hiv_init(
-        calibrated,
-        het=het_seed,
-        msm=het_seed * NONINJ_HIV_MSM_TO_HET_RATIO,
-    )
+    # this the canonical scenario would run with a reservoir the fit never saw --
+    # a different model from the one that won.
+    #
+    # Zero since 2026-08-07: the seed left the search and the burn-in builds the
+    # reservoir. Reading best.params for it would KeyError on any study run after
+    # that date, the same failure mode `calibration.acquisition` caused above.
+    set_noninj_hiv_init(calibrated, het=0.0, msm=0.0)
 
     # Write the canonical pick to a SEPARATE file so the base scenario stays intact
     outpath = BEST_SCENARIO_OUT

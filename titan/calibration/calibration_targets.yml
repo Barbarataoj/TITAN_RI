@@ -80,10 +80,58 @@ calibration:
   # Revisit once the HIV level is RIDOH-consistent -- at that point prevalence may
   # plateau and a longer burn-in becomes free. Re-running the probe is the
   # acceptance test.
+  #
+  # REVISITED AND CHANGED TO 720, 2026-08-07 (job 4779604). The acceptance test
+  # above was run, at three transmission levels rather than one, and finding (a)
+  # does not survive it. Sweeping burn 60/240/720/1440 x acquisition 1.0/0.5/0.35:
+  #
+  #   PWID HIV prevalence at end of burn-in
+  #   burn          acq 1.0   acq 0.5   acq 0.35
+  #     60           0.0392    0.0344     0.0260
+  #    240           0.0517    0.0311     0.0223
+  #    720           0.1099    0.0431     0.0261
+  #   1440           0.1535    0.0448     0.0348
+  #
+  # "HIV never equilibrates" was a property of the transmission LEVEL, not the
+  # model. At acq 1.0 it gains another 40% between 720 and 1440; at 0.5 it settles
+  # at ~0.045 by 720; at 0.35 it settles near 0.03 without collapsing, so the
+  # threshold is not between them and the fit will not sit on a critical point.
+  # The equilibrium is approached from BOTH directions -- the Inj compartment
+  # relaxes down from its 0.075 seed to 0.0431 while NonInj builds up from 0.0004
+  # to 0.0367 -- which is an attractor, not a flat-looking transient.
+  #
+  # 720 is where both compartments flatten. It is set here on evidence rather than
+  # pinned by default, and it makes calibration.noninj_hiv_init_het redundant (the
+  # reservoir builds itself), so that parameter left the search on the same date.
+  #
+  # FINDING (b) INVERTS, but it is not a cost. Injection share equilibrates at
+  # ~0.545 against a 0.45 target, flat from 720 on -- the `ever_injected` one-way
+  # latch predicted under `injecting` below, now measured.
+  #
+  # This was first read as a structural conflict with burn_steps=720. It is not.
+  # Job 4779604 varied burn length and `acquisition`, an HIV parameter; it never
+  # varied the five OUD transition rates, which are what actually set this
+  # quantity. Scanning those at equilibrium with the latch left in place (9^5
+  # points over the bounds below, analysis/oud_feasibility_2026-07-30/
+  # recency_precheck.py): equilibrium inj_of_active spans 0.066-0.712, and 471 of
+  # 59,049 points (0.8%) hit 0.45 and oud_active 0.55 jointly within +/-0.02.
+  # Trial 1267's 0.545 is a high corner of the box, not a ceiling.
+  #
+  # For scale, scan.py finds 179/59,049 (0.30%) hitting both on the scored-window
+  # TRANSIENT against 471 (0.80%) at equilibrium -- joint feasibility is ~2.7x
+  # better at equilibrium, so burn 720 improves the injection-share fit rather
+  # than breaking it. (The 148/0.25% figure this file quoted from 2026-07-30 was
+  # computed with a uniform death rate; see the oud_chain.py docstring. The
+  # correction moves the number, not the conclusion.)
+  #
+  # A recency-window replacement for the latch was costed and REJECTED: it can
+  # only lower the injection share, most of the box already sits below 0.45 with
+  # the full latch, and where it is reachable the required window is 28 years.
+  # See docs/calibration_log/phase_6_burnin_equilibrium_2026-08-07.md.
   population:
     size: 500
     steps: 132        # 11 years × 12 months
-    burn_steps: 60    # PINNED -- see above. Was 36, which was measurably too short.
+    burn_steps: 720   # was 60; set from where PWID and NonInj prevalence flatten. See above.
 
   n_runs: 10
 
@@ -644,8 +692,21 @@ calibration:
 
     # ---- HIV transmission & testing ----
     # Per-act injection HIV transmission (canonical 0.0063; allow wider for RI fit)
+    #
+    # LOWER BOUND DROPPED 0.001 -> 0.0003, 2026-08-07 (job 4779604). At burn 720
+    # the RIDOH-consistent transmission level is `acquisition ~0.35` equivalent,
+    # which on trial 1267's value works out to 0.003943 x 0.35 = 0.00138 -- only
+    # 38% above the old bound. A feasible region that close to the wall gives a
+    # boundary solution and a truncated posterior, and it would be read as "the
+    # optimizer wants less transmission than the model allows" when the real
+    # answer is that the box was drawn too narrow.
+    #
+    # The old bound was set when the network sexual route was inert (see the
+    # sex.frequency block below) and this parameter was absorbing the whole
+    # epidemic, so 0.001 was a plausible floor then. With the sexual route live
+    # and the SSP block re-anchored it no longer is.
     - path: "partnership.injection.transmission.base"
-      lower: 0.001
+      lower: 0.0003      # was 0.001; see above
       upper: 0.012       # NEW
 
     # REMOVED 2026-07-30: hiv.background_sex.per_act_transmission_prob.

@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --output=/oscar/scratch/%u/titan_calibration/calib_%j.out
 #SBATCH --error=/oscar/scratch/%u/titan_calibration/calib_%j.err
 
@@ -30,19 +30,27 @@ cd /oscar/data/jtao9/TITAN_RI
 # size=500, so 4000 trials across 16 workers is ~6 h against a 24 h wall.
 # TITAN_CALIB_POP=100 (see optuna_calibration.py) makes that 40 generations.
 #
-# DIMENSION COUNT, 2026-08-06: 19 free parameters against 5 objectives. 18 come
-# from calibration_targets.yml parameters_to_optimize and one is
-# calibration.noninj_hiv_init_het, suggested directly in objective(). Was 20
-# until calibration.acquisition left the search on 2026-08-06 as an exactly
-# redundant dimension -- it multiplied both routes on top of their own bases, so
+# DIMENSION COUNT, 2026-08-07: 18 free parameters against 5 objectives, all 18
+# from calibration_targets.yml parameters_to_optimize. Was 20 until
+# calibration.acquisition left the search on 2026-08-06 as an exactly redundant
+# dimension -- it multiplied both routes on top of their own bases, so
 # `injection.transmission.base x acquisition` had one identifiable product and
-# NSGA-II was searching a ridge. See the block in objective().
+# NSGA-II was searching a ridge -- and 19 until calibration.noninj_hiv_init_het
+# left it on 2026-08-07, when job 4779604 showed the NonInj reservoir builds
+# itself during a 720-step burn-in. See the blocks in objective().
 #
-# The starting region is known from probe_transmission_feasibility (job 4738184)
-# and probe_pwid_share (job 4740073), converted to the acquisition=1.0
-# parameterisation: injection.transmission.base ~0.0038 of [0.001, 0.012],
-# calibration.sex.act ~0.87 of [0.25, 3.0], noninj_hiv_init_het 0.02-0.028 of
-# [0.0, 0.04]. All three sit well inside their bounds, so no bound needs moving.
+# STARTING REGION, revised 2026-08-07. The old figures here came from
+# probe_transmission_feasibility (job 4738184) and probe_pwid_share (job
+# 4740073), both measured at burn_steps=60, and both are wrong at burn 720 --
+# run to equilibrium the acquisition~0.5 region they identified is 3-5x hot on
+# RIDOH. The equilibrated level is acquisition~0.35 equivalent:
+#
+#   injection.transmission.base   ~0.00138 of [0.0003, 0.012]
+#   calibration.sex.act           ~0.75    of [0.25, 3.0]
+#
+# The injection lower bound was moved 0.001 -> 0.0003 for this: the feasible
+# value sat 38% above the old bound and would have come back as a boundary
+# solution. sex.act is comfortably interior and its box is unchanged.
 #
 # REPS RAISED 10 -> 20 AND TRIALS CUT 4000 -> 2000, 2026-08-03.
 #
@@ -80,8 +88,44 @@ cd /oscar/data/jtao9/TITAN_RI
 # (best -15% at init 0.020). Discrimination >= 2 means the front is sorted on
 # signal, not that a good fit exists. Expect HIV trajectory to converge to the
 # least-bad near-flat shape and confirm at the selection stage.
-export TITAN_CALIB_TRIALS=2000
-export TITAN_CALIB_REPS=20
+#
+# WALLTIME RAISED 24 h -> 48 h, 2026-08-07. burn_steps went 60 -> 720: 852 steps
+# per rep against 192, a factor of 4.4, but burn steps skip report writing so the
+# measured runtime penalty is 3.3x (trial_1.yml, 4 reps: 9.07 s at burn 60,
+# 29.80 s at burn 720). Job 4743939 ran 2000 trials x 20 reps in 7 h 14 m at burn
+# 60, so the same search is ~24 h -- right on the old wall. The study uses
+# JournalStorage (commit 8357b2aa), so a timeout is recoverable by relaunching
+# against the same journal rather than fatal, but 48 h avoids needing to.
+#
+# A pre-burned saved population does NOT help here: the equilibrium the burn-in
+# reaches depends on the transmission parameters being searched, so it would
+# have to be rebuilt per trial anyway.
+#
+# TRIALS CUT 2000 -> 1000 AND REPS RAISED 20 -> 40, 2026-08-10. Same 40,000 total
+# model runs, so the walltime estimate above is unchanged; this is a reallocation,
+# not an increase.
+#
+# WHY. The discrimination measurements above were taken at the OLD transmission
+# level. The refit targets `acquisition ~0.35` equivalent (job 4779604), where HIV
+# events are much rarer: the probe puts IDU-attributed diagnoses at 0.050 per
+# model-year, i.e. ~0.55 events per rep over the 11-year scored window, or ~11
+# pooled events at 20 reps. Poisson noise alone is then ~30% on the quantity
+# `ridoh_hiv_err` is fitted against, and the HIV objective would rank substantially
+# on sampling noise. [[titan-ri-transmission-feasibility-2026-08-05]] already
+# recorded the rule this follows from: anything measured on incident HIV counts at
+# a RIDOH-consistent level needs 40+ reps.
+#
+# The other four objectives are population-wide shares and were already clearing
+# the discrimination threshold at 20 reps, so they lose nothing here. HIV is the
+# objective this entire refit exists to fix, so it is the one to spend reps on.
+export TITAN_CALIB_TRIALS=1000
+export TITAN_CALIB_REPS=40
+
+# NSGA-II population halved with the trial budget so the generation count is
+# preserved: 1000/50 = 20 generations, the same depth 2000/100 gave. Leaving the
+# default 100 would have given 10 generations, which is not enough for the front
+# to converge.
+export TITAN_CALIB_POP=50
 
 python titan/calibration/optuna_calibration.py
 
