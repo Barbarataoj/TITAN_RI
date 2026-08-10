@@ -395,9 +395,10 @@ class OUDState(base_feature.BaseFeature):
                 self.agent.recent_relapse = True
                 self.agent.relapse_timer = 0
 
-                # Relapse may return to injecting
+                # Relapse may return to injecting, if the agent injected recently
+                # enough to still be eligible. See _inject_relapse_eligible.
                 if (
-                    self.agent.ever_injected
+                    self._inject_relapse_eligible(model, transitions)
                     and model.run_random.random()
                     < getattr(transitions, "relapse_to_inj_prob", 0.0)
                 ):
@@ -443,6 +444,47 @@ class OUDState(base_feature.BaseFeature):
     # =========================================================
     # Helpers
     # =========================================================
+    def _inject_relapse_eligible(self, model, transitions):
+        """
+        May this agent relapse from remission back to INJECTING use?
+
+        Eligibility is by RECENCY of injection, not by ever having injected.
+        `oud_state.transitions.inject_relapse_window_years` sets how long
+        eligibility survives after the last injecting timestep; the default of 999
+        years exceeds any run length and so reproduces the old `ever_injected`
+        latch exactly. See that parameter for why the latch was a problem.
+
+        `last_injection_time` is stamped at the end of update_agent on every step
+        the agent's drug_type is Inj -- so it is maintained by the model loop, not
+        by reporting -- and seeded at baseline in init_agent so that agents who
+        start as injectors are inside the window at t=0 rather than taking a year
+        to enter it. It is None only for an agent that has never injected, which
+        is the case `ever_injected` also excluded.
+
+        Note the stamp is written AFTER _update_agent runs, so within a single
+        step this reads the previous step's stamp. That is the intended reading:
+        an agent relapsing at time t is judged on when they last injected before
+        t, and an agent still injecting at t-1 is trivially inside any window.
+
+        Falls back to `ever_injected` when the stamp is missing, so a population
+        restored from an older savefile (population_io) degrades to the previous
+        behaviour rather than losing every injector's eligibility at once.
+        """
+        window_yr = getattr(transitions, "inject_relapse_window_years", None)
+        ever = bool(getattr(self.agent, "ever_injected", False))
+        last_inj = getattr(self.agent, "last_injection_time", None)
+
+        if window_yr is None or last_inj is None:
+            # No window configured, or no stamp to compare it against. The second
+            # case is either an agent who has never injected (ever_injected False,
+            # so this correctly denies) or a population restored from a
+            # pre-recency savefile (ever_injected True, so this falls back to the
+            # old latch rather than silently zeroing every injector).
+            return ever
+
+        steps_per_year = model.params.model.time.steps_per_year
+        return (model.time - last_inj) <= window_yr * steps_per_year
+
     def _enforce_state_consistency(self, pop):
         """
         Enforce invariants and PWID bookkeeping.

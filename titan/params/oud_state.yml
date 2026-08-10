@@ -152,9 +152,53 @@ oud_state:
       description: |
         Probability that relapse from remission returns an agent
         to injecting use, conditional on prior injection history.
+
+        "Prior injection history" means injection within
+        inject_relapse_window_years, not ever -- see that parameter.
       type: float
       min: 0.0
       max: 1.0
+
+    inject_relapse_window_years:
+      default: 999.0
+      description: |
+        How recently an agent must have injected to be eligible to relapse from
+        remission back to INJECTING rather than to non-injecting use. Measured in
+        YEARS against agent.last_injection_time, converted internally to timesteps
+        using model.time.steps_per_year.
+
+        WHY THIS EXISTS. Eligibility used to be gated on agent.ever_injected, a
+        one-way latch set the first time an agent injects and cleared only by
+        death. Nothing else in the model resets it, so an agent who last injected
+        forty years ago carried the same relapse-to-injection probability as one
+        who injected last month.
+
+        Two measured consequences, both from job 4779604:
+
+          * The injection share of active OUD has no equilibrium below its latched
+            ceiling. It rises 0.379 -> 0.491 -> 0.546 -> 0.546 across burn lengths
+            60/240/720/1440 and settles at ~0.545, while the calibration target is
+            0.45 -- reachable only in transit, somewhere around burn 120-240.
+          * On any projection horizon longer than the calibration window the share
+            therefore keeps climbing for reasons unrelated to any intervention,
+            which contaminates scenario contrasts. The quantity the whole
+            intervention analysis is about drifts on its own.
+
+        THE DEFAULT IS DELIBERATELY INERT. 999 years exceeds any run length, so
+        every agent who has ever injected stays eligible and behaviour is
+        identical to the latch. Existing scenarios, and the calibration in flight
+        as of 2026-08-10, are unaffected until the value is set.
+
+        FITTING IT. It is a free parameter with no external anchor, and it has a
+        matched objective -- inj_share_err is what it moves -- so it belongs in
+        parameters_to_optimize rather than being hardcoded. Note that shortening
+        it can only LOWER the equilibrium injection share, never raise it: the
+        compartmental replica in analysis/oud_feasibility_2026-07-30/ puts
+        equilibrium inj-of-active at 0.562 with the latch and 0.222 at a two-year
+        window, on trial 1267's rates. So it has to be fitted jointly with the
+        five OUD transition rates, which set the ceiling it works down from.
+      type: float
+      min: 0.0
 
     # ---------- MOUD interaction ----------
     moud_remission_rr:
