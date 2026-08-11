@@ -241,3 +241,137 @@ def test_pwid_lookback_hiv_subcount():
     agent.oud_state.set_stats(stats, 5)
     assert stats["pwid_recent"] == 1
     assert stats["pwid_recent_hiv"] == 0
+
+
+# =========================================================
+# Injection-relapse recency gate
+# =========================================================
+def _make_recency_agent(
+    window_years=999.0,
+    last_injection_time=0,
+    ever_injected=True,
+    steps_per_year=12,
+):
+    """
+    Minimal agent for _inject_relapse_eligible, which reads only the transitions
+    block, two agent attributes and model.time.
+    """
+    transitions = SimpleNamespace(relapse_to_inj_prob=1.0)
+    if window_years is not None:
+        transitions.inject_relapse_window_years = window_years
+
+    agent = SimpleNamespace(
+        drug_type="NonInj",
+        has_oud=False,
+        is_in_remission=True,
+        ever_injected=ever_injected,
+        last_injection_time=last_injection_time,
+        location=SimpleNamespace(
+            params=SimpleNamespace(
+                oud_state=SimpleNamespace(transitions=transitions),
+                model=SimpleNamespace(
+                    time=SimpleNamespace(steps_per_year=steps_per_year)
+                ),
+            )
+        ),
+    )
+    agent.oud_state = OUDState(agent)
+    return agent, transitions
+
+
+def _eligible(agent, transitions, now):
+    model = SimpleNamespace(
+        time=now,
+        params=SimpleNamespace(
+            model=SimpleNamespace(time=SimpleNamespace(steps_per_year=12))
+        ),
+    )
+    return agent.oud_state._inject_relapse_eligible(model, transitions)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "now, expected",
+    [
+        (0, True),      # injecting this step
+        (24, True),     # 2 years later, inside a 2-year window
+        (23, True),     # just inside
+        (25, False),    # just outside
+        (600, False),   # long gone
+    ],
+)
+def test_inject_relapse_recency_window_boundary(now, expected):
+    """Eligibility is by recency, and the boundary is inclusive at exactly W years."""
+    agent, transitions = _make_recency_agent(window_years=2.0, last_injection_time=0)
+    assert _eligible(agent, transitions, now) is expected
+
+
+@pytest.mark.unit
+def test_inject_relapse_default_window_reproduces_the_latch():
+    """
+    The 999-year default must be inert: an agent who injected once at t=0 is still
+    eligible after 100 model years, exactly as under `ever_injected`.
+
+    This is what lets the parameter land without disturbing any existing scenario.
+    """
+    agent, transitions = _make_recency_agent(
+        window_years=999.0, last_injection_time=0
+    )
+    assert _eligible(agent, transitions, 1200) is True
+
+
+@pytest.mark.unit
+def test_inject_relapse_never_injected_is_ineligible():
+    """No injection history means no stamp, and no route back to injecting."""
+    agent, transitions = _make_recency_agent(
+        window_years=2.0, last_injection_time=None, ever_injected=False
+    )
+    assert _eligible(agent, transitions, 5) is False
+
+
+@pytest.mark.unit
+def test_inject_relapse_unset_window_falls_back_to_latch():
+    """
+    With the parameter absent -- an older params file -- behaviour is the latch,
+    so the recency gate cannot silently change results for scenarios that predate
+    it.
+    """
+    agent, transitions = _make_recency_agent(
+        window_years=None, last_injection_time=0
+    )
+    assert _eligible(agent, transitions, 9999) is True
+
+
+@pytest.mark.unit
+def test_inject_relapse_missing_stamp_falls_back_to_latch():
+    """
+    A population restored from a pre-recency savefile has ever_injected but no
+    last_injection_time. That must degrade to the latch rather than making every
+    injector ineligible at once, which would silently collapse the injecting
+    compartment.
+    """
+    agent, transitions = _make_recency_agent(
+        window_years=2.0, last_injection_time=None, ever_injected=True
+    )
+    assert _eligible(agent, transitions, 5) is True
+
+
+@pytest.mark.unit
+def test_inject_relapse_window_respects_steps_per_year():
+    """
+    The window is in YEARS and converts through steps_per_year, the same mistake
+    early_relapse_window_months was introduced to fix (finding P7).
+    """
+    agent, transitions = _make_recency_agent(
+        window_years=1.0, last_injection_time=0, steps_per_year=12
+    )
+    model = SimpleNamespace(
+        time=13,
+        params=SimpleNamespace(
+            model=SimpleNamespace(time=SimpleNamespace(steps_per_year=12))
+        ),
+    )
+    assert agent.oud_state._inject_relapse_eligible(model, transitions) is False
+
+    model.time = 12
+    assert agent.oud_state._inject_relapse_eligible(model, transitions) is True
