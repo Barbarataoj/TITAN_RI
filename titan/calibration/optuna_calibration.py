@@ -450,6 +450,32 @@ def min_transmission_events(calib):
     Deriving it matters because the floor has to track `size`, `n_runs` and the
     injection share: the post-rebuild model runs at an injection share of 0.11
     rather than the target 0.45, which alone shrinks the PWID denominator ~4x.
+
+    DO NOT "FIX" THE REP COUNT HERE WITHOUT RE-ANCHORING THE TARGET. There is a
+    real bug in this function -- it reads calibration.n_runs (10) while the job
+    actually runs at TITAN_CALIB_REPS (40 on job 4830724), so the floor comes out
+    22 where this formula at the true rep count gives 90. Correcting the rep count
+    alone makes the screen WORSE, and measurably so: on job 4830724's front the
+    trials that satisfy the live HIV objective (ridoh_hiv_err <= 1.1) carry 41-91
+    pooled infections, median 61, and a floor of 90 excludes 35 of those 36 trials.
+    The bug has been accidentally protective.
+
+    The root cause is that `expected` is derived from
+    hiv.incidence_series_per_pwid_yr -- the APCD per-PWID-year series that was
+    RETIRED as an objective on 2026-08-04 when the HIV objective became RIDOH
+    diagnosis counts. That series implies ~359 pooled infections at 40 reps; the
+    RIDOH target that is actually scored is best satisfied at ~61. The two HIV
+    data sources disagree by roughly 6x, and this function still encodes the one
+    that is no longer scored.
+
+    The screen is also largely redundant now. It was introduced when the HIV
+    objective was an incidence RATE, where a trial could score well on almost no
+    events. Counts penalise too-cold directly: a zero-transmission trial scores
+    exactly hiv_null_value() and select_canonical's null screen removes it.
+
+    Left as-is deliberately, 2026-08-11. Re-anchoring the floor to the RIDOH
+    target means inverting the scaling chain (pop_scale, diagnosed fraction, route
+    share) and is a modelling decision, not a code fix.
     """
     c = calib["calibration"]
     size = c["population"]["size"]
@@ -460,6 +486,32 @@ def min_transmission_events(calib):
 
     expected = size * inj_pop_share * n_runs * (steps / 12.0) * mean_inc
     return max(MIN_HIV_TRANSMISSION_EVENTS, int(MIN_HIV_TRANSMISSION_FRACTION * expected))
+
+
+def hiv_null_value(calib):
+    """
+    The value ridoh_hiv_err takes for a trial that simulates zero HIV diagnoses
+    among PWID -- the score a null model gets for free.
+
+    Derived by calling the objective on all-zero series rather than by restating
+    its formula. Restating it gets the wrong answer: the one-sided pre-2015 bound
+    contributes a zero term to the RMSE that a windows-only expression misses.
+
+    Both series are zeroed, because the objective scores injection-attributed and
+    all-route PWID diagnoses together. Zeroing only the injection one would define
+    a "null" that still carries the all-route error and matches no real trial.
+
+    Factored out of main() 2026-08-11 so select_canonical can use it as an
+    eligibility bar as well as main() using it as a diagnostic.
+    """
+    targets = build_targets(calib["calibration"])
+    n_model_years = calib["calibration"]["population"]["steps"] // STEPS_PER_YEAR
+    return ridoh_hiv_rmse(
+        np.zeros(n_model_years),
+        np.zeros(n_model_years),
+        targets["first_year"],
+        targets,
+    )
 
 def _traj_rmse(model_series, target_series):
     """RMSE between two trajectories, trimming model_series to length of target."""
@@ -989,7 +1041,7 @@ def _quantile(values, q):
         return s[-1]
     return s[f] + (k - f) * (s[f + 1] - s[f])
 
-def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS):
+def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS, hiv_null=None):
     """
     Pick the canonical Pareto-front member to save as calibrated_scenario_best.yml.
 
@@ -998,6 +1050,27 @@ def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS):
     restricted to trials with >= min_events pooled HIV infections (see
     min_transmission_events for how that floor is derived). Falls back to the full
     front, with a warning, if no trial clears the transmission-activity bar.
+
+    ELIGIBILITY IS TWO-SIDED as of 2026-08-11. min_events screens out trials
+    running cold; `hiv_null` screens out trials running hot. A trial whose
+    ridoh_hiv_err is worse than the zero-transmission null (hiv_null_value) scores
+    worse than simulating no HIV at all, so it is not a calibration candidate on
+    any reading, and -- more importantly -- it must not set the normalizer.
+
+    Why the second screen was needed. On job 4830724 the front's ridoh_hiv_err
+    spanned 0.36 to 204, so the COMPOSITE_CLIP_QUANTILE anchor landed at 46.0 and
+    the HIV span became 45.7. Every trial in the feasible region then differed by
+    less than 0.08 of normalized HIV error while od_err alone contributed 0.25-0.41
+    -- HIV was effectively muted, and the composite picked a trial at 4.02, which
+    is 84% of the way to the null value of 4.78 and 11x worse than the best member
+    available. Filtering to better-than-null first collapses the span to 2.8 and
+    restores HIV to 0.53 of the winner's composite. This is the same failure the
+    2026-08-04 clip-quantile change was meant to prevent; the quantile alone is not
+    enough when an objective's front distribution is this heavy-tailed.
+
+    The bar is derived, not chosen: "better than a null model" needs no threshold
+    invented for it. It is deliberately weak -- it removes trials that cannot be
+    right rather than selecting trials that are.
 
     The composite normalizes each objective onto [0, 1] and sums, with two
     corrections added 2026-08-04 after job 4586902 picked a trial whose PWID HIV
@@ -1033,6 +1106,23 @@ def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS):
         pool, used_filter = pareto, False
     else:
         pool, used_filter = candidates, True
+
+    # Hot-side screen. Applied after the cold-side one and reported separately, so
+    # a run that loses most of its front here is visible rather than silent.
+    if hiv_null is not None:
+        better_than_null = [t for t in pool if t.values[1] < hiv_null]
+        if not better_than_null:
+            print(
+                f"WARNING: no eligible Pareto trial beat the zero-transmission null "
+                f"(ridoh_hiv_err < {hiv_null:.4f}) -- keeping the pool unfiltered. The "
+                "canonical pick is not a calibrated model; the run needs revisiting."
+            )
+        else:
+            print(
+                f"Null-transmission screen: {len(better_than_null)}/{len(pool)} eligible "
+                f"trials beat ridoh_hiv_err = {hiv_null:.4f}."
+            )
+            pool = better_than_null
 
     n_obj = len(pareto[0].values)
 
@@ -1148,8 +1238,11 @@ def main():
         if p.get("type") == "int"
     }
     min_events = min_transmission_events(calib)
+    null_value = hiv_null_value(calib)
     print(f"Transmission-activity screen: >= {min_events} pooled PWID infections")
-    best, best_composite, used_transmission_filter = select_canonical(pareto, min_events)
+    best, best_composite, used_transmission_filter = select_canonical(
+        pareto, min_events, hiv_null=null_value
+    )
     print(
         f"Canonical pick: trial {best.number} (composite={best_composite:.4f} across "
         f"{len(pareto[0].values)} objectives normalized to the eligible pool's "
@@ -1175,25 +1268,11 @@ def main():
     # per year against the RIDOH windows, not the APCD per-PWID-year series, and
     # it reads objective slot 1, which is ridoh_hiv_err.
     #
-    # BOTH series are zeroed, because slot 1 now scores injection-attributed AND
-    # all-route PWID diagnoses together. Zeroing only the injection one would
-    # define a "null" that still carries the all-route error and never matches
-    # any real trial.
-    #
-    # Derived by calling the objective on all-zero series rather than by
-    # restating its formula here. Restating it gets the wrong answer: the
-    # one-sided pre-2015 bound contributes a zero term to the RMSE that a
-    # windows-only expression misses, giving 2.178 where the objective actually
-    # returned 1.779 under the IDU-only version, and the screen would then never
-    # fire.
-    targets_for_null = build_targets(calib["calibration"])
-    n_model_years = calib["calibration"]["population"]["steps"] // STEPS_PER_YEAR
-    null_value = ridoh_hiv_rmse(
-        np.zeros(n_model_years),
-        np.zeros(n_model_years),
-        targets_for_null["first_year"],
-        targets_for_null,
-    )
+    # The value itself now comes from hiv_null_value(), computed above and shared
+    # with select_canonical's hot-side eligibility screen. It is reported here as
+    # an exact-match count -- how many front members transmit nothing at all --
+    # which is a stricter question than the screen's "worse than null" and stays
+    # worth printing on its own.
     null_trials = [t for t in pareto if abs(t.values[1] - null_value) < 1e-6]
     print(
         f"HIV null-transmission check: {len(null_trials)}/{len(pareto)} Pareto trials "
