@@ -127,6 +127,32 @@ export TITAN_CALIB_REPS=40
 # to converge.
 export TITAN_CALIB_POP=50
 
+# ---------------------------------------------------------------------------
+# RUN OF 2026-08-11: same budget, rebased search box
+# ---------------------------------------------------------------------------
+# The trial/rep/population settings above are unchanged from job 4830724 on
+# purpose -- what changed is WHERE they are spent. calibration_targets.yml's
+# parameters_to_optimize bounds were narrowed to the HIV/overdose intersection
+# box (see the long comment at the head of that list). Job 4830724 cleared the
+# HIV gate for the first time but returned zero candidates clearing HIV and
+# overdose together, while corr(od_err, hiv_err) = -0.019 and the two passing
+# regions overlap in all 18 dimensions -- an unsampled corner, not a conflict.
+#
+# The new box is 3766x smaller than what 4830724 searched, so the same 1000
+# trials buy far more resolution inside the region that matters. Only 7 of that
+# job's 1000 trials fall inside it, and none of its best candidates do, so this
+# is genuinely new ground rather than a re-run.
+#
+# Expect the same ~26 h. Two changes are also merged since 4830724: the
+# canonical-pick null screen (without which the automated pick drifts to a
+# near-null-HIV trial, as it did on 4743939 and 4830724), and the injection
+# recency mechanism, merged INERT at its 999-year default.
+#
+# READ THE RESULT AGAINST validate_candidates.OBJECTIVES, not eyeballed
+# thresholds: OUD 0.05, RIDOH HIV 1.1, overdose 0.01, MOUD 0.10, injection
+# share 0.0025. If this run again returns zero 5-of-5 candidates, that is the
+# structural result and the response is a targets conversation, not a third
+# rebound of the box.
 python titan/calibration/optuna_calibration.py
 
 echo "Job finished at $(date)"

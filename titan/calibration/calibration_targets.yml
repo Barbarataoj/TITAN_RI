@@ -607,6 +607,63 @@ calibration:
   # --------------------------------------------
   parameters_to_optimize:
 
+    # ================================================================
+    # BOUNDS REBASED 2026-08-11 ONTO THE HIV/OVERDOSE INTERSECTION BOX
+    # ================================================================
+    # Every `lower`/`upper` below that carries a "refit box 2026-08-11" comment
+    # was narrowed from job 4830724's front. The original bound and its original
+    # provenance comment are preserved inline, and the full priors are recoverable
+    # from git history (parent of this commit).
+    #
+    # WHY. Job 4830724 ran 1000 trials x 40 reps and cleared the RIDOH HIV gate
+    # for the first time (best ridoh_hiv_err 0.359 against a 4.782 null). But
+    # against the real gates in validate_candidates.OBJECTIVES the pass counts
+    # were oud 361, hiv 39, od 37, moud 443, inj 195 -- and hiv AND od together
+    # was ZERO. Every other pair was non-empty.
+    #
+    # That zero is NOT a structural conflict, which is the whole basis for this
+    # change. corr(od_err, hiv_err) = -0.019 over all 1000 trials. At P(hiv)=0.039
+    # and P(od)=0.037 independence predicts 1.44 joint trials in 1000, and
+    # P(observing 0 | lambda=1.44) = 0.24. Zero is an ordinary draw.
+    #
+    # Taking p10-p90 of the HIV-passing set and of the OD-passing set, the two
+    # regions OVERLAP IN ALL 18 DIMENSIONS. That intersection is 1.05e-06 of the
+    # original prior box, which predicts 0.001 uniform hits per 1000 trials --
+    # and indeed none of the 1000 trials landed inside it. NSGA-II spreads along
+    # a 5-objective Pareto front; it never sampled the joint-gate corner. Half the
+    # run (499/1000) went to trials scoring worse than a zero-transmission model.
+    #
+    # The bounds below are the p5-p95 version of that intersection, padded 10% of
+    # its own width on each side and clipped to the original priors. That is
+    # 2.66e-04 of the prior box: 252x LARGER than the raw p10-p90 intersection, so
+    # a single tight marginal cannot exclude the optimum, and still 3766x smaller
+    # than what job 4830724 searched.
+    #
+    # CAVEAT, and it is the reason this is a hypothesis rather than a result:
+    # overlapping MARGINALS do not prove a jointly-feasible POINT exists.
+    # Correlations inside the box could still empty it. The near-zero od/hiv
+    # correlation is evidence against that, not proof. If this run also returns
+    # zero 5-of-5 candidates, the conclusion IS structural and the response is a
+    # targets conversation, not another rebound.
+    #
+    # WATCH THE OVERDOSE BOUNDS. base_prob_inj now starts at 0.1135 and
+    # base_prob_noninj at 0.0563, both ABOVE the APCD anchors quoted in their own
+    # inline comments (#17 T3 = 0.091, #18 T3 = 0.045). These are per-timestep
+    # probabilities rather than the annual rates those anchors state, so they are
+    # not directly comparable -- but the OD-passing region sitting entirely above
+    # the cited anchors is worth confirming rather than assuming. fatal_frac is
+    # the most aggressive cut in the set, [0.1755, 0.2102] against a [0.05, 0.25]
+    # prior, 17% of its original width.
+    #
+    # See docs/calibration_log/ and the job 4830724 journal archived under
+    # calibration_archive/job_4830724/ for the derivation inputs.
+    #
+    # `inject_relapse_window_years` is deliberately NOT in this list. The recency
+    # mechanism is merged and inert (default 999 years, verified byte-identical to
+    # the old ever_injected latch); activating it changes injection dynamics and
+    # therefore the PWID denominator, which would invalidate this box. Fit it
+    # separately before the scenario stage.
+
     # ---- OUD natural history (oud_state.py) ----
     # Bounds widened per user; previous values from prior Optuna runs as priors only.
     # NOTE: oud_state.transitions.incidence_rate_per_year was REMOVED here 2026-07-20.
@@ -614,55 +671,55 @@ calibration:
     # susceptible pool for incidence (none->active) to act on, so the parameter is inert.
     # It stays at the scenario default 0.0. See docs/calibration_log/phase_4_oud_addendum_2026-07-20.md.
     - path: "oud_state.transitions.remission_rate_per_year"
-      lower: 0.05
-      upper: 0.40
+      lower: 0.132886   # refit box 2026-08-11; prior bound 0.05
+      upper: 0.355213   # refit box 2026-08-11; prior bound 0.40
 
     - path: "oud_state.transitions.relapse_rate_per_year"
       lower: 0.05
-      upper: 0.50        # NEW
+      upper: 0.49237   # refit box 2026-08-11; prior bound 0.50 NEW
 
     - path: "oud_state.transitions.relapse_to_inj_prob"
-      lower: 0.30
-      upper: 0.85        # NEW
+      lower: 0.425809   # refit box 2026-08-11; prior bound 0.30
+      upper: 0.846842   # refit box 2026-08-11; prior bound 0.85 NEW
 
     - path: "oud_state.transitions.inject_start_rate_per_year"
       lower: 0.01
-      upper: 0.10
+      upper: 0.0926203   # refit box 2026-08-11; prior bound 0.10
 
     - path: "oud_state.transitions.inject_stop_rate_per_year"
-      lower: 0.02
-      upper: 0.30
+      lower: 0.0521236   # refit box 2026-08-11; prior bound 0.02
+      upper: 0.283405   # refit box 2026-08-11; prior bound 0.30
 
     # ---- Overdose dynamics (overdose.py) — bounds anchored to APCD ----
     - path: "overdose.base_prob_inj"
-      lower: 0.04
-      upper: 0.18        # tightened from 0.40 per APCD #17 T3 = 0.091
+      lower: 0.113537   # refit box 2026-08-11; prior bound 0.04
+      upper: 0.179074   # refit box 2026-08-11; prior bound 0.18 tightened from 0.40 per APCD #17 T3 = 0.091
 
     - path: "overdose.base_prob_noninj"
-      lower: 0.005
-      upper: 0.08        # widened upper from 0.02 per APCD #18 T3 = 0.045
+      lower: 0.0562739   # refit box 2026-08-11; prior bound 0.005
+      upper: 0.0786008   # refit box 2026-08-11; prior bound 0.08 widened upper from 0.02 per APCD #18 T3 = 0.045
 
     - path: "overdose.fatal_frac"
-      lower: 0.05
-      upper: 0.25
+      lower: 0.175536   # refit box 2026-08-11; prior bound 0.05
+      upper: 0.210156   # refit box 2026-08-11; prior bound 0.25
 
     - path: "overdose.high_risk_mult"
-      lower: 1.0
-      upper: 3.0
+      lower: 1.44995   # refit box 2026-08-11; prior bound 1.0
+      upper: 2.47922   # refit box 2026-08-11; prior bound 3.0
 
     # ---- MOUD dynamics ----
     - path: "moud.overdose_scale.active"
-      lower: 0.20
+      lower: 0.316196   # refit box 2026-08-11; prior bound 0.20
       upper: 0.70
 
     - path: "moud.injection_scale.active"
-      lower: 0.40
-      upper: 0.90
+      lower: 0.412639   # refit box 2026-08-11; prior bound 0.40
+      upper: 0.805525   # refit box 2026-08-11; prior bound 0.90
 
     # MOUD discontinuation per month — Hallowell anchor 0.078/mo (37.8% 12-mo retention)
     - path: "moud.discontinue_per_month"
-      lower: 0.03
-      upper: 0.18        # NEW; bounds Hallowell ±
+      lower: 0.0374973   # refit box 2026-08-11; prior bound 0.03
+      upper: 0.173124   # refit box 2026-08-11; prior bound 0.18 NEW; bounds Hallowell ±
 
     # MOUD re-initiation per month (top-level override, moud.py update_agent STEP 2).
     # The equilibrium coverage ceiling among ever-on agents is
@@ -673,7 +730,7 @@ calibration:
     # so MOUD coverage is genuinely fit (not hand-set). See calibration_log.
     - path: "moud.reinit_prob"
       lower: 0.05
-      upper: 0.35        # NEW 2026-07-24
+      upper: 0.338183   # refit box 2026-08-11; prior bound 0.35 NEW 2026-07-24
 
     # NOTE: moud.init_coverage is deliberately NOT optimized (removed 2026-07-29).
     # It sets only the t=0 placement probability, and with use_reinit true coverage
@@ -688,7 +745,7 @@ calibration:
     # Post-overdose MOUD initiation relative risk (Larochelle proxy ≈ 2x)
     - path: "moud.post_overdose_rr"
       lower: 1.0
-      upper: 5.0         # NEW
+      upper: 4.3454   # refit box 2026-08-11; prior bound 5.0 NEW
 
     # ---- HIV transmission & testing ----
     # Per-act injection HIV transmission (canonical 0.0063; allow wider for RI fit)
@@ -706,8 +763,8 @@ calibration:
     # epidemic, so 0.001 was a plausible floor then. With the sexual route live
     # and the SSP block re-anchored it no longer is.
     - path: "partnership.injection.transmission.base"
-      lower: 0.0003      # was 0.001; see above
-      upper: 0.012       # NEW
+      lower: 0.000580802   # refit box 2026-08-11; prior bound 0.0003 was 0.001; see above
+      upper: 0.00465604   # refit box 2026-08-11; prior bound 0.012 NEW
 
     # REMOVED 2026-07-30: hiv.background_sex.per_act_transmission_prob.
     #
@@ -752,8 +809,8 @@ calibration:
     # ~19 acts/month) drove prevalence to 95%, which brackets how sensitive this is.
     # See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P1.
     - path: "calibration.sex.act"
-      lower: 0.25
-      upper: 3.0         # NEW 2026-07-29
+      lower: 0.38765   # refit box 2026-08-11; prior bound 0.25
+      upper: 2.53519   # refit box 2026-08-11; prior bound 3.0 NEW 2026-07-29
 
     # NOTE: hiv.dx.prob is deliberately NOT optimized. Its only consumer is the
     # legacy per-step diagnosis roll in titan/exposures/hiv.py, which is gated
@@ -764,8 +821,8 @@ calibration:
     # Annual HIV testing base probability among PWID/OUD
     # (renamed from hiv_testing.base_prob, which was a per-timestep probability)
     - path: "hiv_testing.base_prob_annual"
-      lower: 0.10
-      upper: 0.80        # NEW; current YAML 0.3
+      lower: 0.133949   # refit box 2026-08-11; prior bound 0.10
+      upper: 0.545579   # refit box 2026-08-11; prior bound 0.80 NEW; current YAML 0.3
 
     # ---- Network structure ----
     # Linear partner-count boost during a high-risk burst (~20% of agents, ~6-step
@@ -779,7 +836,7 @@ calibration:
     # See docs/calibration_log/phase_4_num_partners_fix_2026-07-21.md.
     - path: "high_risk.partner_scale"
       lower: 1
-      upper: 20          # NEW
+      upper: 17   # refit box 2026-08-11; prior bound 20 NEW
       type: int
 
   # --------------------------------------------
