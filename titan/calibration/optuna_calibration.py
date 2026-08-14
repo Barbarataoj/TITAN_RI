@@ -157,7 +157,155 @@ MSM_SEX_TYPES = ("MSM", "MSMW")
 # it and what does not.
 NONINJ_HIV_MSM_TO_HET_RATIO = 3.4
 
-def set_noninj_hiv_init(scenario, het, msm, dx_init=0.9):
+# NonInj HIV initial condition, restored 2026-08-12 after being zeroed on
+# 2026-08-07. An ANCHORED INITIAL CONDITION, not a fitted parameter: stated once,
+# never varied by a trial. The level is where the model's own 720-step burn
+# converges; probe_seed_burn measured it as the only tested seed that leaves the
+# scored window flat on both compartments. See the long block in objective().
+NONINJ_HIV_INIT_HET = 0.020
+
+# Inj HIV initial condition. Was 0.075, described as "series-anchored", but every
+# arm of probe_seed_burn relaxed downward from it toward 0.042-0.047 regardless of
+# burn length or seed -- the model has been disagreeing with that number since the
+# refit. Set where it settles.
+INJ_HIV_INIT = 0.045
+
+# Share of people with HIV who know their status, at t = -burn_steps.
+# RIDOH 2023 Surveillance Report, 2022 HIV care continuum: 2,796 of an estimated
+# ~3,000 people living with HIV in Rhode Island, i.e. 93.2%. Replaces a round 0.9
+# that had no source. Closes citations GAP #29.
+HIV_DX_INIT = 0.932
+
+# HIV prevalence among the non-OUD adults the background sexual route draws
+# partners from. ~3,000 people living with HIV against ~885,000 Rhode Island
+# adults. Replaces 0.01, which was ~3x too high and unsourced. Closes GAP #27.
+BACKGROUND_PARTNER_HIV_PREV = 0.0034
+
+# Injection initiation and cessation, moved out of the search 2026-08-13 (step 2
+# of the 2026-08-12 plan). Neither rate is something any of the five scenarios
+# changes -- every scenario file moves MOUD, HIV testing or syringe-service risk
+# -- so under the design rule adopted from upstream TITAN they are inputs, not
+# free parameters, and their uncertainty belongs in a sensitivity analysis.
+#
+# INITIATION, 0.039/yr: 3.9 per 100 person-years among people already using
+# illicit drugs (PubMed 27780105). Closes citations GAP #4. The previous search
+# box was [0.010, 0.0926] and the last fitted value 0.0400, so this barely moves
+# the model -- the change is in status, not level.
+#
+# CESSATION, 0.10/yr: A JUDGMENT PICK inside a wide cohort spread, not a
+# published central estimate. The literature runs 4.1 to 32.6 per 100 py
+# (PMC5889739; Tijuana 7.3, Iran 26.1), which is a factor of eight. 0.10 sits in
+# the lower half because the RI cohort is fentanyl-era and severe. The last
+# fitted value was 0.153, so this one DOES move the model: lower cessation means
+# a higher injection share, and probe.py measures the direction and size.
+# Closes GAP #5 only in the sense that a sourced range now exists; treat the
+# point value as the sensitivity analysis's first axis.
+#
+# relapse_to_inj_prob is deliberately NOT here. It is GAP #6, no clean source was
+# found (the Iranian cohort reports a relapse-to-injection RATE among people who
+# had stopped, which is a different quantity), and it stays in the search as the
+# one remaining free lever on the injection share.
+INJECT_START_RATE = 0.039
+INJECT_STOP_RATE = 0.10
+
+# Sensitivity range for the above, for the analysis that has to accompany them.
+# Not read by the calibration.
+INJECT_START_RANGE = (0.010, 0.093)
+INJECT_STOP_RANGE = (0.041, 0.326)
+
+# Per-act sexual transmission, anchored 2026-08-13 (step 3 of the 2026-08-12
+# plan). Patel et al., as published by CDC: receptive anal 0.0138, insertive anal
+# 0.0011, receptive vaginal 0.0008, insertive vaginal 0.0004. `versatile` is the
+# mean of the two figures the agent alternates between. Closes citations GAP #32.
+#
+# THE TABLE IS INDEXED BY THE HIV-NEGATIVE AGENT'S sex_type AND ROLE
+# (titan/exposures/hiv.py:429), and a versatile agent takes the opposite role to
+# its partner. With `sex_role.init` a point mass everywhere and HM sleeping only
+# with HF, just five of the twelve cells are reachable:
+#
+#   HF   receptive    0.0008    from HM, and from an MSMW resolved to insertive
+#   HM   insertive    0.0004    from HF
+#   MSM  versatile    0.00745   from MSM and MSMW, both versatile
+#   MSMW versatile    0.00745   from MSM and MSMW
+#   MSMW insertive    0.0004    ONLY from HF -- so this cell is VAGINAL insertive
+#
+# Only one reachable value was wrong: MSM versatile was 0.010 against 0.00745,
+# 34% hot, in the group that carries most sexual transmission.
+#
+# A NOTE ON MSMW, because the 2026-08-12 analysis got this wrong and the wrong
+# version is more intuitive: MSMW versatile 0.00745 was read as "assumes bisexual
+# men only ever have male partners" and a blended ~0.0039 was proposed. That is
+# incorrect. Female partners are HF, who are always receptive, which forces the
+# MSMW into the insertive slot -- where the value is already the vaginal 0.0004.
+# The versatile cell is only ever reached in male-male partnerships, where the
+# anal mean is right. Blending would have made the male-male route ~2x cold.
+#
+# The unreachable cells are set to their published values too. They are dead
+# config today and stop being dead the moment sex_role.init is no longer
+# degenerate -- and a wrong value there is invisible until then, which is exactly
+# how MSM insertive sat at 0.005 against a published 0.0011. See
+# tests/sex_acquisition_test.py, which pins the reachable set.
+SEX_ACQUISITION = {
+    "HF": {"insertive": 0.0004, "receptive": 0.0008, "versatile": 0.0006},
+    "HM": {"insertive": 0.0004, "receptive": 0.0008, "versatile": 0.0006},
+    "MSM": {"insertive": 0.0011, "receptive": 0.0138, "versatile": 0.00745},
+    "MSMW": {"insertive": 0.0004, "receptive": 0.0138, "versatile": 0.00745},
+}
+
+# Per-act injection HIV transmission, anchored 2026-08-13 (step 4). Patel et al.
+# / CDC: 63 per 10,000 exposures for sharing injection equipment. Closes
+# citations GAP #31, which has read "DEFAULT -- use canonical 0.0063" since the
+# register was written while the search box ran [0.000581, 0.00466] -- i.e. the
+# published value sat ABOVE the entire range every trial could reach.
+#
+# THE UNITS WERE CHECKED BEFORE PINNING, because 0.0063 is per SHARING event and
+# a model applying it per injection act would need it scaled down. TITAN_RI
+# applies it per sharing event, so no adjustment:
+#
+#   titan/interactions/injection.py:47-89  draws `share_acts` from a Poisson on
+#       num_acts, then filters each act through `p_unsafe_injection` -- SSP
+#       enrolled risk 0.16, otherwise demographics unsafe_prob 0.38 -- so only
+#       unsafe (sharing) acts survive to be exposed.
+#   titan/exposures/hiv.py:455  combines with utils.total_probability, 1-(1-p)^n.
+#
+# The population mean unsafe probability at 71 SSP slots is about 0.25, against
+# NHBS-PWID 2018's 26% receptive sharing, so the act filter is itself anchored.
+#
+# PAIRED WITH THE HIV OBJECTIVE, and it only works as a pair. ridoh_hiv_rmse
+# scores two series: injection-attributed diagnoses against RIDOH's IDU category,
+# and all-route PWID diagnoses against IDU + MSM/IDU. With this parameter free,
+# the cheapest way to hit the IDU series is to crush it and let the sexual route
+# carry the epidemic, which inerts the one route every planned intervention acts
+# on. Fixing it from the literature removes that escape hatch; `calibration.sex.act`
+# is left as the fitted lever on the sexual side, so the route MIX is now set by
+# evidence and only the sexual LEVEL is fitted.
+INJECTION_TRANSMISSION_BASE = 0.0063
+
+def set_per_act_transmission(scenario):
+    """
+    Write the published per-act sexual acquisition table into the scenario.
+
+    Same contract as the other anchors: stated once, applied by both objective()
+    and main(), never fitted. `calibration.sex.act` remains the fitted lever on
+    sexual transmission intensity -- this sets what it multiplies.
+
+    Returns the number of cells written, for smoke tests.
+    """
+    partnership = scenario.setdefault("partnership", {})
+    acq = partnership.setdefault("sex", {}).setdefault("acquisition", {})
+    n = 0
+    for sx_type, roles in SEX_ACQUISITION.items():
+        cell = acq.setdefault(sx_type, {})
+        for role, value in roles.items():
+            cell[role] = float(value)
+            n += 1
+
+    injection = partnership.setdefault("injection", {}).setdefault("transmission", {})
+    injection["base"] = float(INJECTION_TRANSMISSION_BASE)
+    n += 1
+    return n
+
+def set_noninj_hiv_init(scenario, het, msm, dx_init=HIV_DX_INIT):
     """
     Seed hiv.init/hiv.dx.init on every NonInj stratum, leaving Inj untouched.
 
@@ -178,6 +326,163 @@ def set_noninj_hiv_init(scenario, het, msm, dx_init=0.9):
             nd["hiv"] = {"init": float(init), "dx": {"init": float(dx_init)}}
             n += 1
     return n
+
+def set_hiv_initial_conditions(scenario):
+    """
+    Apply the full data-anchored HIV initial condition: both compartments'
+    prevalence, the diagnosed share, and the background route's partner
+    prevalence.
+
+    One function because these four numbers are one statement about the state of
+    the epidemic at t = -burn_steps, and splitting them across call sites is how
+    the NonInj seed and burn_steps drifted apart in the first place. objective()
+    and main() both call this; neither should set any of these directly.
+
+    Every value is sourced -- see the module constants and the block in
+    objective(). None of them is fitted, and none appears in
+    parameters_to_optimize.
+    """
+    n = set_noninj_hiv_init(
+        scenario,
+        het=NONINJ_HIV_INIT_HET,
+        msm=NONINJ_HIV_INIT_HET * NONINJ_HIV_MSM_TO_HET_RATIO,
+        dx_init=HIV_DX_INIT,
+    )
+
+    for race in scenario.get("demographics", {}).values():
+        for sx in (race or {}).get("sex_type", {}).values():
+            inj = (sx or {}).get("drug_type", {}).get("Inj")
+            if inj is None:
+                continue
+            # dx.init moves on Inj as well as NonInj. Leaving Inj at the old 0.9
+            # while NonInj carried RIDOH's 0.932 would make the population-wide
+            # diagnosed share a function of the injection share, which is itself
+            # a fitted quantity -- a data statement contaminated by a free
+            # parameter.
+            hiv = inj.setdefault("hiv", {})
+            hiv["init"] = float(INJ_HIV_INIT)
+            hiv.setdefault("dx", {})["init"] = float(HIV_DX_INIT)
+            n += 1
+
+    bg = scenario.setdefault("hiv", {}).setdefault("background_sex", {})
+    bg["partner_hiv_prevalence_nonoud"] = float(BACKGROUND_PARTNER_HIV_PREV)
+    return n
+
+# Paths this module asserts rather than fits. Every one of them is written by
+# set_oud_initial_conditions() AFTER objective()'s suggest loop has run, so a
+# path that appears in both places would be silently overwritten -- the trial
+# would record a value it never simulated. assert_not_fitted() makes that a
+# startup error instead of a fitting artifact nobody notices.
+ANCHORED_PATHS = (
+    "oud_state.init_active",
+    "oud_state.init_remission",
+    "oud_state.init_none",
+    "oud_state.transitions.inject_start_rate_per_year",
+    "oud_state.transitions.inject_stop_rate_per_year",
+    "partnership.injection.transmission.base",
+)
+
+def assert_not_fitted(calib):
+    """Fail loudly if an anchored path has been added back to the search."""
+    fitted = {p["path"] for p in calib["calibration"]["parameters_to_optimize"]}
+    clash = sorted(fitted & set(ANCHORED_PATHS))
+    if clash:
+        raise RuntimeError(
+            "These paths are data-anchored in optuna_calibration.py but also appear "
+            "in parameters_to_optimize, where the anchor would silently overwrite the "
+            "suggested value: " + ", ".join(clash)
+        )
+
+def set_population_window(scenario, calib):
+    """
+    Write the calibration's population size and time window into the scenario.
+
+    FOUND MISSING 2026-08-13, and it had been silently wrong since 2026-08-12.
+    `calibration.population` in calibration_targets.yml was read only by the
+    SCORING path -- build_targets uses `size` for pop_scale and
+    min_transmission_events uses `size` and `steps` for the expected event count
+    -- while the ENGINE takes the same three quantities from `model.num_pop` and
+    `model.time.*` in the base scenario. Nothing connected them.
+
+    `size` (500) and `steps` (132) happened to agree, so the gap was invisible.
+    `burn_steps` did not: step 1 of the 2026-08-12 plan set it to 120 in the
+    targets file and every trial kept running at the base scenario's 720. The
+    headline "a trial now runs 252 steps instead of 852" was never true, the
+    2026-08-12 seed and burn decision was applied to the arithmetic but not to
+    the model, and the step 4 probe measured a burn-720 model while reporting
+    itself as burn 120.
+
+    The values now move together or the run stops, which is the same contract as
+    the other anchors: stated once in the targets file, applied here, checked.
+    """
+    pop = calib["calibration"]["population"]
+    size, steps, burn = int(pop["size"]), int(pop["steps"]), int(pop["burn_steps"])
+
+    model = scenario.setdefault("model", {})
+    model["num_pop"] = size
+    time = model.setdefault("time", {})
+    time["num_steps"] = steps
+    time["burn_steps"] = burn
+
+    spy = time.get("steps_per_year", STEPS_PER_YEAR)
+    if spy != STEPS_PER_YEAR:
+        raise RuntimeError(
+            f"model.time.steps_per_year is {spy}, but the calibration's targets, "
+            f"parser and pop_scale all assume {STEPS_PER_YEAR}"
+        )
+    return size, steps, burn
+
+def set_oud_initial_conditions(scenario, calib):
+    """
+    Apply the OUD-side data anchors: the baseline state split, the injection
+    share it implies, and the two injection transition rates.
+
+    Same contract as set_hiv_initial_conditions -- one function, both call sites,
+    nothing here fitted. Split from it only because the sources are different
+    (APCD and the OUD cohort literature, not RIDOH surveillance).
+
+    THE INJECTION SHARE IS DERIVED, NOT COPIED. `demographics.*.drug_type.Inj.ppl`
+    is a POPULATION share, not a share of active OUD: population.create_agent
+    draws the OUD state first and assigns every remission agent NonInj, then
+    conditional_drug_weights rescales the Inj weight by 1 / (1 - init_remission)
+    to restore the marginal (titan/population.py:374-411). So the share of ACTIVE
+    OUD agents who inject comes out at Inj.ppl / oud_active, and the value that
+    puts the run on its own `injecting_pct` target is oud_active x injecting_pct.
+
+    That pairing was previously left to a hardcoded 0.25 in the base scenario
+    against the 0.55 x 0.45 = 0.2475 the targets imply -- a run that starts at a
+    0.4545 injection share while being scored against 0.45. Small, but it is the
+    seed-and-burn failure mode again: two numbers that must move together, stored
+    in two files, with nothing checking them.
+
+    Returns (strata touched, inj_ppl) for smoke tests.
+    """
+    cfg = calib["calibration"]
+    baseline = cfg["oud_baseline"]
+    active = float(baseline["oud_active"])
+    remission = float(baseline["oud_remission"])
+    none = float(baseline.get("oud_none", 0.0))
+    inj_ppl = active * float(cfg["injecting"]["injecting_pct"])
+
+    oud = scenario.setdefault("oud_state", {})
+    oud["init_active"] = active
+    oud["init_remission"] = remission
+    oud["init_none"] = none
+
+    transitions = oud.setdefault("transitions", {})
+    transitions["inject_start_rate_per_year"] = float(INJECT_START_RATE)
+    transitions["inject_stop_rate_per_year"] = float(INJECT_STOP_RATE)
+
+    n = 0
+    for race in scenario.get("demographics", {}).values():
+        for sx in (race or {}).get("sex_type", {}).values():
+            dt = (sx or {}).get("drug_type")
+            if not dt or "Inj" not in dt or "NonInj" not in dt:
+                continue
+            dt["Inj"]["ppl"] = float(inj_ppl)
+            dt["NonInj"]["ppl"] = float(1.0 - inj_ppl)
+            n += 1
+    return n, inj_ppl
 
 def run_titan(params_file, output_dir, n_reps=None):
     # Monte-Carlo reps are driven ONLY by the -n/--nMC CLI flag; params.model.num_reps
@@ -301,6 +606,41 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
     pwid_agents = pwid_last["agents"].sum()
     if pwid_agents > 0:
         stats["hiv_prevalence_pwid"] = float(pwid_last["hiv"].sum() / pwid_agents)
+
+    # ---------- Stationarity of the scored window ----------
+    #
+    # Fractional change in HIV prevalence from the first scored year to the last,
+    # per compartment. Reported, never scored -- but a fit measured across a
+    # window the epidemic is still moving through is only valid for that exact
+    # window, and every scenario contrast run on a longer horizon inherits the
+    # drift as if it were an intervention effect.
+    #
+    # This exists because the drift was invisible for months. It was found by
+    # hand on 2026-08-12 (NonInj growing 10-30% at trial 290's parameters), was
+    # wrongly attributed to burn-in length, then to transmission level, and was
+    # finally traced to the MSM per-act value running 34% hot -- fixed in step 3,
+    # after which both compartments came in flat (-0.5% and -0.4% at the anchored
+    # values, job 4944499). Nothing in the pipeline would have caught any of that.
+    #
+    # A gate rather than a fix, deliberately: drift depends on the fitted
+    # transmission level, so it cannot be pinned by configuration. What can be
+    # done is to refuse to certify a trial that has it. See
+    # validate_candidates.VALIDATION for the tolerance.
+    scored = df[df["t"] >= 1]
+    if not scored.empty:
+        first_t, last_t_scored = scored["t"].min(), scored["t"].max()
+        open_win = scored[scored["t"] < first_t + steps_per_year]
+        close_win = scored[scored["t"] >= last_t_scored - steps_per_year + 1]
+        for drug_type, key in (("Inj", "pwid"), ("NonInj", "noninj")):
+
+            def _prev(sub):
+                s = sub[sub["drug_type"] == drug_type]
+                a = s["agents"].sum()
+                return float(s["hiv"].sum() / a) if a else float("nan")
+
+            open_prev, close_prev = _prev(open_win), _prev(close_win)
+            if open_prev and np.isfinite(open_prev) and np.isfinite(close_prev):
+                stats[f"hiv_prev_drift_{key}"] = float(close_prev / open_prev - 1.0)
 
     # Same prevalence over the look-back PWID denominator that matches how the
     # APCD target was constructed (see OUDState.set_stats). Reported for
@@ -878,7 +1218,13 @@ def objective(trial):
     #     sexual level     ~  partnership.sex.acquisition[type][role]
     #                             x calibration.sex.act x acquisition
     #
-    # `calibration.injection.act` is not fitted, so `base x acquisition` is
+    # (As of 2026-08-13 the injection pair has swapped roles: `base` is pinned at
+    # the published 0.0063 and `calibration.injection.act` is fitted instead. The
+    # product is still the only identifiable thing, so this argument is unchanged
+    # -- what changed is which half carries the measurement. See the block in
+    # calibration_targets.yml.)
+    #
+    # `calibration.injection.act` was not fitted, so `base x acquisition` was
     # EXACTLY degenerate -- only the product is identifiable -- and
     # `sex.act x acquisition` is near-degenerate wherever 1-(1-p)^n ~= np, which
     # is the whole operating range here. Three parameters spanned two effective
@@ -1012,10 +1358,71 @@ def objective(trial):
     # NONINJ_HIV_MSM_TO_HET_RATIO is retained for the MSM reservoir work but is
     # not exercised here.
     #
-    # Requires burn_steps >= 720. At the pinned 60 this zeroes a reservoir that
-    # has no time to rebuild. See
-    # docs/calibration_log/phase_6_burnin_equilibrium_2026-08-07.md.
-    set_noninj_hiv_init(scenario, het=0.0, msm=0.0)
+    # RESTORED 2026-08-12, and burn_steps shortened 720 -> 120 alongside it.
+    #
+    # Everything above this line reasons from a premise upstream TITAN does not
+    # share: that `hiv.init` is a modelling degree of freedom. It is a data slot
+    # -- "Probability that an agent in this class initially has HIV" -- and its
+    # sibling `hiv.dx.init` is the documented place to state how many of those
+    # agents know their status. Zeroing the first and leaving the second at a
+    # round 0.9 turned a two-number data statement into 720 burn steps, which is
+    # 84.5% of all compute, and left burn length as an unfitted parameter with
+    # more leverage on the HIV objective than most of the fitted ones.
+    #
+    # probe_seed_burn (2026-08-12) measured seed against burn on trial 290's
+    # vector, 20 runs per arm. Drift is close/open across the scored window:
+    #
+    #   burn 120, seed 0                    PWID -21.8%   NonInj  +1.0%
+    #   burn 120, seed 0.0034/0.115 RIDOH   PWID  +7.0%   NonInj +12.3%
+    #   burn 120, seed 0.020/0.068          PWID  -1.9%   NonInj  -1.9%
+    #   burn 240, seed 0.0034/0.115 RIDOH   PWID +12.2%   NonInj +13.4%
+    #
+    # The values below are the third row. They are NOT the RIDOH-derived seed,
+    # and that is a deliberate reversal: deriving a seed by applying RIDOH's
+    # 2019-2023 exposure shares (GBMSM 78% of sexual transmissions) to the
+    # PREVALENT pool implies an MSM:het ratio near 34, and it performed worse --
+    # concentrating the reservoir in the ~5% of agents who transmit most
+    # efficiently drove the epidemic upward rather than holding it. The caution
+    # already recorded above ("RIDOH publishes no PLWH breakdown by transmission
+    # category ... would give a far larger number") was correct, and the
+    # prevalent pool accumulated across four decades over which the mix shifted
+    # sharply -- 37% of new AIDS diagnoses were injection-attributed in 2001
+    # against 9% of HIV diagnoses in 2023.
+    #
+    # So NONINJ_HIV_MSM_TO_HET_RATIO = 3.4 is retained and the LEVEL is set where
+    # the model's own long burn converges. This is an anchored initial condition,
+    # not a fitted one: it is stated once here and no trial varies it.
+    #
+    # dx_init is RIDOH's measured 93.2% (2022 care continuum), replacing the
+    # round 0.9. See the hiv_testing.base_prob_annual block in
+    # calibration_targets.yml for why the cascade saturated regardless of seed.
+    #
+    # CAVEAT, stated because the next person will want it: the scored window is
+    # not fully stationary at these values. The NonInj reservoir still grows
+    # 10-30% across the window at trial 290's transmission level. That is a
+    # transmission problem -- the injection route runs at 5-14% of incidence
+    # against a literature per-act value (0.0063, citations #31) that sits ABOVE
+    # the entire fitted box -- and it is what step 4 of the 2026-08-12 plan
+    # addresses. Do not try to fix it by lengthening the burn; burn 240 drifted
+    # more than burn 120, not less.
+    set_hiv_initial_conditions(scenario)
+
+    # OUD-side anchors: the baseline state split, the injection share it implies,
+    # and the two injection transition rates (step 2 of the 2026-08-12 plan).
+    #
+    # AFTER the suggest loop on purpose -- these paths must not be fitted, and
+    # writing them last means an accidental re-entry into parameters_to_optimize
+    # would be overwritten rather than half-applied. assert_not_fitted turns that
+    # case into a startup error so it cannot pass silently.
+    set_oud_initial_conditions(scenario, calib)
+
+    # Per-act sexual transmission, published values (step 3).
+    set_per_act_transmission(scenario)
+
+    # Population size and time window. Must come from the targets file, not the
+    # base scenario -- see set_population_window for the burn_steps divergence
+    # this closes.
+    set_population_window(scenario, calib)
 
     # Run TITAN
     trial_yaml = OUTPUT_DIR / f"trial_{trial.number}.yml"
@@ -1153,6 +1560,10 @@ def main():
     n_workers = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     n_trials = int(os.environ.get("TITAN_CALIB_TRIALS", 120))
     print(f"Running Optuna NSGA-II with {n_workers} workers, {n_trials} trials")
+
+    # Before any compute: a data-anchored path that has drifted back into the
+    # search would waste the whole run, since the anchor overwrites it per trial.
+    assert_not_fitted(load_yaml(CALIB_YAML))
 
     # Seed the sampler. The winning trial of this study becomes
     # calibrated_scenario_best.yml and every downstream scenario result, so the
@@ -1330,7 +1741,14 @@ def main():
     # Zero since 2026-08-07: the seed left the search and the burn-in builds the
     # reservoir. Reading best.params for it would KeyError on any study run after
     # that date, the same failure mode `calibration.acquisition` caused above.
-    set_noninj_hiv_init(calibrated, het=0.0, msm=0.0)
+    set_hiv_initial_conditions(calibrated)
+
+    # Same reason for the OUD anchors: they are not suggest paths, so the
+    # canonical scenario has to have them re-applied or it is not the model the
+    # winning trial ran.
+    set_oud_initial_conditions(calibrated, calib)
+    set_per_act_transmission(calibrated)
+    set_population_window(calibrated, calib)
 
     # Write the canonical pick to a SEPARATE file so the base scenario stays intact
     outpath = BEST_SCENARIO_OUT

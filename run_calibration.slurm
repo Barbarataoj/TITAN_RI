@@ -30,8 +30,12 @@ cd /oscar/data/jtao9/TITAN_RI
 # size=500, so 4000 trials across 16 workers is ~6 h against a 24 h wall.
 # TITAN_CALIB_POP=100 (see optuna_calibration.py) makes that 40 generations.
 #
-# DIMENSION COUNT, 2026-08-07: 18 free parameters against 5 objectives, all 18
-# from calibration_targets.yml parameters_to_optimize. Was 20 until
+# DIMENSION COUNT, 2026-08-13: 16 free parameters against 5 objectives, all 16
+# from calibration_targets.yml parameters_to_optimize. Was 18 until step 2 of the
+# 2026-08-12 plan took inject_start_rate_per_year and inject_stop_rate_per_year
+# out of the search and fixed them from the cohort literature -- no scenario
+# changes either rate, so under upstream TITAN's data-slot rule they are inputs.
+# Was 20 until
 # calibration.acquisition left the search on 2026-08-06 as an exactly redundant
 # dimension -- it multiplied both routes on top of their own bases, so
 # `injection.transmission.base x acquisition` had one identifiable product and

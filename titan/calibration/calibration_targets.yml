@@ -128,10 +128,37 @@ calibration:
   # only lower the injection share, most of the box already sits below 0.45 with
   # the full latch, and where it is reachable the required window is 28 years.
   # See docs/calibration_log/phase_6_burnin_equilibrium_2026-08-07.md.
+  # SHORTENED 2026-08-12 to 120, and the NonInj seed restored alongside it.
+  #
+  # The 720 above was correct for a model whose HIV initial condition was zero:
+  # with no reservoir seeded, the burn-in has to build one, and that takes
+  # decades. Upstream TITAN does not have that problem because it treats
+  # `hiv.init` and `hiv.dx.init` as data slots ("Probability that an agent in
+  # this class initially has HIV") and ships `burn_steps: 6`. TITAN_RI moved both
+  # slots into the search and then zeroed one, and 720 was the price.
+  #
+  # Restoring the seed removes the reason for the long burn. Measured by
+  # probe_seed_burn (2026-08-12, trial 290 parameters, 6 arms x 20 runs):
+  #
+  #   burn 120, seed 0                PWID prevalence -21.8% across the scored
+  #                                   window -- the reservoir has no time to
+  #                                   rebuild, exactly as objective() warned
+  #   burn 120, seed at equilibrium   PWID -1.9% to +2.1%, NonInj holds
+  #   burn 240, seed                  MORE drift than 120, not less
+  #
+  # Note the last line. Once a realistic reservoir is present, a longer burn does
+  # not settle the system at trial 290's transmission level -- it grows. The
+  # equilibrium reported at burn 720 on 2026-08-07 was measured from a zero seed,
+  # where the slow build-up masks the growth. That is a transmission-level
+  # problem (see the injection/sexual route split and citations #31), not a burn
+  # problem, and lengthening the burn cannot fix it.
+  #
+  # Seed and burn MUST move together. See set_noninj_hiv_init in
+  # optuna_calibration.py -- zeroing the seed at a short burn is the A3 failure.
   population:
     size: 500
     steps: 132        # 11 years × 12 months
-    burn_steps: 720   # was 60; set from where PWID and NonInj prevalence flatten. See above.
+    burn_steps: 120   # was 720; see above. Requires a non-zero NonInj hiv.init.
 
   n_runs: 10
 
@@ -208,8 +235,98 @@ calibration:
   # fix is to make relapse-to-injection depend on RECENCY of injection rather than
   # a permanent latch, which would give the quantity a genuine equilibrium. That
   # is a modelling-semantics decision, deliberately not taken here.
+  #
+  # ---------------------------------------------------------------------------
+  # 2026-08-13, step 2: THIS TARGET IS NOW OUT OF REACH, AND IT IS UNCITED.
+  # ---------------------------------------------------------------------------
+  # Two things changed on 2026-08-13, and the second one is the important one.
+  #
+  # FIRST, inject_start and inject_stop left the search (see the note in
+  # parameters_to_optimize) and are now fixed at 0.039 and 0.10 from the cohort
+  # literature. analysis/step2_injection_anchor_2026-08-13/ re-ran the scan above
+  # at the CURRENT window (burn 120, not 60) with drug-type-specific mortality:
+  #
+  #   s, e free, current boxes          201 of 59,049 points hit both targets
+  #   s, e free, original wide bounds    263 of 59,049
+  #   s = 0.039, e = 0.10 (anchored)       0 of 15,625, max inj_of_active 0.378
+  #   s = 0.039, e = 0.052 (lowest)        0 of 15,625, max inj_of_active 0.406
+  #
+  # The binding constraint is the one this comment already recorded: reaching
+  # 0.45 needs inject_start >= 0.0438. That threshold is reproduced exactly under
+  # the new window and mortality model -- and it sits 12% ABOVE the published
+  # 0.039. So the target and the literature value cannot both hold. Anchoring
+  # moves the model toward the target rather than away from it (window average
+  # 0.266 -> 0.299, equilibrium 0.335 -> 0.376), but not far enough to reach it.
+  #
+  # SECOND, and the reason this is not simply resolved by nudging inject_start:
+  # 0.45 HAS NO SOURCE. RI_parameters_citations.md has no row for the share of
+  # active OUD who currently inject. PROFOUND's 63,131 (#7, F6) is the SIZE of
+  # the combined PWID + non-injection OUD pool, not its split. Retuning a
+  # parameter that does have a citation in order to hit a number that does not
+  # is fitting backwards.
+  #
+  # So this stays 0.45 pending a decision that is Jun's to make, and the
+  # consequence has to be stated plainly: as long as inj_share_err remains one of
+  # the five objectives, its floor is about (0.45 - 0.38)^2 = 0.005 against a
+  # 0.0025 pass threshold, NSGA-II will push relapse_to_inj_prob to its ceiling
+  # trying to close a gap it cannot close, and the front will be distorted by an
+  # objective no parameter vector can satisfy. The three options are: source the
+  # number, demote inj_share_err to a verification check (which is what step 5 of
+  # the 2026-08-12 plan assumes), or re-derive the target from whatever the
+  # source turns out to measure.
+  #
+  # ON THAT LAST OPTION, and it is the most likely resolution: at the anchored
+  # rates, conditional on active_share = 0.55, the probe measured
+  #
+  #   currently injecting (inj_of_active)    0.225 - 0.378   median 0.296
+  #   ever injected       (ever_inj_share)   0.492 - 0.509   median 0.500
+  #
+  # 0.45 is nowhere near the first and close to the second. If the number came
+  # from a source describing people who have EVER injected -- which is how most
+  # OUD cohort papers report it -- then it is being scored against the wrong
+  # model quantity, and the model already sits within 11% of it with nothing
+  # retuned. Not proof, but it is the cheapest thing to check first.
+  # ---------------------------------------------------------------------------
+  # RESOLVED 2026-08-13: 0.45 -> 0.32, from RI data. The block above stands as
+  # the record of why it had to move; this is where the new number comes from.
+  # ---------------------------------------------------------------------------
+  # PRIMARY, and RI-specific: the Rhode Island Harm Reduction Surveillance System,
+  # January 2021 - December 2022. Of 393 people who used illicit drugs in the
+  # prior 30 days, 125 (31.8%) reported injection drug use. Race-stratified:
+  # non-Hispanic white 48.2% (78/162), Hispanic 26.0% (25/96), non-Hispanic Black
+  # 11.0% (8/73), other 22.6% (14/62). (PMC10872563.)
+  #
+  # CAVEATS, both of which cut the same way and are the reason this is not simply
+  # adopted as exact. RIHRSS is a convenience sample recruited by canvassing at
+  # syringe distribution programs, harm reduction outreach and street outreach in
+  # overdose hotspots, so it OVER-represents people who inject relative to the
+  # general OUD population -- 31.8% should read as an upper bound on its own
+  # denominator. Against that, only 61.8% of participants used opioids in the
+  # prior 30 days, so the denominator is people who use drugs, not people with
+  # OUD, and the model's denominator is active OUD specifically.
+  #
+  # UPPER ANCHOR, national: among treatment admissions for heroin and synthetic
+  # opioids, injection as the usual route peaked at 69.9% in 2014 and fell to
+  # 52.2% by 2021 as smoking and snorting of fentanyl rose (PubMed 39216201).
+  # That is the severe, treatment-entering end of the OUD spectrum and a genuine
+  # ceiling for this quantity -- and note the direction of travel, which matters
+  # for a fentanyl-era RI cohort scored over 2012-2022.
+  #
+  # So the defensible range is about 0.30-0.52 and 0.45 sat near its top with no
+  # citation at all. 0.32 is chosen: it is the RI measurement, it is the era-
+  # appropriate end of the national trend, and -- decisive for whether this can
+  # be an objective rather than a diagnostic -- it is REACHABLE. The step 2 probe
+  # put inj_of_active at 0.225-0.378 across the free box conditional on
+  # oud_active = 0.55, median 0.296, against 0.45 which nothing in the box could
+  # reach. inj_share_err becomes satisfiable rather than a permanent penalty
+  # pushing relapse_to_inj_prob to its ceiling.
+  #
+  # SENSITIVITY: rerun at 0.26 and 0.52 (the RIHRSS Hispanic stratum and the
+  # TEDS-A 2021 ceiling). Do NOT re-derive this from the model's ever-injected
+  # share, which is a different quantity -- the model produces about 0.50 there,
+  # and the coincidence with the old 0.45 is what made the old target plausible.
   injecting:
-    injecting_pct: 0.45   # current target; revisit when APCD #34 PWID composition arrives
+    injecting_pct: 0.32   # RIHRSS 2021-22, 125/393 = 31.8%; range 0.30-0.52. See above.
 
   # --------------------------------------------
   # Overdose calibration targets (ANNUALIZED, RI APCD T3)
@@ -682,13 +799,27 @@ calibration:
       lower: 0.425809   # refit box 2026-08-11; prior bound 0.30
       upper: 0.846842   # refit box 2026-08-11; prior bound 0.85 NEW
 
-    - path: "oud_state.transitions.inject_start_rate_per_year"
-      lower: 0.01
-      upper: 0.0926203   # refit box 2026-08-11; prior bound 0.10
-
-    - path: "oud_state.transitions.inject_stop_rate_per_year"
-      lower: 0.0521236   # refit box 2026-08-11; prior bound 0.02
-      upper: 0.283405   # refit box 2026-08-11; prior bound 0.30
+    # inject_start_rate_per_year and inject_stop_rate_per_year were REMOVED here
+    # 2026-08-13 (step 2 of the 2026-08-12 plan). They are now stated once in
+    # optuna_calibration.py as INJECT_START_RATE = 0.039 and INJECT_STOP_RATE =
+    # 0.10, applied by set_oud_initial_conditions(), and guarded by
+    # assert_not_fitted() -- re-adding them here is a startup error, not a silent
+    # override, because the anchor is applied after the suggest loop.
+    #
+    # WHY they left the search: no scenario changes either rate (all five move
+    # MOUD, HIV testing or syringe-service risk), so under upstream TITAN's
+    # data-slot rule they are inputs. Their old bounds bracketed the literature
+    # rather than contradicting it -- initiation 3.9/100py sat inside [0.010,
+    # 0.0926] and cessation's 4.1-32.6/100py spread inside [0.0521, 0.283] --
+    # so the defect was never the bounds. It was that a quantity with a published
+    # value was being inferred from five simultaneous targets.
+    #
+    # Sources: initiation PubMed 27780105 (GAP #4); cessation PMC5889739, a
+    # judgment pick inside an eight-fold spread (GAP #5). See the constants in
+    # optuna_calibration.py, which carry the full note and the sensitivity range.
+    #
+    # relapse_to_inj_prob above STAYS fitted: GAP #6 has no clean source, and it
+    # is now the only free lever on the injection share.
 
     # ---- Overdose dynamics (overdose.py) — bounds anchored to APCD ----
     - path: "overdose.base_prob_inj"
@@ -762,9 +893,54 @@ calibration:
     # sex.frequency block below) and this parameter was absorbing the whole
     # epidemic, so 0.001 was a plausible floor then. With the sexual route live
     # and the SSP block re-anchored it no longer is.
-    - path: "partnership.injection.transmission.base"
-      lower: 0.000580802   # refit box 2026-08-11; prior bound 0.0003 was 0.001; see above
-      upper: 0.00465604   # refit box 2026-08-11; prior bound 0.012 NEW
+    # REMOVED 2026-08-13 (step 4 of the 2026-08-12 plan). Fixed at the published
+    # 0.0063 as INJECTION_TRANSMISSION_BASE in optuna_calibration.py, applied by
+    # set_per_act_transmission() and guarded by assert_not_fitted().
+    #
+    # The box above ran [0.000580802, 0.00465604]. The canonical per-act value is
+    # 0.0063, so THE LITERATURE VALUE SAT ABOVE THE ENTIRE SEARCH RANGE -- every
+    # trial ever run used an injection transmission probability below what the
+    # evidence supports, the best-scoring one about five times below it. That is
+    # the mechanism behind the route split this calibration has been fighting:
+    # the injection route carried 5-14% of incidence because it was bounded away
+    # from its measured value, and the sexual route absorbed the rest.
+    #
+    # Units checked before pinning: the model applies this per SHARING act (the
+    # act filter in titan/interactions/injection.py:47-89 drops safe acts before
+    # exposure), which is what the 0.0063 estimate measures. See the constant.
+    #
+    # This and the two-series HIV objective are a PAIR. With the parameter free,
+    # the cheapest way to fit RIDOH's IDU series is to crush this value and let
+    # the sexual route carry the epidemic -- scoring well while inerting the one
+    # route the interventions act on. Fixing it closes that; calibration.sex.act
+    # stays fitted as the sexual-side lever.
+    #
+    # MEASURED CONSEQUENCE, job 4944499 (probe_injection_pin, 20 reps x 2
+    # population seeds, all post-step-3 anchors in force). ridoh_hiv_err against
+    # a 1.1 pass threshold and a 4.782 null:
+    #
+    #   base      sex.act   ridoh_hiv_err   inj share of incidence   hiv_new
+    #   0.00394   0.52          1.90                 0.43              46
+    #   0.00466   0.52          3.99                 0.53              56
+    #   0.00630   0.52          5.83                 0.60              83
+    #   0.00900   0.52         22.24                 0.78             170
+    #   0.00630   0.25          4.31                 0.77              47
+    #   0.00630   1.50         15.01                 0.38             228
+    #
+    # AT THE PUBLISHED VALUE THE MODEL CANNOT REACH RIDOH, and the sexual lever
+    # cannot rescue it. Compare row 1 with row 5: the same total incidence (46 vs
+    # 47) scores 1.90 against 4.31, because the objective scores the injection
+    # route separately. RIDOH's own categories say IDU-attributed diagnoses run
+    # 1.8-2.5/yr against 5.4-8.7 for IDU + MSM/IDU -- only about 30% of diagnoses
+    # among PWID are injection-attributed. Pinning the per-act value drives the
+    # model's injection share to 0.60-0.82, which contradicts that split.
+    #
+    # So the per-act probability is not the term that was wrong. What the model
+    # over-states is EXPOSURE FREQUENCY: acts per partnership per month, and
+    # partners per PWID. Both are uncited (citations GAP #36, #37) while the
+    # per-act probability is measured -- the calibration had it exactly backwards,
+    # fitting the quantity with a published value and fixing the ones without.
+    # calibration.injection.act is therefore added to the search below.
 
     # REMOVED 2026-07-30: hiv.background_sex.per_act_transmission_prob.
     #
@@ -812,6 +988,37 @@ calibration:
       lower: 0.38765   # refit box 2026-08-11; prior bound 0.25
       upper: 2.53519   # refit box 2026-08-11; prior bound 3.0 NEW 2026-07-29
 
+    # Injection exposure frequency, ADDED TO THE SEARCH 2026-08-13 (step 4).
+    # Scales mean_num_acts in titan/interactions/injection.py:43-46, i.e. shared
+    # injection acts per partnership per timestep, before the unsafe-probability
+    # filter.
+    #
+    # This is the counterpart to pinning partnership.injection.transmission.base.
+    # The two are a product for the injection route and only the product is
+    # identifiable, which is exactly why this parameter was NOT fitted while the
+    # per-act probability was. That arrangement fitted the quantity with a
+    # published estimate (0.0063, citations #31) and fixed the one without
+    # (num_acts = 10/month, GAP #36). Swapping them leaves the likelihood
+    # unchanged and the interpretation much better: the fitted value is now a
+    # statement about sharing frequency, which NHBS-PWID can check, rather than
+    # about a per-act biology already measured.
+    #
+    # BOX. The engine default is 1.0 against demographics num_acts = 10 per
+    # month. The retired base box mapped to [0.09, 0.74] of the published per-act
+    # value; the best-scoring arm of job 4944499 sits at 0.62 and is still 1.7x
+    # the pass threshold, so the feasible region is below it and the lower bound
+    # has to go well under the old floor. Upper bound 1.5 keeps the engine
+    # default interior rather than at a wall.
+    #
+    # SANITY-CHECK THE FITTED VALUE, do not just accept it: 0.10 means roughly
+    # one shared injection per partnership per month before the ~25% unsafe
+    # filter. If the fit lands at the bottom of this box, the exposure structure
+    # is wrong somewhere else -- partners per PWID (GAP #37) is the next suspect,
+    # and pop_scale after that.
+    - path: "calibration.injection.act"
+      lower: 0.05
+      upper: 1.5
+
     # NOTE: hiv.dx.prob is deliberately NOT optimized. Its only consumer is the
     # legacy per-step diagnosis roll in titan/exposures/hiv.py, which is gated
     # off whenever features.hiv_testing is true (as it is in every scenario
@@ -820,9 +1027,35 @@ calibration:
 
     # Annual HIV testing base probability among PWID/OUD
     # (renamed from hiv_testing.base_prob, which was a per-timestep probability)
+    # RE-BOUNDED 2026-08-12 from [0.133949, 0.545579].
+    #
+    # The old box saturated the diagnosis cascade at every value it contained.
+    # Measured by probe_seed_burn round 2 (trial 290, burn 120, 20 runs/arm),
+    # diagnosed fraction among people with HIV against this parameter:
+    #
+    #   0.020 -> 0.827     0.050 -> 0.916 / 0.925
+    #   0.100 -> 0.919     0.211 -> 0.975 / 0.981
+    #
+    # RIDOH's measured value is 0.932 (2022 HIV care continuum: 2,796 of ~3,000
+    # people living with HIV in Rhode Island know their status; 76.1% engaged in
+    # care, 71% virally suppressed). Interpolating the dose-response puts the
+    # matching annual probability near 0.12. Everything above ~0.15 saturates, so
+    # the old box was effectively usable only at its bottom edge, and the fitted
+    # 0.211 sat well inside the saturating region.
+    #
+    # Saturation is not cosmetic: at 0.99 diagnosed the undiagnosed reservoir is
+    # ~1/8 of its real size, which is the population scenario 5 (MOUD + HIV
+    # testing) exists to reach. It also makes this parameter nominally fitted but
+    # unable to change any scored quantity.
+    #
+    # Corroboration from the same RIDOH report: only 60% of Rhode Island adults
+    # with multiple sexual partners have EVER received an HIV test. An annual
+    # probability whose old floor was 0.134 is not compatible with that.
+    #
+    # Closes citations GAP #28 (HIV testing rate) and GAP #29 (% HIV-diagnosed).
     - path: "hiv_testing.base_prob_annual"
-      lower: 0.133949   # refit box 2026-08-11; prior bound 0.10
-      upper: 0.545579   # refit box 2026-08-11; prior bound 0.80 NEW; current YAML 0.3
+      lower: 0.05      # was 0.133949
+      upper: 0.20      # was 0.545579; above ~0.15 the cascade saturates
 
     # ---- Network structure ----
     # Linear partner-count boost during a high-risk burst (~20% of agents, ~6-step
