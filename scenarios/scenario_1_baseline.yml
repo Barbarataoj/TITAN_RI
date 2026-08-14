@@ -1,6 +1,34 @@
 calibration:
-  acquisition: 2.7775699147732498
-  test_frequency: 1.3047203617754868
+  acquisition: 1.0
+  sex:
+    act: 0.5201724420059651
+  test_frequency: 0.651830758384625
+classes:
+  sex_types:
+    HF:
+      cis_trans: cis
+      gender: F
+      sleeps_with:
+      - HM
+      - MSMW
+    HM:
+      cis_trans: cis
+      gender: M
+      sleeps_with:
+      - HF
+    MSM:
+      cis_trans: cis
+      gender: M
+      sleeps_with:
+      - MSM
+      - MSMW
+    MSMW:
+      cis_trans: cis
+      gender: M
+      sleeps_with:
+      - HF
+      - MSM
+      - MSMW
 demographics:
   black_hispanic:
     ppl: 0.0015
@@ -8,10 +36,30 @@ demographics:
       HF:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -26,7 +74,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 2.7039
                     value_type: float
                   2:
                     value: 0.5
@@ -40,44 +88,121 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 2.7039
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: &id001
+            ppl: 0.824
+        high_risk:
           init: 0.2
-        incar: &id002
-          init: 0.03
-          prob: 0.03
-        injection: &id003
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
           num_acts: 10
-          unsafe_prob: 0.1
-        ppl: 0.2
-        prep: &id004
+          unsafe_prob: 0.38
+        ppl: 0.31
+        prep:
           adherence: 0.1
           cap: 0.3
           discontinue: 0.1
           init: 0.3
-        safe_sex: &id005
+        safe_sex:
           Inj:
             prob: 0.1
           Sex:
             prob: 0.15
           SexInj:
             prob: 0.1
-        vaccine: &id006
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 1.0
+            versatile: 0.0
+        vaccine:
           booster:
             interval: 12
             prob: 0.1
@@ -86,10 +211,30 @@ demographics:
       HM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -118,11 +263,32 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
@@ -133,139 +299,117 @@ demographics:
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.64
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 1.0
+            receptive: 0.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       MSM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 6.9194
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 2.9061
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      MTF:
-        drug_type:
-          Inj:
-            hiv:
-              dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 6.9194
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 2.9061
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection:
-          num_acts: 10
-          unsafe_prob: 0.08
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      WSW:
-        drug_type:
-          Inj:
-            hiv:
-              dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -294,11 +438,32 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
@@ -309,26 +474,295 @@ demographics:
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.05
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+          unsafe_prob: 0.38
+        ppl: 0.03
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSMW:
+        drug_type:
+          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.045
+            num_partners:
+              Inj:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 6.9194
+                    value_type: float
+                  2:
+                    value: 0.6771
+                    value_type: float
+              Sex:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 1.27
+                    value_type: float
+                  2:
+                    value: 0.5
+                    value_type: float
+              SexInj:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 2.9061
+                    value_type: float
+                  2:
+                    value: 0.6771
+                    value_type: float
+            ppl: 0.17600000000000002
+          NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
+            num_partners:
+              Sex:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 1.27
+                    value_type: float
+                  2:
+                    value: 0.5
+                    value_type: float
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.02
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
   black_nonhispanic:
     ppl: 0.033
     sex_type:
       HF:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -343,7 +777,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 1.987
                     value_type: float
                   2:
                     value: 0.4
@@ -357,156 +791,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 0.8467
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.2
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      HM:
-        drug_type:
-          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 5.0323
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 0.9333
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 2.1135
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.9333
+                    value: 1.987
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      MSM:
-        drug_type:
-          Inj:
-            hiv:
-              dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 5.0323
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 4.0667
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 2.1135
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 4.0667
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.31
         prep:
           adherence: 0.1
           cap: 0.3
           discontinue: 0.1
-          init: 0.5
-        safe_sex: *id005
-        vaccine: *id006
-      MTF:
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 1.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      HM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -521,7 +952,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 4.0667
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
@@ -535,38 +966,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 4.0667
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.08
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      WSW:
+          unsafe_prob: 0.38
+        ppl: 0.64
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 1.0
+            receptive: 0.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -581,7 +1127,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
@@ -595,41 +1141,331 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.05
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+          unsafe_prob: 0.38
+        ppl: 0.03
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSMW:
+        drug_type:
+          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.045
+            num_partners:
+              Inj:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 5.0323
+                    value_type: float
+                  2:
+                    value: 0.6771
+                    value_type: float
+              Sex:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 0.9333
+                    value_type: float
+                  2:
+                    value: 0.4
+                    value_type: float
+              SexInj:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 2.1135
+                    value_type: float
+                  2:
+                    value: 0.6771
+                    value_type: float
+            ppl: 0.17600000000000002
+          NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
+            num_partners:
+              Sex:
+                dist_type: negative_binomial
+                vars:
+                  1:
+                    value: 0.9333
+                    value_type: float
+                  2:
+                    value: 0.4
+                    value_type: float
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.02
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
   other_hispanic:
     ppl: 0.013
     sex_type:
       HF:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -644,7 +1480,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 2.9806
                     value_type: float
                   2:
                     value: 0.5
@@ -658,36 +1494,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 2.9806
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.2
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.31
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 1.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       HM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -716,11 +1669,32 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
@@ -731,21 +1705,117 @@ demographics:
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.64
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 1.0
+            receptive: 0.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       MSM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -760,7 +1830,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 7.4
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
@@ -774,96 +1844,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      MTF:
-        drug_type:
-          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 6.9194
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 2.9061
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 7.4
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.08
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      WSW:
+          unsafe_prob: 0.38
+        ppl: 0.03
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSMW:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -878,7 +2005,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
@@ -892,41 +2019,156 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.05
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+          unsafe_prob: 0.38
+        ppl: 0.02
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
   other_nonhispanic:
     ppl: 0.2545
     sex_type:
       HF:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -941,7 +2183,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 1.987
                     value_type: float
                   2:
                     value: 0.4
@@ -955,36 +2197,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 1.987
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.2
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.31
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 1.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       HM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1013,11 +2372,32 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
@@ -1028,21 +2408,117 @@ demographics:
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.64
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 1.0
+            receptive: 0.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       MSM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1057,7 +2533,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 5.1333
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
@@ -1071,96 +2547,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 5.1333
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      MTF:
-        drug_type:
-          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 8.1774
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 5.1333
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 3.4345
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 5.1333
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.08
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      WSW:
+          unsafe_prob: 0.38
+        ppl: 0.03
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSMW:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1175,7 +2708,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
@@ -1189,41 +2722,156 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.05
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+          unsafe_prob: 0.38
+        ppl: 0.02
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
   white_hispanic:
     ppl: 0.03
     sex_type:
       HF:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1238,7 +2886,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 2.9806
                     value_type: float
                   2:
                     value: 0.5
@@ -1252,36 +2900,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 2.9806
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.2
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.31
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 1.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       HM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1310,11 +3075,32 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
@@ -1325,21 +3111,117 @@ demographics:
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.64
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 1.0
+            receptive: 0.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       MSM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1354,7 +3236,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 7.4
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
@@ -1368,96 +3250,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      MTF:
-        drug_type:
-          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 6.9194
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 7.4
-                    value_type: float
-                  2:
-                    value: 0.5
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 2.9061
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 7.4
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.08
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      WSW:
+          unsafe_prob: 0.38
+        ppl: 0.03
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSMW:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1472,7 +3411,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
@@ -1486,41 +3425,156 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 1.27
+                    value: 1.4
                     value_type: float
                   2:
                     value: 0.5
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.05
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+          unsafe_prob: 0.38
+        ppl: 0.02
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
   white_nonhispanic:
     ppl: 0.668
     sex_type:
       HF:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1535,7 +3589,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 1.987
                     value_type: float
                   2:
                     value: 0.4
@@ -1549,36 +3603,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 1.987
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.2
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.31
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 1.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       HM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1607,11 +3778,32 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.02
             num_partners:
               Sex:
                 dist_type: negative_binomial
@@ -1622,21 +3814,117 @@ demographics:
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
+        injection:
+          num_acts: 10
+          unsafe_prob: 0.38
+        ppl: 0.64
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 1.0
+            receptive: 0.0
+            versatile: 0.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
       MSM:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1651,7 +3939,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 6.0667
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
@@ -1665,96 +3953,153 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
-            num_partners:
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 6.0667
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
-        injection: *id003
-        ppl: 0.3
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      MTF:
-        drug_type:
-          Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
-            num_partners:
-              Inj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 11.3226
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-              Sex:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 6.0667
-                    value_type: float
-                  2:
-                    value: 0.4
-                    value_type: float
-              SexInj:
-                dist_type: negative_binomial
-                vars:
-                  1:
-                    value: 4.7555
-                    value_type: float
-                  2:
-                    value: 0.6771
-                    value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
-          NonInj:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 6.0667
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.08
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
-      WSW:
+          unsafe_prob: 0.38
+        ppl: 0.03
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
+      MSMW:
         drug_type:
           Inj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
             hiv:
               dx:
-                init: 0.9
-              init: 0.075
+                init: 0.932
+              init: 0.045
             num_partners:
               Inj:
                 dist_type: negative_binomial
@@ -1769,7 +4114,7 @@ demographics:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
@@ -1783,31 +4128,126 @@ demographics:
                   2:
                     value: 0.6771
                     value_type: float
-            ppl: 0.25  # 0.25 = injecting_pct target 0.45 x oud_active 0.55. This key is a POPULATION
-            # share (Population.conditional_drug_weights rescales it by 1/(1-init_remission)
-            # to preserve the marginal), so 0.50 implied 0.91 Inj-among-active-OUD at
-            # baseline -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P2.
+            ppl: 0.17600000000000002
           NonInj:
+            haart:
+              adherence:
+                become: 0.11
+                discontinue: 0.04
+                init: 0.733
+                prob: 0.733
+              cap: 0.0
+              discontinue: 0.05
+              enroll:
+                enroll_0:
+                  prob: 0.802
+                  start: 0
+                  stop: 1
+                enroll_1:
+                  prob: 0.177
+                  start: 1
+                  stop: 999
+              init: 0.78
+              reinit:
+                prob: 0.0
+            hiv:
+              dx:
+                init: 0.932
+              init: 0.068
             num_partners:
               Sex:
                 dist_type: negative_binomial
                 vars:
                   1:
-                    value: 0.8467
+                    value: 0.9333
                     value_type: float
                   2:
                     value: 0.4
                     value_type: float
-            ppl: 0.75
-        high_risk: *id001
-        incar: *id002
+            ppl: 0.824
+        high_risk:
+          init: 0.2
+        incar:
+          duration:
+            init:
+              1:
+                max: 2
+                min: 1
+                prob: 0.1194
+              2:
+                max: 4
+                min: 1
+                prob: 0.1758
+              3:
+                max: 7
+                min: 3
+                prob: 0.2319
+              4:
+                max: 13
+                min: 6
+                prob: 0.2946
+              5:
+                max: 26
+                min: 13
+                prob: 0.1783
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+            prob:
+              1:
+                max: 2
+                min: 1
+                prob: 0.3964
+              2:
+                max: 4
+                min: 1
+                prob: 0.2918
+              3:
+                max: 7
+                min: 3
+                prob: 0.1711
+              4:
+                max: 13
+                min: 6
+                prob: 0.1087
+              5:
+                max: 26
+                min: 13
+                prob: 0.032
+              6:
+                max: 26
+                min: 13
+                prob: 0.0
+          init: 0.0552
+          prob: 0.0176
         injection:
           num_acts: 10
-          unsafe_prob: 0.05
-        ppl: 0.1
-        prep: *id004
-        safe_sex: *id005
-        vaccine: *id006
+          unsafe_prob: 0.38
+        ppl: 0.02
+        prep:
+          adherence: 0.1
+          cap: 0.3
+          discontinue: 0.1
+          init: 0.3
+        safe_sex:
+          Inj:
+            prob: 0.1
+          Sex:
+            prob: 0.15
+          SexInj:
+            prob: 0.1
+        sex_role:
+          init:
+            insertive: 0.0
+            receptive: 0.0
+            versatile: 1.0
+        vaccine:
+          booster:
+            interval: 12
+            prob: 0.1
+          init: 0.1
+          prob: 0.1
 features:
   agent_zero: false
   exit_enter: true
@@ -1820,8 +4260,11 @@ features:
   overdose: true
   prep: true
   syringe_services: true
+haart:
+  use_cap: false
+  use_reinit: false
 high_risk:
-  partner_scale: 3
+  partner_scale: 1
 hiv:
   acute:
     duration: 6
@@ -1830,16 +4273,15 @@ hiv:
     prob: 0.01
   background_sex:
     inj_multiplier: 1.5
-    partner_hiv_prevalence_nonoud: 0.01
+    partner_hiv_prevalence_nonoud: 0.0034
     rate_nonoud_per_timestep: 0.5
   dx:
-    prob: 0.2052694985089574
     risk_reduction:
       injection: 0.3
       sex: 0.5
   start_time: -999
 hiv_testing:
-  base_prob_annual: 0.21104210818614516
+  base_prob_annual: 0.19981798317763388
   high_risk_mult: 2.0
   moud_early_mult: 3.0
   moud_early_window_months: 3.0
@@ -1849,6 +4291,14 @@ hiv_testing:
   post_relapse_mult: 2.5
   pwid_mult: 3.0
   start_time: -9999
+incar:
+  haart:
+    adherence: 0.21
+    discontinue: 0.0
+    prob: 0.51
+  hiv:
+    dx: 0.69
+    multiplier: 1.0
 knowledge:
   opinion:
     prob: 0.5
@@ -1863,27 +4313,20 @@ model:
     ppl: 12345
     run: 0
   time:
-    burn_steps: 60   # 5 yr. Was 36 (3 yr), which the old comment in
-    # calibration_targets.yml claimed was enough; measured, the Inj share and
-    # MOUD coverage were both still moving at t=0 and only settled around year
-    # 5 (EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P8).
+    burn_steps: 120
     num_steps: 132
     steps_per_year: 12
 moud:
-  discontinue_per_month: 0.10379237530992133
-  # Start MOUD coverage at reinit/(reinit+discontinue) rather than at a
-  # separately fitted init_coverage, which converged away within ~3 yr and so
-  # could not affect any post-burn objective. Dropped from
-  # parameters_to_optimize (EPIDEMIC_DYNAMICS_MAP_2026-07-29.md, P6).
+  discontinue_per_month: 0.06541940962242508
   init_at_equilibrium: true
   injection_scale:
-    active: 0.4955290527504296
+    active: 0.5505754644459636
     inactive: 1.0
   overdose_scale:
-    active: 0.3486693657252452
+    active: 0.6046773830384351
     inactive: 1.0
-  post_overdose_rr: 4.976295608735801
-  reinit_prob: 0.286107204685432
+  post_overdose_rr: 2.232713982335067
+  reinit_prob: 0.20558573318636147
   start_time: 0
   use_reinit: true
 oud_state:
@@ -1892,74 +4335,85 @@ oud_state:
   init_remission: 0.45
   transitions:
     early_relapse_rr: 2.5
-    early_relapse_window_months: 6.0   # was early_relapse_window: 26, a
-    # weekly-step value read as 26 months (P7)
+    early_relapse_window_months: 6.0
     incidence_rate_per_year: 0.0
-    inject_start_rate_per_year: 0.06697946712123601
-    inject_stop_rate_per_year: 0.08439366265897957
+    inject_start_rate_per_year: 0.039
+    inject_stop_rate_per_year: 0.1
     moud_remission_rr: 1.5
-    relapse_rate_per_year: 0.23607382281512196
-    relapse_risk_window_months: 2.0   # was relapse_risk_window: 8, a
-    # weekly-step value read as 8 months (P7)
-    relapse_to_inj_prob: 0.4665168744322685
-    remission_rate_per_year: 0.32913483844996816
+    relapse_rate_per_year: 0.21700337636152495
+    relapse_risk_window_months: 2.0
+    relapse_to_inj_prob: 0.6797485655948907
+    remission_rate_per_year: 0.15850093844236193
 overdose:
-  base_prob_inj: 0.074029002656132
-  base_prob_noninj: 0.038628452667465174
-  fatal_frac: 0.08485644971081477
-  high_risk_mult: 1.0608744869404267
+  base_prob_inj: 0.1592970430458759
+  base_prob_noninj: 0.06891968641712398
+  fatal_frac: 0.19168301295741708
+  high_risk_mult: 1.8526290146949558
   post_overdose_window: 6
   post_relapse_od_rr: 2.0
   ssp_rr: 0.8
 partnership:
   injection:
     transmission:
-      base: 0.005497534165395801
+      base: 0.0063
   sex:
     acquisition:
+      HF:
+        insertive: 0.0004
+        receptive: 0.0008
+        versatile: 0.0006
+      HM:
+        insertive: 0.0004
+        receptive: 0.0008
+        versatile: 0.0006
       MSM:
-        insertive: 0.005
-        receptive: 0.015
-        versatile: 0.01
-    # Monthly sex acts per partnership. MUST be stated explicitly: the shipped
-    # default is a single bin of min:0/max:1 and utils.safe_random_int is
-    # half-open, so that default yields zero acts forever and silently disables
-    # sexual HIV transmission entirely. Every RI parameter file omitted this
-    # block and so ran injection-only -- see EPIDEMIC_DYNAMICS_MAP_2026-07-29.md
-    # finding P1. HIV.init_class now raises rather than let that pass quietly.
-    #
-    # 4.0 acts/month is an NSFG-anchored prior for partnered adults. No
-    # RI-specific PWID/OUD coital-frequency data exists, so the LEVEL is not
-    # pinned here -- it is fitted through the calibration.sex.act scalar
-    # (parameters_to_optimize) against the HIV prevalence and incidence targets.
-    # Keep Sex and SexInj equal unless there is data to separate them; one
-    # shared scalar keeps the search space at one dimension.
+        insertive: 0.0011
+        receptive: 0.0138
+        versatile: 0.00745
+      MSMW:
+        insertive: 0.0004
+        receptive: 0.0138
+        versatile: 0.00745
     frequency:
       Sex:
-        type: distribution
         distribution:
           dist_type: poisson
           vars:
             1:
               value: 4.0
               value_type: float
+        type: distribution
       SexInj:
-        type: distribution
         distribution:
           dist_type: poisson
           vars:
             1:
               value: 4.0
               value_type: float
+        type: distribution
+    haart_scaling:
+      HF:
+        adherent: 0.03
+        non_adherent: 1.0
+      HM:
+        adherent: 0.03
+        non_adherent: 1.0
+      MSM:
+        adherent: 0.03
+        non_adherent: 1.0
+      MSMW:
+        adherent: 0.03
+        non_adherent: 1.0
 prep:
-  cap: 0.1
+  cap: 0.015
   cap_as_prob: false
-  init: 0.7
+  init: 0.0
+  start_time: 6
 syringe_services:
   timeline:
     ssp_open:
-      num_slots_start: 100
-      num_slots_stop: 200
-      risk: 0.02
-      start_time: 1
-      stop_time: 120
+      num_slots_start: 71
+      num_slots_stop: 71
+      risk: 0.16
+      start_time: -999
+      stop_time: 999
