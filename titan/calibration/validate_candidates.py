@@ -162,6 +162,16 @@ def load_targets():
     return build_targets(load_yaml(CALIB_YAML)["calibration"])
 
 
+# The three rates od_err averages over: (stat key, label, key in targets dict).
+# Names must match the stats keys set in optuna_calibration and the target keys
+# built by build_targets.
+OD_COMPONENT_TARGETS = [
+    ("fatal_od_rate",           "fatal OD rate",       "od_fatal"),
+    ("nonfatal_od_rate_inj",    "nonfatal OD (Inj)",   "od_nonfatal_inj"),
+    ("nonfatal_od_rate_noninj", "nonfatal OD (NonInj)", "od_nonfatal_noninj"),
+]
+OD_COMPONENTS = [k for k, _, _ in OD_COMPONENT_TARGETS]
+
 # Data-anchored inputs, reported but never scored. (stat key, label, target,
 # tolerance) -- targets mirror calibration_targets.yml `validation_targets`.
 # A miss here does NOT disqualify a trial; it means an input has drifted from the
@@ -179,7 +189,50 @@ VALIDATION = [
     # as a target -- it measures a claims-identified OUD population on any
     # transmission route. Tolerance is wide to signal that.
     ("hiv_prevalence_pwid", "PWID HIV prev (unscored)", 0.062, 0.04),
+    # Stationarity of the scored window, added 2026-08-13. Target 0.0 = HIV
+    # prevalence ends the window where it started; tolerance 0.10 = a 10% move
+    # across eleven years, which is about the run-to-run spread at 40 reps.
+    #
+    # A fit measured across a window the epidemic is still traversing is valid
+    # only for that window: change burn_steps or num_steps and it stops holding,
+    # and a scenario run on a longer horizon shows the drift climbing as though
+    # the intervention caused it. This went unnoticed for months and was
+    # misattributed twice (to burn length, then to transmission level) before
+    # step 3 traced it to a per-act value running 34% hot.
+    #
+    # Reported, not scored, for the same reason the others here are: drift is a
+    # property of the fitted transmission level, so penalising it inside the
+    # objective would trade it against HIV fit rather than surface it.
+    ("hiv_prev_drift_pwid",   "PWID prev drift (unscored)",   0.0, 0.10),
+    ("hiv_prev_drift_noninj", "NonInj prev drift (unscored)", 0.0, 0.10),
 ]
+
+
+def _report_overdose(sub, targets):
+    """
+    Decompose od_err into the three rates it averages over.
+
+    od_err is the mean of three squared proportional errors, so the aggregate
+    alone cannot distinguish "one component badly off" from "all three modestly
+    off" -- and those have different fixes. Per-seed spread on each component is
+    also what says whether the 0.01 gate (within 10% on all three at once) sits
+    above or below this model's Monte Carlo floor at the current rep count.
+    """
+    have = [(k, label, targets[t]) for k, label, t in OD_COMPONENT_TARGETS
+            if k in sub and not sub[k].isna().all()]
+    if not have:
+        return
+    print("  overdose components (od_err = mean of these three squared prop. errors):")
+    for key, label, tgt in have:
+        vals = sub[key].to_numpy(dtype=float)
+        mean = float(np.nanmean(vals))
+        sd = float(np.nanstd(vals, ddof=1)) if len(vals) > 1 else 0.0
+        prop = (mean - tgt) / tgt
+        # Share of od_err this component would contribute at the seed mean.
+        print(
+            f"    {label:<24} {mean:.5f} sd={sd:.5f}  target {tgt:.5f}  "
+            f"{prop:+.0%}  (sq prop err {prop ** 2:.4f})"
+        )
 
 
 def _report_validation(sub):
@@ -294,6 +347,15 @@ def main():
             for k in ("incar_share", "art_among_dx", "suppressed_among_dx",
                       "dx_among_hiv", "hiv_prevalence_pwid"):
                 row[k] = stats.get(k, float("nan"))
+            # The three rates od_err is the mean squared proportional error OF.
+            # Added 2026-08-12: od_err is a scalar mean over three components, so
+            # a 2x miss on the aggregate does not say whether one component is
+            # far off or all three are moderately off -- and the Optuna journal
+            # stores only hiv_new_pooled in user_attrs, so the decomposition is
+            # not recoverable from a finished study. Carrying the raw rates here
+            # makes it recoverable for anything this script re-runs.
+            for k in OD_COMPONENTS:
+                row[k] = stats.get(k, float("nan"))
             rows.append(row)
             print(
                 "    "
@@ -334,6 +396,7 @@ def main():
             )
         print(f"  --> {n_pass}/{len(OBJECTIVES)} objectives pass on the seed mean")
         _report_noninj_seed(trial)
+        _report_overdose(sub, targets)
         _report_validation(sub)
         if "hiv_new_pooled" in sub:
             hiv_counts = sub["hiv_new_pooled"].to_numpy()
