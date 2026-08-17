@@ -1,0 +1,580 @@
+# Source of truth for calibrated_scenario_multi_5obj.yml.
+#
+# Edit THIS file, then run `python scripts/make_scenario.py`. Do not edit the
+# generated scenario -- `make_scenario.py --check` fails if it has been touched,
+# and the next regeneration would discard the edit silently.
+#
+# WHY: the generated artifact is 2,774 leaf values, 95% of them in `demographics`,
+# where 111 of 124 leaf paths hold one Rhode Island number written once per
+# demographic cell -- 48 times over. Storing a value in 48 places is how values
+# drift apart from each other, which this project has paid for more than once
+# (`set_population_window()` inert for two days; `model.seed.ppl` unread across
+# four refits; `Inj.ppl` and `injecting_pct` disagreeing by 2026-08-13). Here each
+# value has exactly one home. See
+# docs/calibration_log/phase_6_scenario_format_2026-08-17.md.
+#
+# STRUCTURE. `demographics` has one entry per nesting level of the scenario --
+# `race`, `sex_type`, `drug_type`. Each carries:
+#
+#   constants:  values identical in every cell at that level, written once
+#   varying:    one entry per value that genuinely differs, as
+#                 - path:   dotted path within the cell
+#                   by:     the axes it varies along (race / sex / drug)
+#                   values: nested dict keyed by those axes, in `by` order
+#
+# `by` is the SMALLEST set of axes on which the value is a well-defined function,
+# so an entry listing three axes is claiming genuine three-way structure. The
+# sentinel "__absent__" means the path does not exist in that cell -- the
+# cross-product is ragged, and a NonInj agent legitimately has no `Inj` or
+# `SexInj` partnership block.
+#
+# PROVENANCE AND CITATIONS. Parameter sourcing lives in
+# `RI_parameters_citations.md` and `RI_parameter_verification_APCD.md`; the record
+# of what was tried and refuted lives in the comments of
+# `titan/calibration/calibration_targets.yml`. Values that the calibration fits or
+# anchors at runtime are applied by `optuna_calibration.py`'s `set_*` functions and
+# will overwrite whatever is written here.
+#
+# This file was generated once by `make_scenario.py --extract-from`, which
+# rewrites it wholesale and would drop these comments. That flag is a migration
+# tool, not part of the normal loop.
+
+axes:
+  drug_types:
+  - Inj
+  - NonInj
+  races:
+  - black_hispanic
+  - black_nonhispanic
+  - other_hispanic
+  - other_nonhispanic
+  - white_hispanic
+  - white_nonhispanic
+  sex_types:
+  - HF
+  - HM
+  - MSM
+  - MSMW
+demographics:
+  drug_type:
+    constants:
+      haart:
+        adherence:
+          become: 0.11
+          discontinue: 0.04
+          init: 0.733
+          prob: 0.733
+        cap: 0.0
+        discontinue: 0.05
+        enroll:
+          enroll_0:
+            prob: 0.802
+            start: 0
+            stop: 1
+          enroll_1:
+            prob: 0.177
+            start: 1
+            stop: 999
+        init: 0.78
+        reinit:
+          prob: 0.0
+      hiv:
+        dx:
+          init: 0.932
+      num_partners:
+        Sex:
+          dist_type: negative_binomial
+          vars:
+            1:
+              value_type: float
+            2:
+              value_type: float
+    varying:
+    - by:
+      - sex
+      - drug
+      path: hiv.init
+      values:
+        HF:
+          Inj: 0.045
+          NonInj: 0.02
+        HM:
+          Inj: 0.045
+          NonInj: 0.02
+        MSM:
+          Inj: 0.045
+          NonInj: 0.068
+        MSMW:
+          Inj: 0.045
+          NonInj: 0.068
+    - by:
+      - drug
+      path: num_partners.Inj.dist_type
+      values:
+        Inj: negative_binomial
+        NonInj: __absent__
+    - by:
+      - race
+      - drug
+      path: num_partners.Inj.vars.1.value
+      values:
+        black_hispanic:
+          Inj: 6.9194
+          NonInj: __absent__
+        black_nonhispanic:
+          Inj: 5.0323
+          NonInj: __absent__
+        other_hispanic:
+          Inj: 6.9194
+          NonInj: __absent__
+        other_nonhispanic:
+          Inj: 8.1774
+          NonInj: __absent__
+        white_hispanic:
+          Inj: 6.9194
+          NonInj: __absent__
+        white_nonhispanic:
+          Inj: 11.3226
+          NonInj: __absent__
+    - by:
+      - drug
+      path: num_partners.Inj.vars.1.value_type
+      values:
+        Inj: float
+        NonInj: __absent__
+    - by:
+      - drug
+      path: num_partners.Inj.vars.2.value
+      values:
+        Inj: 0.6771
+        NonInj: __absent__
+    - by:
+      - drug
+      path: num_partners.Inj.vars.2.value_type
+      values:
+        Inj: float
+        NonInj: __absent__
+    - by:
+      - race
+      - sex
+      path: num_partners.Sex.vars.1.value
+      values:
+        black_hispanic:
+          HF: 2.7039
+          HM: 1.27
+          MSM: 1.27
+          MSMW: 1.27
+        black_nonhispanic:
+          HF: 1.987
+          HM: 0.9333
+          MSM: 0.9333
+          MSMW: 0.9333
+        other_hispanic:
+          HF: 2.9806
+          HM: 1.4
+          MSM: 1.4
+          MSMW: 1.4
+        other_nonhispanic:
+          HF: 1.987
+          HM: 0.9333
+          MSM: 0.9333
+          MSMW: 0.9333
+        white_hispanic:
+          HF: 2.9806
+          HM: 1.4
+          MSM: 1.4
+          MSMW: 1.4
+        white_nonhispanic:
+          HF: 1.987
+          HM: 0.9333
+          MSM: 0.9333
+          MSMW: 0.9333
+    - by:
+      - race
+      path: num_partners.Sex.vars.2.value
+      values:
+        black_hispanic: 0.5
+        black_nonhispanic: 0.4
+        other_hispanic: 0.5
+        other_nonhispanic: 0.4
+        white_hispanic: 0.5
+        white_nonhispanic: 0.4
+    - by:
+      - drug
+      path: num_partners.SexInj.dist_type
+      values:
+        Inj: negative_binomial
+        NonInj: __absent__
+    - by:
+      - race
+      - drug
+      path: num_partners.SexInj.vars.1.value
+      values:
+        black_hispanic:
+          Inj: 2.9061
+          NonInj: __absent__
+        black_nonhispanic:
+          Inj: 2.1135
+          NonInj: __absent__
+        other_hispanic:
+          Inj: 2.9061
+          NonInj: __absent__
+        other_nonhispanic:
+          Inj: 3.4345
+          NonInj: __absent__
+        white_hispanic:
+          Inj: 2.9061
+          NonInj: __absent__
+        white_nonhispanic:
+          Inj: 4.7555
+          NonInj: __absent__
+    - by:
+      - drug
+      path: num_partners.SexInj.vars.1.value_type
+      values:
+        Inj: float
+        NonInj: __absent__
+    - by:
+      - drug
+      path: num_partners.SexInj.vars.2.value
+      values:
+        Inj: 0.6771
+        NonInj: __absent__
+    - by:
+      - drug
+      path: num_partners.SexInj.vars.2.value_type
+      values:
+        Inj: float
+        NonInj: __absent__
+    - by:
+      - drug
+      path: ppl
+      values:
+        Inj: 0.17600000000000002
+        NonInj: 0.824
+  race:
+    constants: {}
+    varying:
+    - by:
+      - race
+      path: ppl
+      values:
+        black_hispanic: 0.0015
+        black_nonhispanic: 0.033
+        other_hispanic: 0.013
+        other_nonhispanic: 0.2545
+        white_hispanic: 0.03
+        white_nonhispanic: 0.668
+  sex_type:
+    constants:
+      high_risk:
+        init: 0.2
+      incar:
+        duration:
+          init:
+            1:
+              max: 2
+              min: 1
+              prob: 0.1194
+            2:
+              max: 4
+              min: 1
+              prob: 0.1758
+            3:
+              max: 7
+              min: 3
+              prob: 0.2319
+            4:
+              max: 13
+              min: 6
+              prob: 0.2946
+            5:
+              max: 26
+              min: 13
+              prob: 0.1783
+            6:
+              max: 26
+              min: 13
+              prob: 0.0
+          prob:
+            1:
+              max: 2
+              min: 1
+              prob: 0.3964
+            2:
+              max: 4
+              min: 1
+              prob: 0.2918
+            3:
+              max: 7
+              min: 3
+              prob: 0.1711
+            4:
+              max: 13
+              min: 6
+              prob: 0.1087
+            5:
+              max: 26
+              min: 13
+              prob: 0.032
+            6:
+              max: 26
+              min: 13
+              prob: 0.0
+        init: 0.0552
+        prob: 0.0176
+      injection:
+        num_acts: 10
+        unsafe_prob: 0.38
+      prep:
+        adherence: 0.1
+        cap: 0.3
+        discontinue: 0.1
+        init: 0.3
+      safe_sex:
+        Inj:
+          prob: 0.1
+        Sex:
+          prob: 0.15
+        SexInj:
+          prob: 0.1
+      vaccine:
+        booster:
+          interval: 12
+          prob: 0.1
+        init: 0.1
+        prob: 0.1
+    varying:
+    - by:
+      - sex
+      path: ppl
+      values:
+        HF: 0.31
+        HM: 0.64
+        MSM: 0.03
+        MSMW: 0.02
+    - by:
+      - sex
+      path: sex_role.init.insertive
+      values:
+        HF: 0.0
+        HM: 1.0
+        MSM: 0.0
+        MSMW: 0.0
+    - by:
+      - sex
+      path: sex_role.init.receptive
+      values:
+        HF: 1.0
+        HM: 0.0
+        MSM: 0.0
+        MSMW: 0.0
+    - by:
+      - sex
+      path: sex_role.init.versatile
+      values:
+        HF: 0.0
+        HM: 0.0
+        MSM: 1.0
+        MSMW: 1.0
+sampling:
+  burn_steps: 120
+  population_seed: 12345
+  population_size: 500
+  scored_steps: 132
+scenario:
+  calibration:
+    acquisition: 1.0
+    test_frequency: 0.651830758384625
+  classes:
+    sex_types:
+      HF:
+        cis_trans: cis
+        gender: F
+        sleeps_with:
+        - HM
+        - MSMW
+      HM:
+        cis_trans: cis
+        gender: M
+        sleeps_with:
+        - HF
+      MSM:
+        cis_trans: cis
+        gender: M
+        sleeps_with:
+        - MSM
+        - MSMW
+      MSMW:
+        cis_trans: cis
+        gender: M
+        sleeps_with:
+        - HF
+        - MSM
+        - MSMW
+  features:
+    agent_zero: false
+    exit_enter: true
+    haart: true
+    high_risk: true
+    hiv_testing: true
+    incar: true
+    moud: true
+    oud_state: true
+    overdose: true
+    prep: true
+    syringe_services: true
+  haart:
+    use_cap: false
+    use_reinit: false
+  high_risk:
+    partner_scale: 5
+  hiv:
+    acute:
+      duration: 6
+      infectivity: 3.0
+    aids:
+      prob: 0.01
+    background_sex:
+      inj_multiplier: 1.5
+      partner_hiv_prevalence_nonoud: 0.0034
+      rate_nonoud_per_timestep: 0.5
+    dx:
+      risk_reduction:
+        injection: 0.3
+        sex: 0.5
+    start_time: -999
+  hiv_testing:
+    base_prob_annual: 0.3
+    high_risk_mult: 2.0
+    moud_early_mult: 3.0
+    moud_early_window_months: 3.0
+    moud_stable_mult: 1.5
+    oud_mult: 1.5
+    post_overdose_mult: 4.0
+    post_relapse_mult: 2.5
+    pwid_mult: 3.0
+    start_time: -9999
+  incar:
+    haart:
+      adherence: 0.21
+      discontinue: 0.0
+      prob: 0.51
+    hiv:
+      dx: 0.69
+      multiplier: 1.0
+  knowledge:
+    opinion:
+      prob: 0.5
+    prob: 0.3
+  model:
+    network:
+      enable: true
+      type: scale_free
+    num_pop: 500
+    num_reps: 1
+    seed:
+      ppl: 12345
+      run: 0
+    time:
+      burn_steps: 120
+      num_steps: 132
+      steps_per_year: 12
+  moud:
+    init_at_equilibrium: true
+    injection_scale:
+      active: 0.521535502071385
+      inactive: 1.0
+    overdose_scale:
+      active: 0.3182197431535646
+      inactive: 1.0
+    start_time: 0
+    use_reinit: true
+  oud_state:
+    init_active: 0.55
+    init_none: 0.0
+    init_remission: 0.45
+    transitions:
+      early_relapse_rr: 2.5
+      early_relapse_window_months: 6.0
+      incidence_rate_per_year: 0.0
+      inject_start_rate_per_year: 0.039
+      inject_stop_rate_per_year: 0.1
+      moud_remission_rr: 1.5
+      relapse_rate_per_year: 0.35
+      relapse_risk_window_months: 2.0
+      relapse_to_inj_prob: 0.5
+      remission_rate_per_year: 0.29757501579119344
+  overdose:
+    base_prob_inj: 0.26946635386455686
+    base_prob_noninj: 0.0057040713523710184
+    fatal_frac: 0.0942155430807794
+    high_risk_mult: 1.6682146502960655
+    post_overdose_window: 6
+    post_relapse_od_rr: 2.0
+    ssp_rr: 0.8
+  partnership:
+    injection:
+      transmission:
+        base: 0.0063
+    sex:
+      acquisition:
+        HF:
+          insertive: 0.0004
+          receptive: 0.0008
+          versatile: 0.0006
+        HM:
+          insertive: 0.0004
+          receptive: 0.0008
+          versatile: 0.0006
+        MSM:
+          insertive: 0.0011
+          receptive: 0.0138
+          versatile: 0.00745
+        MSMW:
+          insertive: 0.0004
+          receptive: 0.0138
+          versatile: 0.00745
+      frequency:
+        Sex:
+          distribution:
+            dist_type: poisson
+            vars:
+              1:
+                value: 4.0
+                value_type: float
+          type: distribution
+        SexInj:
+          distribution:
+            dist_type: poisson
+            vars:
+              1:
+                value: 4.0
+                value_type: float
+          type: distribution
+      haart_scaling:
+        HF:
+          adherent: 0.03
+          non_adherent: 1.0
+        HM:
+          adherent: 0.03
+          non_adherent: 1.0
+        MSM:
+          adherent: 0.03
+          non_adherent: 1.0
+        MSMW:
+          adherent: 0.03
+          non_adherent: 1.0
+  prep:
+    cap: 0.015
+    cap_as_prob: false
+    init: 0.0
+    start_time: 6
+  syringe_services:
+    timeline:
+      ssp_open:
+        num_slots_start: 71
+        num_slots_stop: 71
+        risk: 0.16
+        start_time: -999
+        stop_time: 999
