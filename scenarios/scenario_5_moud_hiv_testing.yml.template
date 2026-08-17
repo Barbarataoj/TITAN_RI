@@ -6,8 +6,17 @@
 #
 # CORRECTED 2026-08-17. The previous version offered (a) bump a global
 # `calibration.test_frequency`, or (b) add an on-MOUD multiplier as an ENGINE
-# CHANGE. Neither is needed: the targeted multipliers already exist and are live,
-# and `calibration.test_frequency` is not a path in the current build.
+# CHANGE. Option (b) needs no engine change — the targeted multipliers already
+# exist and are live. Option (a) is worse than "over-broad": it is INERT.
+#
+# `calibration.test_frequency` (0.6518 in the base) does exist, but its only
+# consumer is the legacy per-step diagnosis roll in titan/exposures/hiv.py:272,
+# which is gated off whenever features.hiv_testing is true — as it is in every
+# scenario here. optuna_calibration.py:1332 records the same thing and is why the
+# parameter is deliberately not optimised: it added a search dimension that could
+# not move any objective. Changing it in a Phase 7 scenario would produce a
+# contrast of exactly zero, and would look like a null result rather than a dead
+# knob. Do not use it as a sensitivity bound either.
 #
 # ----------------------------------------------------------------------------
 # THE KNOBS THAT ALREADY EXIST
