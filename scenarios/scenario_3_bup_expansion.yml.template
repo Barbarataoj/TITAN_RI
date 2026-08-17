@@ -1,24 +1,85 @@
 # ============================================================================
-# Phase 7 Scenario 3 — Buprenorphine expansion (post-waiver uptake ×2)
+# Phase 7 Scenario 3 — Buprenorphine treatment expansion
 # ----------------------------------------------------------------------------
-# Intent: double the rate at which people START MOUD in the post-X-waiver era,
-# representing expanded prescriber capacity.
+# Intent: more people with OUD start and stay on buprenorphine.
 #
-# HOW TO BUILD THIS FILE (Jun):
-#   1. cp scenario_1_baseline.yml scenario_3_bup_expansion.yml
-#   2. Change ONLY the enrollment knob(s) below.
-#   3. Uncomment the line in scenarios/manifest.txt.
+# CORRECTED 2026-08-17, twice over. The previous version said to double
+# `moud.enroll.*.prob` for "the post-waiver enroll window". Both halves were
+# wrong: that path does not exist, and the X-waiver framing is not supported by
+# what the policy actually did.
 #
-# KNOB: baseline enrollment is the time-windowed moud.enroll.<window>.prob series
-#   (see moud.py::_get_enroll_prob) applied to never-on agents, plus the t=0
-#   placement moud.init_coverage: 0.5024 (trial 137).
-# FILL IN — Jun: identify the post-waiver enroll window(s) and ×2 their `prob`.
-#   Decide whether init_coverage (baseline placement) also scales or stays fixed.
-#   Note the equilibrium ceiling among ever-on agents is still governed by
-#   reinit_prob/(reinit_prob+discontinue) — expansion raises the RISE, not the plateau,
-#   unless reinit_prob is also touched (discuss before changing that).
+# ----------------------------------------------------------------------------
+# 1. THE PATH DOES NOT EXIST
+# ----------------------------------------------------------------------------
+# There is no `moud.enroll` block. titan/params/moud.yml defines start_time,
+# init_coverage, init_at_equilibrium, use_reinit, reinit_prob, post_relapse_rr,
+# post_overdose_rr, discontinue_per_month, overdose_scale, injection_scale and
+# acceptance. `enroll` exists only under haart, in demographics.
+#
+# The per-step MOUD initiation probability is `moud.reinit_prob`. moud.py's
+# `_get_enroll_prob` fallback is unreachable in calibrated runs, because the
+# top-level reinit_prob override takes precedence and is always fitted.
+#
+# ----------------------------------------------------------------------------
+# 2. THE X-WAIVER FRAMING IS REFUTED BY THE POLICY'S OWN EVALUATION
+# ----------------------------------------------------------------------------
+# The X-waiver was eliminated on 2023-01-12. Evaluations agree it increased the
+# number of prescribers and did NOT increase the number of patients starting
+# buprenorphine:
+#
+#   * +1,938 prescribers as a level change, +595/month as a slope change
+#     (Buprenorphine Dispensation After X-Waiver Elimination by Clinician
+#     Specialty, Am J Prev Med 2025).
+#   * "increases in buprenorphine-prescribing clinicians but no changes in
+#     patients initiating buprenorphine" — Chua et al., NEJM 2023,
+#     doi:10.1056/NEJMc2312906.
+#
+# Modelling "post-waiver expansion" as a doubling of patient initiation would
+# therefore assert the opposite of the measured effect. If the intent is to model
+# the X-waiver specifically, the honest answer is that its effect on initiation
+# was null and the scenario is not worth running.
+#
+# What DOES raise initiation is active linkage at a clinical encounter:
+#
+#   * D'Onofrio et al., JAMA 2015;313(16):1636-1644 (RCT): 30-day engagement 78%
+#     with ED-initiated buprenorphine vs 37% with brief intervention + referral.
+#     Ratio 2.11, difference 41 percentage points.
+#   * Chambers et al. (observational): aOR 5.86 (95% CI 2.70-12.71).
+#
+# So a x2 on the initiation rate IS well supported — as a treatment-initiation
+# intervention, not as a waiver effect. Reframe the scenario accordingly.
+#
+# ----------------------------------------------------------------------------
+# 3. THE MULTIPLIER IS NOT THE EFFECT SIZE
+# ----------------------------------------------------------------------------
+# Equilibrium MOUD coverage is reinit_prob / (reinit_prob + discontinue_per_month)
+# — stated in titan/params/moud.yml and enforced by moud.init_at_equilibrium. So
+# doubling the initiation RATE does not double COVERAGE. At trial 561's values:
+#
+#     baseline  0.11833 / (0.11833 + 0.08847) = 0.572
+#     doubled   0.23666 / (0.23666 + 0.08847) = 0.728
+#
+# +15.6 percentage points, not x2. Report it as a rate change with the coverage
+# consequence stated, or the result will read as far weaker than the knob looks.
+#
+# Note also that raising initiation alone leaves retention untouched. If the
+# intervention being modelled includes retention support, moud.discontinue_per_month
+# is the second knob and should move in the same arm.
+#
+# ----------------------------------------------------------------------------
+# FILL IN — Jun
+# ----------------------------------------------------------------------------
+#   reinit_prob = 2.11 x <fitted moud.reinit_prob>      # after D'Onofrio 78/37
+#   Worked at trial 561: 2.11 x 0.11833 = 0.24968
+#
+# Decide and record: is this arm "treatment initiation doubles" (rate framing,
+# above) or "coverage reaches X%" (target framing)? For a coverage target C,
+# invert the equilibrium instead:
+#
+#     reinit_prob = C x discontinue_per_month / (1 - C)
+#
+# e.g. C = 0.75 at trial 561's discontinue 0.08847 gives reinit_prob = 0.26541.
+#
 # ============================================================================
 # moud:
-#   enroll:
-#     <window>:
-#       prob: <FILL IN — 2x baseline>
+#   reinit_prob: <FILL IN — see above>

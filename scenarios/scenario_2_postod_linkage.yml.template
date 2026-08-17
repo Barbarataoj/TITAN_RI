@@ -1,22 +1,67 @@
 # ============================================================================
-# Phase 7 Scenario 2 — Universal post-overdose MOUD linkage
+# Phase 7 Scenario 2 — Post-overdose MOUD linkage
 # ----------------------------------------------------------------------------
-# Intent: every agent who survives an overdose is linked to MOUD (vs baseline's
-# elevated-but-partial post-OD uptake).
+# Intent: agents who survive a nonfatal overdose are linked to MOUD at the
+# encounter, rather than at the baseline's elevated-but-partial rate.
 #
-# HOW TO BUILD THIS FILE (Jun):
-#   1. Start from the baseline:  cp scenario_1_baseline.yml scenario_2_postod_linkage.yml
-#   2. Change ONLY the post-overdose linkage knob below, leave everything else.
-#   3. Add its basename to scenarios/manifest.txt (uncomment the line).
+# CORRECTED 2026-08-17. The previous version asked whether an engine change was
+# needed in moud.py STEP 4. It is not — see MECHANISM below.
 #
-# KNOB (baseline value shown for reference):
-#   moud.post_overdose_rr: 4.976   # baseline (trial 137) — relative-risk multiplier
-#                                    on the start prob when recent_overdose is set.
-# FILL IN — Jun: set so post-OD uptake saturates to ~1.0. Two options:
-#   (a) raise post_overdose_rr high enough that p_start*rr clamps to 1.0 for all
-#       demographics, OR
-#   (b) if a direct linkage-probability knob is preferred, add it and wire it in
-#       moud.py STEP 4 (engine change — flag to Jun before doing).
+# ----------------------------------------------------------------------------
+# MECHANISM (read this before choosing a value)
+# ----------------------------------------------------------------------------
+# titan/features/moud.py computes the per-step initiation probability as:
+#
+#     p_start  = moud.reinit_prob            # top-level calibration override
+#     p_start *= moud.post_relapse_rr        # if recent relapse
+#     p_start *= moud.post_overdose_rr       # if recent_overdose is set
+#     p_start  = min(1.0, max(0.0, p_start)) # clamped
+#
+# So post_overdose_rr is a MULTIPLIER on an already-fitted probability, and the
+# linkage rate it produces is p_start x rr, not rr. The window it applies over is
+# overdose.post_overdose_window (titan/params/overdose.yml), which owns the
+# `recent_overdose` flag — there is no separate moud window.
+#
+# CONSEQUENCE: the value depends on the refit's fitted reinit_prob and cannot be
+# written down until the refit lands. Use the formulas below.
+#
+# ----------------------------------------------------------------------------
+# EVIDENCE
+# ----------------------------------------------------------------------------
+# D'Onofrio et al., JAMA 2015;313(16):1636-1644 — RCT of ED-initiated
+# buprenorphine/naloxone. Engagement in formal addiction treatment at 30 days:
+#
+#     ED-initiated buprenorphine + referral   78%
+#     brief intervention + referral           37%
+#     referral alone                          45%
+#
+# Chambers et al. (observational, in the 2025 systematic review PMC12912343)
+# report aOR 5.86 (95% CI 2.70-12.71) for 30-day engagement after ED initiation.
+#
+# 78% is the highest engagement any trial has produced for this intervention. It
+# is the right anchor for a REALISTIC arm; 100% is a policy ceiling that no
+# published programme has reached.
+#
+# ----------------------------------------------------------------------------
+# FILL IN — Jun: pick ONE arm, or run both.
+# ----------------------------------------------------------------------------
+# (a) EVIDENCE-ANCHORED (recommended as the primary result)
+#     Target a 78% per-encounter linkage probability, after D'Onofrio:
+#
+#         post_overdose_rr = 0.78 / <fitted moud.reinit_prob>
+#
+#     Worked at trial 561's reinit_prob 0.11833:  0.78 / 0.11833 = 6.59
+#
+# (b) CEILING / UPPER BOUND (label it as such in the paper)
+#     Saturate p_start to 1.0, i.e. every survivor linked within one step:
+#
+#         post_overdose_rr = 20.0     # the parameter's declared max
+#
+#     This clamps only if fitted reinit_prob >= 0.05 (since 0.05 x 20 = 1.0).
+#     CHECK THAT AFTER THE REFIT. If reinit_prob lands below 0.05, arm (b) is
+#     not reachable through this knob and would need the engine change that this
+#     template previously proposed.
+#
 # ============================================================================
 # moud:
-#   post_overdose_rr: <FILL IN>
+#   post_overdose_rr: <FILL IN — see (a) or (b) above>

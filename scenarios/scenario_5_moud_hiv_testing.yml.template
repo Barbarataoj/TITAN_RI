@@ -1,22 +1,78 @@
 # ============================================================================
 # Phase 7 Scenario 5 — MOUD-co-located HIV testing
 # ----------------------------------------------------------------------------
-# Intent: agents on MOUD get HIV-tested more often (co-located testing at the
-# treatment site), raising diagnosis rate and shortening time-to-ART for that group.
+# Intent: agents on MOUD are HIV-tested more often at the treatment site, raising
+# the diagnosis rate and shortening time-to-ART for that group.
 #
-# HOW TO BUILD THIS FILE (Jun):
-#   1. cp scenario_1_baseline.yml scenario_5_moud_hiv_testing.yml
-#   2. Raise HIV test frequency for on-MOUD agents.
-#   3. Uncomment the line in scenarios/manifest.txt.
+# CORRECTED 2026-08-17. The previous version offered (a) bump a global
+# `calibration.test_frequency`, or (b) add an on-MOUD multiplier as an ENGINE
+# CHANGE. Neither is needed: the targeted multipliers already exist and are live,
+# and `calibration.test_frequency` is not a path in the current build.
 #
-# KNOB: baseline global HIV testing cadence is calibration.test_frequency: 1.305
-#   (trial 137), with per-demographic hiv.dx wiring. FILL IN — Jun:
-#   (a) simplest: bump calibration.test_frequency (applies to everyone — over-broad,
-#       but a defensible first cut), OR
-#   (b) targeted: add an on-MOUD test-frequency multiplier that only fires when
-#       agent.on_moud is True (engine change in the HIV dx feature — flag before doing).
-#   Prefer (b) for a clean "co-located" interpretation; (a) is acceptable as a
-#   sensitivity bound.
+# ----------------------------------------------------------------------------
+# THE KNOBS THAT ALREADY EXIST
+# ----------------------------------------------------------------------------
+# titan/params/hiv_testing.yml, values from the calibration base:
+#
+#     hiv_testing:
+#       base_prob_annual:          0.3   # FITTED, box [0.05, 0.20]
+#       moud_early_mult:           3.0   # during early MOUD engagement
+#       moud_early_window_months:  3.0   # length of "early", in MONTHS
+#       moud_stable_mult:          1.5   # after the early window
+#       oud_mult:                  1.5
+#       pwid_mult:                 3.0
+#       post_overdose_mult:        4.0
+#       post_relapse_mult:         2.5
+#       high_risk_mult:            2.0
+#
+# So option (b) is already implemented. Use moud_early_mult and moud_stable_mult.
+#
+# WATCH `moud_early_window_months`. It replaced `moud_early_window`, which was
+# expressed in raw timesteps with a weekly-step default of 13 while the model runs
+# monthly — so the early window ran ~4x too long, no episode reached the stable
+# branch, and moud_stable_mult was dead code. It works now, but this arm is the
+# one that depends on it, so confirm the split is behaving before reporting.
+#
+# ----------------------------------------------------------------------------
+# EVIDENCE — and it says the BASELINE is already about right
+# ----------------------------------------------------------------------------
+# Ferraro et al., Addiction 2021 (doi:10.1111/add.15316), systematic review and
+# meta-analysis of opioid agonist therapy and HIV testing uptake among PWID:
+#
+#     CURRENT OAT use vs recent HIV test    pooled OR 1.71  (95% CI 1.28-2.27)
+#     EVER on OAT vs ever HIV tested        pooled OR 3.82  (95% CI 2.96-4.95)
+#
+# The model's moud_stable_mult of 1.5 sits just inside the current-OAT CI, so the
+# baseline already encodes roughly the observed real-world association. This arm
+# therefore is NOT "make MOUD patients get tested like the literature says" —
+# that is already the baseline. It is "add a deliberate co-located testing
+# programme on top of ordinary MOUD care", and the ever-OAT OR of 3.82 is the
+# defensible ceiling for what sustained engagement achieves.
+#
+# MAPPING CAVEAT: the pooled estimates are odds ratios on "tested in the last
+# year"; the knobs are multipliers on a per-step testing probability. For the
+# small per-step probabilities here OR ~ RR ~ multiplier, but the two are not the
+# same quantity and the approximation should be stated, not assumed.
+#
+# ----------------------------------------------------------------------------
+# FILL IN — Jun
+# ----------------------------------------------------------------------------
+# Recommended, anchored on the ever-OAT pooled OR and staying inside its CI:
+#
+#     moud_stable_mult: 3.8      # from 1.5; pooled ever-OAT OR, CI 2.96-4.95
+#     moud_early_mult:  6.0      # from 3.0; holds the early:stable ratio at ~1.6
+#
+# The early:stable ratio is preserved deliberately: intake and stabilisation
+# visits are denser than maintenance visits whether or not a testing programme
+# exists, so the programme should scale both rather than flatten the difference.
+#
+# STILL A JUDGMENT CALL: whether this arm represents (i) an opt-out testing
+# programme, for which 3.8 is a reasonable central estimate, or (ii) universal
+# testing at every visit, which is a saturation arm and should be expressed as a
+# multiplier large enough to clamp rather than as an OR. If RI has a measured
+# testing-uptake figure from a co-located programme, it should override both.
+#
 # ============================================================================
-# calibration:
-#   test_frequency: <FILL IN>   # or a targeted on-MOUD multiplier
+# hiv_testing:
+#   moud_early_mult:  <FILL IN — 6.0 recommended>
+#   moud_stable_mult: <FILL IN — 3.8 recommended>

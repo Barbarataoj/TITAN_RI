@@ -1,20 +1,60 @@
 # ============================================================================
 # Phase 7 Scenario 4 — Syringe Services Program (SSP) saturation
 # ----------------------------------------------------------------------------
-# Intent: every PWID has SSP access (vs baseline partial coverage), reducing
-# injection-related HIV transmission.
+# Intent: every PWID has SSP access, reducing injection-related HIV transmission.
 #
-# HOW TO BUILD THIS FILE (Jun):
-#   1. cp scenario_1_baseline.yml scenario_4_ssp_saturation.yml
-#   2. Set the SSP/syringe-services coverage knob to full access.
-#   3. Uncomment the line in scenarios/manifest.txt.
+# CORRECTED 2026-08-17. The path is confirmed and SSP is fully wired — the
+# previous version's "if SSP is NOT yet a wired feature, that's an engine gap"
+# no longer applies. features.syringe_services is True in the calibration base
+# and tests/…::test_syringe_services passes, which closed the 2026-07-30 finding
+# that syringe services did not reduce HIV incidence.
 #
-# KNOB: FILL IN — Jun. Confirm the exact SSP feature/param path in the current
-#   scenario (grep the baseline for 'syringe' / 'ssp' / 'exchange'). If SSP is
-#   modeled as a coverage probability, set it to 1.0 for PWID; if it acts through
-#   an injection-risk multiplier, set that multiplier to its full-protection value.
-#   If SSP is NOT yet a wired feature in this build, that's an engine gap — flag to
-#   Jun before proceeding (do not fabricate a param the schema doesn't define, or
-#   paraml will silently drop it — same error_on_unused=False trap as the MOUD hooks).
+# ----------------------------------------------------------------------------
+# THE PATH, AND WHAT EACH FIELD MEANS
+# ----------------------------------------------------------------------------
+# titan/params/syringe_services.yml defines a `timeline` of named periods. The
+# calibration base carries one, `ssp_open`:
+#
+#     syringe_services:
+#       timeline:
+#         ssp_open:
+#           num_slots_start: 71     # enrolment CAP, an absolute agent count
+#           num_slots_stop:  71     # differing start/stop makes a linear ramp
+#           risk: 0.16              # unsafe-sharing probability once enrolled
+#           start_time: -999        # ENCORE has run continuously since 1994
+#           stop_time:  999
+#
+# Anchors: ENCORE's operating history sets the times; NHBS-PWID 2018 gives 55%
+# SSP reach and 26% receptive sharing. The out-of-SSP counterfactual is
+# demographics.*.injection.unsafe_prob = 0.38.
+#
+# ----------------------------------------------------------------------------
+# TWO TRAPS
+# ----------------------------------------------------------------------------
+# 1. num_slots IS AN ABSOLUTE COUNT AND DOES NOT SCALE WITH N. At N=500 the model
+#    holds ~88 PWID (Inj.ppl 0.176 x 500), so 71 slots is ~81% reach. If Stage A2
+#    raises N, a hard-coded slot count silently stops being saturation. Set it far
+#    above any N the analysis will use.
+#
+# 2. BASELINE REACH IS ALREADY HIGH. 81% in the model against NHBS-PWID's 55%
+#    observed. Saturation therefore buys only ~19 percentage points of reach, so
+#    this arm will look weak, and that is a property of the baseline rather than
+#    of the intervention. Check the 71 against the refit's PWID count before
+#    running, and say in the paper what baseline reach the contrast starts from.
+#
+# ----------------------------------------------------------------------------
+# FILL IN — Jun
+# ----------------------------------------------------------------------------
+# Saturate REACH, not per-act risk: `risk` is the residual sharing probability of
+# someone who is enrolled, and it is anchored to NHBS-PWID's 26% receptive
+# sharing. Lowering it as well would conflate two different interventions
+# (more coverage vs safer behaviour within coverage) and make the arm
+# uninterpretable. Change slots only, unless you deliberately want the joint arm.
+#
 # ============================================================================
-# <SSP coverage block — FILL IN>
+# syringe_services:
+#   timeline:
+#     ssp_open:
+#       num_slots_start: 100000    # >> any N; unconditional access
+#       num_slots_stop:  100000
+#       risk: 0.16                 # UNCHANGED — see above

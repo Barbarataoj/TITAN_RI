@@ -1,18 +1,59 @@
 # ============================================================================
 # Phase 7 Scenario 6 — Combination (post-OD linkage + bup expansion + MOUD HIV testing)
 # ----------------------------------------------------------------------------
-# Intent: scenarios 2 + 3 + 5 applied together (the runbook's combination arm,
-# CALIBRATION_PLAN.md:434), to measure interaction effects vs the sum of singles.
+# Intent: scenarios 2 + 3 + 5 applied together (CALIBRATION_PLAN.md:434), to
+# measure interaction effects against the sum of the single arms.
 #
-# HOW TO BUILD THIS FILE (Jun):
-#   1. cp scenario_1_baseline.yml scenario_6_combination.yml
-#   2. Apply ALL of the deltas from scenarios 2, 3, and 5 in the one file:
-#        - moud.post_overdose_rr        (from scenario 2)
-#        - moud.enroll.<window>.prob    (from scenario 3)
-#        - HIV testing knob             (from scenario 5)
-#   3. Uncomment the line in scenarios/manifest.txt.
+# CORRECTED 2026-08-17 — the knob list named `moud.enroll.<window>.prob`, which
+# does not exist. Scenario 3's knob is `moud.reinit_prob`. See that template.
 #
-# FILL IN — Jun: use the SAME values chosen for the individual arms so the
-# combination is directly decomposable against them. (SSP / scenario 4 is NOT in
-# this combination per the runbook; add it only if the analysis plan changes.)
+# ----------------------------------------------------------------------------
+# THE DELTAS, all in one file
+# ----------------------------------------------------------------------------
+#   moud.post_overdose_rr                        from scenario 2
+#   moud.reinit_prob                             from scenario 3
+#   hiv_testing.moud_early_mult / _stable_mult   from scenario 5
+#
+# Use the SAME values chosen for the individual arms, or the combination is not
+# decomposable against them.
+#
+# SSP (scenario 4) is NOT in this combination per the runbook. Add it only if the
+# analysis plan changes, and say so explicitly if you do.
+#
+# ----------------------------------------------------------------------------
+# ONE INTERACTION THAT IS NOT OPTIONAL TO THINK ABOUT
+# ----------------------------------------------------------------------------
+# Scenarios 2 and 3 both act on the same quantity. moud.py computes
+#
+#     p_start = moud.reinit_prob x moud.post_overdose_rr   (when recent_overdose)
+#
+# and then CLAMPS to 1.0. So raising reinit_prob for scenario 3 pushes the
+# post-overdose product further into the clamp, and the combination will show
+# LESS than the sum of the single arms for a purely mechanical reason — the
+# ceiling — rather than because of any epidemiological interaction.
+#
+# Worked at trial 561, with scenario 2 arm (a) and scenario 3 as recommended:
+#
+#     scenario 2 alone   0.11833 x 6.59 = 0.780
+#     scenario 6         0.24968 x 6.59 = 1.000  (clamped from 1.645)
+#
+# Report this. Sub-additivity that is really a clamp is the kind of result that
+# reads as an epidemiological finding if it is not named as an artefact. If the
+# intent is a genuine interaction test, recompute scenario 2's multiplier against
+# scenario 3's reinit_prob so the post-overdose linkage PROBABILITY is held at
+# 0.78 in both arms:
+#
+#     post_overdose_rr (combination) = 0.78 / <scenario 3's reinit_prob>
+#     worked: 0.78 / 0.24968 = 3.12
+#
+# Those are two different questions — "both policies at their own settings" vs
+# "both policies at a common linkage rate" — and the choice belongs in the paper's
+# methods, not in a YAML comment.
+#
 # ============================================================================
+# moud:
+#   post_overdose_rr: <FILL IN — from scenario 2, or recomputed; see above>
+#   reinit_prob:      <FILL IN — from scenario 3>
+# hiv_testing:
+#   moud_early_mult:  <FILL IN — from scenario 5>
+#   moud_stable_mult: <FILL IN — from scenario 5>
