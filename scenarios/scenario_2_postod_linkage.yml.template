@@ -38,19 +38,39 @@
 # Chambers et al. (observational, in the 2025 systematic review PMC12912343)
 # report aOR 5.86 (95% CI 2.70-12.71) for 30-day engagement after ED initiation.
 #
-# 78% is the highest engagement any trial has produced for this intervention. It
-# is the right anchor for a REALISTIC arm; 100% is a policy ceiling that no
-# published programme has reached.
+# WHAT RHODE ISLAND ACTUALLY ACHIEVED IS FOUR TIMES LOWER. AnchorED has placed
+# peer recovery specialists in RI EDs since 2014. Program reporting (Waye et al.,
+# Addict Behav 2019; NASHP profile) gives referral to treatment at discharge
+# rising from 9% to ~21%, with >85% of overdose cases involving a peer and 86.8%
+# of patients agreeing to post-discharge outreach.
+#
+# 86.8% is WILLINGNESS, not linkage. The linkage number is ~21%.
+#
+# The ratio agrees with the trial (21/9 = 2.33 against D'Onofrio's 2.11); the
+# LEVEL differs about fourfold, because AnchorED is peer navigation while
+# D'Onofrio started buprenorphine in the ED. These are different interventions
+# and should be different arms, not averaged.
+#
+# See docs/calibration_log/phase_7_intervention_evidence_2026-08-17.md section 2.1.
 #
 # ----------------------------------------------------------------------------
 # FILL IN — Jun: pick ONE arm, or run both.
 # ----------------------------------------------------------------------------
-# (a) EVIDENCE-ANCHORED (recommended as the primary result)
-#     Target a 78% per-encounter linkage probability, after D'Onofrio:
+# Each arm is `post_overdose_rr = <target linkage> / <fitted moud.reinit_prob>`.
 #
-#         post_overdose_rr = 0.78 / <fitted moud.reinit_prob>
+# (a1) SCALE PEER NAVIGATION — what RI has actually done, extended statewide.
+#      Target linkage 0.21 (AnchorED post-implementation referral rate).
+#      Worked at trial 561's reinit_prob 0.11833:  0.21 / 0.11833 = 1.77
+#      NOTE: part of this is already in the calibrated baseline, since AnchorED
+#      has run since 2014 and the scored window is 2012-2022. Treat this arm as
+#      "the remaining scale-up", and check what the baseline already encodes
+#      before claiming the full 9% -> 21% as the contrast.
 #
-#     Worked at trial 561's reinit_prob 0.11833:  0.78 / 0.11833 = 6.59
+# (a2) ED-INITIATED BUPRENORPHINE — a clinical intervention RI has NOT deployed
+#      at scale, and the one with RCT support. Target linkage 0.78 (D'Onofrio).
+#      Worked at trial 561:  0.78 / 0.11833 = 6.59
+#      This is the recommended primary result: it is a real policy choice, it has
+#      the strongest evidence, and it is distinguishable from the baseline.
 #
 # (b) CEILING / UPPER BOUND (label it as such in the paper)
 #     Saturate p_start to 1.0, i.e. every survivor linked within one step:
