@@ -96,6 +96,12 @@ STEPS_PER_YEAR = 12
 # and again 2026-08-17 when inj_share_err was demoted and it went 5 -> 4.
 SQUARED_OBJECTIVES = (2,)   # od_err
 
+# Names for multi_error()'s slots, in order. Used to write the objective
+# components into the Optuna journal under stable names, so that reading a study
+# does not require knowing which positional order was in force on the day it ran
+# -- that order has changed four times since 2026-07-29.
+OBJECTIVE_NAMES = ("oud_rmse", "ridoh_hiv_err", "od_err", "moud_traj_rmse")
+
 # Upper anchor for the composite's per-objective normalization, as a quantile of
 # the candidate pool rather than its max. Scores above the anchor clip to 1.0.
 #
@@ -697,21 +703,53 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
     # transmission level, so it cannot be pinned by configuration. What can be
     # done is to refuse to certify a trial that has it. See
     # validate_candidates.VALIDATION for the tolerance.
+    # MEASURED AS AN OLS SLOPE SINCE 2026-08-17. It was a ratio of a 12-month
+    # opening window to a 12-month closing window, which threw away ~80% of the
+    # scored steps and then squared the noise in what remained into a ratio of two
+    # small numbers. Over a PWID stratum of ~88 agents at 2-13% prevalence, each
+    # window is single-digit HIV-positive counts.
+    #
+    # Job 4963250 measured what that cost: replicating the same configuration
+    # under a different population seed moved hiv_prev_drift_pwid by a median of
+    # 0.12 and a maximum of 0.79 against a +/-0.10 tolerance -- so the metric could
+    # not distinguish drift from the population draw. hiv_prev_drift_noninj was
+    # better behaved (median ~0.06) because its denominator is 82% of the
+    # population, which confirms the mechanism is compartment size rather than the
+    # arithmetic.
+    #
+    # A least-squares slope over all 132 steps uses every observation instead of
+    # 24 of them. Reported as fractional change per decade so the number stays
+    # readable and comparable to the old ratio: prevalence is regressed on time,
+    # and the slope is scaled by ten years and divided by mean prevalence.
+    #
+    # The +/-0.10 tolerance is INHERITED and provisional. It was a guess attributed
+    # to the run-to-run spread at 40 reps and is contradicted by measurement;
+    # Stage A1 re-derives it from the measured between-population spread. Until
+    # then it is reported, never scored -- penalising drift inside the objective
+    # would let the optimiser trade it against HIV fit rather than surface it.
     scored = df[df["t"] >= 1]
     if not scored.empty:
-        first_t, last_t_scored = scored["t"].min(), scored["t"].max()
-        open_win = scored[scored["t"] < first_t + steps_per_year]
-        close_win = scored[scored["t"] >= last_t_scored - steps_per_year + 1]
         for drug_type, key in (("Inj", "pwid"), ("NonInj", "noninj")):
+            sub = scored[scored["drug_type"] == drug_type]
+            per_step = sub.groupby("t")[["hiv", "agents"]].sum()
+            per_step = per_step[per_step["agents"] > 0]
+            if len(per_step) < 2:
+                continue
 
-            def _prev(sub):
-                s = sub[sub["drug_type"] == drug_type]
-                a = s["agents"].sum()
-                return float(s["hiv"].sum() / a) if a else float("nan")
+            prev = (per_step["hiv"] / per_step["agents"]).to_numpy(dtype=float)
+            t = per_step.index.to_numpy(dtype=float)
+            mean_prev = float(prev.mean())
+            if not np.isfinite(mean_prev) or mean_prev <= 0:
+                continue
 
-            open_prev, close_prev = _prev(open_win), _prev(close_win)
-            if open_prev and np.isfinite(open_prev) and np.isfinite(close_prev):
-                stats[f"hiv_prev_drift_{key}"] = float(close_prev / open_prev - 1.0)
+            slope = float(np.polyfit(t, prev, 1)[0])
+            decade = slope * steps_per_year * 10.0
+            stats[f"hiv_prev_drift_{key}"] = decade / mean_prev
+            # Kept alongside the slope because the objective's units are
+            # prevalence, and a fractional slope on a near-zero base is unstable
+            # in a way the absolute one is not.
+            stats[f"hiv_prev_slope_{key}"] = decade
+            stats[f"hiv_prev_mean_{key}"] = mean_prev
 
     # Same prevalence over the look-back PWID denominator that matches how the
     # APCD target was constructed (see OUDState.set_stats). Reported for
@@ -1524,8 +1562,90 @@ def objective(trial):
     outdir.mkdir(exist_ok=True)
 
     stats = run_titan(trial_yaml, outdir)
-    trial.set_user_attr("hiv_new_pooled", stats.get("hiv_new_pooled", 0))
+    record_trial_diagnostics(trial, stats, targets)
     return multi_error(stats, targets)
+
+# Everything worth having in the journal when a run is being diagnosed months
+# later, as (stat key, user_attr name). Objective VALUES are stored by optuna
+# already; what was missing is everything that explains them.
+#
+# Kept as a table rather than inline so that adding a diagnostic is one line and
+# so the set is greppable from the analysis side.
+TRIAL_DIAGNOSTICS = (
+    # The three rates od_err averages over. od_err is the mean of three squared
+    # PROPORTIONAL errors, so the aggregate cannot distinguish "one component
+    # badly off" from "all three modestly off" -- and those have different fixes.
+    ("fatal_od_rate", "fatal_od_rate"),
+    ("nonfatal_od_rate_inj", "nonfatal_od_rate_inj"),
+    ("nonfatal_od_rate_noninj", "nonfatal_od_rate_noninj"),
+    # Demoted from the objective vector 2026-08-17; still the quantity the whole
+    # intervention analysis is about.
+    ("inj_share_active_oud", "inj_share_active_oud"),
+    # Stationarity of the scored window, as an OLS slope since 2026-08-17.
+    ("hiv_prev_drift_pwid", "hiv_prev_drift_pwid"),
+    ("hiv_prev_drift_noninj", "hiv_prev_drift_noninj"),
+    ("hiv_prev_slope_pwid", "hiv_prev_slope_pwid"),
+    ("hiv_prev_slope_noninj", "hiv_prev_slope_noninj"),
+    # Level, not just movement: a flat trajectory at the wrong level and a flat
+    # trajectory at the right one are indistinguishable without this.
+    ("hiv_prevalence_pwid", "hiv_prevalence_pwid"),
+    ("hiv_prev_mean_pwid", "hiv_prev_mean_pwid"),
+    # The null-transmission screen reads this, and a trial can score well on the
+    # HIV trajectory with 0-1 stochastic infections.
+    ("hiv_new_pooled", "hiv_new_pooled"),
+    # Cascade position, which decides how much of the transmission level is
+    # actually infectious.
+    ("dx_among_hiv", "dx_among_hiv"),
+    ("art_among_dx", "art_among_dx"),
+    ("suppressed_among_dx", "suppressed_among_dx"),
+    ("incar_share", "incar_share"),
+    # OUD compartment sizes, so an oud_rmse miss can be attributed without a rerun.
+    ("oud_active", "oud_active"),
+    ("oud_remission", "oud_remission"),
+    ("oud_none", "oud_none"),
+    ("moud_uptake", "moud_uptake"),
+    # Sampling design in force for this trial, so a journal read months later does
+    # not have to reconstruct it from the scenario file.
+    ("n_reps", "n_reps"),
+)
+
+
+def record_trial_diagnostics(trial, stats, targets, prefix=""):
+    """Write the per-trial diagnostics into the Optuna journal.
+
+    ADDED 2026-08-17. Until now the only user_attr stored was `hiv_new_pooled`, so
+    nothing about WHY a trial scored as it did survived the run. That has already
+    cost a diagnosis: on 2026-08-11 the decisive question about od_err -- which of
+    its three components was missing, and by how much -- could not be answered from
+    job 4874631's journal at all, and the analysis was abandoned rather than
+    re-run. The objective components are the difference between the next
+    post-mortem taking an afternoon and taking another probe job.
+
+    `prefix` namespaces a per-population-seed record (e.g. "seed12345_"), so that
+    when a trial is scored across several network realizations the spread is
+    recoverable and not just the mean. That spread is the quantity Stage A1
+    measures and the one the gates have to be justified against.
+    """
+    for stat_key, attr in TRIAL_DIAGNOSTICS:
+        value = stats.get(stat_key)
+        if value is None:
+            continue
+        if isinstance(value, (list, tuple, np.ndarray)):
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(numeric):
+            continue
+        trial.set_user_attr(f"{prefix}{attr}", numeric)
+
+    # The objective components themselves, named, so that a reader does not have
+    # to know the positional order the vector had on the day the study ran. That
+    # order has changed four times.
+    errs = multi_error(stats, targets)
+    for name, value in zip(OBJECTIVE_NAMES, errs):
+        trial.set_user_attr(f"{prefix}err_{name}", float(value))
 
 # =====================================================
 # Canonical-pick selection
