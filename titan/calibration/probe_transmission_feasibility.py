@@ -184,7 +184,12 @@ def run_one(args):
         "oud_rmse": errs[0],
         "od_err": errs[2],
         "moud_err": errs[3],
-        "inj_share_err": errs[4],
+        # Reported directly rather than as errs[4]: inj_share_err stopped being an
+        # objective on 2026-08-17, so multi_error returns four values. The share
+        # itself is still worth carrying here -- this probe sweeps the
+        # transmission level, and the injection share is what decides how much of
+        # that level reaches the PWID compartment.
+        "inj_share_active_oud": float(stats.get("inj_share_active_oud", np.nan)),
         "idu_dx_per_year_ri": idu,
         "pwid_dx_per_year_ri": pwid,
         "inj_share_of_dx": idu / pwid if pwid else np.nan,
@@ -331,7 +336,8 @@ def report(df, acqs, targets):
     for a in acqs:
         s = df[df["acquisition"] == a]
         print(f"  {a:>12g}{s['oud_rmse'].mean():>9.4f}{s['od_err'].mean():>11.4f}"
-              f"{s['moud_err'].mean():>9.4f}{s['inj_share_err'].mean():>11.5f}")
+              f"{s['moud_err'].mean():>9.4f}"
+              f"{s['inj_share_active_oud'].mean():>11.3f}")
 
 
 def main():

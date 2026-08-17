@@ -122,10 +122,10 @@ OBJECTIVES = [
     # 40%.
     ("Overdose", 0.01),
     ("MOUD trajectory", 0.10),
-    # Squared error on the injection share among active OUD. Threshold 0.0025 =
-    # 0.05 absolute, i.e. accept 0.40-0.50 against the 0.45 target. Added
-    # 2026-07-29 with the objective itself (EPIDEMIC_DYNAMICS_MAP_2026-07-29.md P2).
-    ("Injection share", 0.0025),
+    # "Injection share", 0.0025 was the fifth objective from 2026-07-29
+    # (EPIDEMIC_DYNAMICS_MAP_2026-07-29.md P2) until 2026-08-17, when it was
+    # demoted to the VALIDATION list below. See multi_error() for the four
+    # reasons. The quantity is still reported per trial; it is no longer scored.
 ]
 
 TRIAL_DIR = Path(
@@ -205,6 +205,19 @@ VALIDATION = [
     # objective would trade it against HIV fit rather than surface it.
     ("hiv_prev_drift_pwid",   "PWID prev drift (unscored)",   0.0, 0.10),
     ("hiv_prev_drift_noninj", "NonInj prev drift (unscored)", 0.0, 0.10),
+    # Demoted from the objective list 2026-08-17. Target 0.32 is RIHRSS
+    # (PMC10872563: 125 of 393 people who used illicit drugs in the prior 30 days
+    # reported injection), unchanged by the demotion -- it is also the value
+    # demographics.*.drug_type.Inj.ppl is derived from, so a miss here means the
+    # initial condition and the steady state implied by INJECT_START/INJECT_STOP
+    # have pulled apart.
+    #
+    # Tolerance 0.05 preserves the old gate's width (0.0025 squared = 0.05
+    # absolute) so the number stays comparable across the demotion. Expect it to
+    # FAIL at burn 120: job 4963250 measured 0.262. That is the point of
+    # reporting it -- the miss is a burn-length and initial-condition question
+    # for Stage C, not something the optimizer should be trading HIV fit against.
+    ("inj_share_active_oud",  "injection share | active OUD",  0.32, 0.05),
 ]
 
 

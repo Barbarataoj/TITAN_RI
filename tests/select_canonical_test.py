@@ -8,8 +8,14 @@ composite), and job 4830724 (a pick at ridoh_hiv_err 4.02 against a null value o
 heavy-tailed sets a wide normalizer, which mutes that objective for every trial in
 the feasible region. Nothing in the suite covered this function until 2026-08-11.
 
-Objective order is positional: (oud_rmse, ridoh_hiv_err, od_err, moud_traj_rmse,
-inj_share_err).
+Objective order is positional: (oud_rmse, ridoh_hiv_err, od_err, moud_traj_rmse).
+
+The fixture below is job 4830724's front, which was recorded when inj_share_err
+was still a fifth objective. It is kept at five columns ON PURPOSE: select_canonical
+reads len(values) rather than a constant, and a front that is wider than today's
+objective vector is the case most likely to break that. The trailing column also
+keeps the fixture a verbatim record of the job it came from. What the tests assert
+is unchanged by the demotion, because every assertion here turns on the HIV column.
 """
 
 from types import SimpleNamespace

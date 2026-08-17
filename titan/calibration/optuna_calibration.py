@@ -9,12 +9,15 @@
 #   3. od_err                — mean squared PROPORTIONAL error of fatal + nonfatal annual
 #                              OD rates vs targets (relative since 2026-08-04)
 #   4. moud_traj_rmse        — RMSE of model MOUD uptake series vs APCD 2012–2022
-#   5. inj_share_err         — squared error of injection share among active OUD vs target
 #
-# Note the mixed units: slots 1/2/4 are RMSEs (in the units of the quantity), slots
-# 3/5 are SQUARED errors. NSGA-II does not care -- it only ever compares an
+# Note the mixed units: slots 1/2/4 are RMSEs (in the units of the quantity), slot
+# 3 is a SQUARED error. NSGA-II does not care -- it only ever compares an
 # objective against itself -- but any cross-objective aggregation does. See
 # SQUARED_OBJECTIVES and select_canonical().
+#
+# inj_share_err was the 5th objective from 2026-07-29 to 2026-08-17 and is now
+# reported, not scored -- validate_candidates.VALIDATION carries
+# inj_share_active_oud against 0.32. See multi_error() for the reasoning.
 #
 # The HIV objective changed on 2026-08-04 from an APCD per-PWID-year incidence
 # series to RIDOH IDU-attributed diagnosis counts, and HIV prevalence was dropped
@@ -89,8 +92,9 @@ STEPS_PER_YEAR = 12
 # before the composite so all objectives are compared in the units of the
 # quantity they measure.
 #
-# Reindexed 2026-08-04 when hiv_prev_err was dropped and the vector went 6 -> 5.
-SQUARED_OBJECTIVES = (2, 4)   # od_err, inj_share_err
+# Reindexed 2026-08-04 when hiv_prev_err was dropped and the vector went 6 -> 5,
+# and again 2026-08-17 when inj_share_err was demoted and it went 5 -> 4.
+SQUARED_OBJECTIVES = (2,)   # od_err
 
 # Upper anchor for the composite's per-objective normalization, as a quantile of
 # the candidate pool rather than its max. Scores above the anchor clip to 1.0.
@@ -1061,17 +1065,44 @@ def build_targets(calib):
 
 def multi_error(stats, targets):
     """
-    Return 5 scalar errors for NSGA-II:
-      (oud_rmse, ridoh_hiv_err, od_err, moud_traj_rmse, inj_share_err)
+    Return 4 scalar errors for NSGA-II:
+      (oud_rmse, ridoh_hiv_err, od_err, moud_traj_rmse)
 
     OD error folds in stratified targets (inj / non-inj nonfatal + fatal).
     MOUD error is a trajectory RMSE against mofan's APCD #16/#43 series.
 
-    inj_share_err was added 2026-07-29. `calibration.injecting.injecting_pct` had
-    been defined in calibration_targets.yml since the OUD redesign but was never
-    read here, so the injection share -- the population the whole intervention
-    analysis is about -- was an unscored consequence of five fitted transition
-    rates.
+    inj_share_err was added 2026-07-29 and DEMOTED 2026-08-17. It is now reported
+    by validate_candidates.VALIDATION, not scored. Four reasons, in the order they
+    were established:
+
+      * It fails at the configured burn. Job 4963250 measured
+        `inj_share_active_oud` at 0.262 against the 0.32 target, so the objective
+        scores 0.00336 against a 0.0025 gate. The 0.363 recorded in step 5 as
+        "already passing" was a burn-720 figure taken before
+        set_population_window() existed.
+      * It is scoring a transient, not a level. The share starts at 0.32, falls
+        to 0.262 by burn 120, crosses the transition rates' implied steady state
+        near burn 240, and is still climbing at 0.337 by 720. Which value the
+        objective sees is a function of burn length and almost nothing else.
+      * Step 2 removed its levers. Anchoring INJECT_START/INJECT_STOP from
+        literature took out the two strongest parameters acting on it (-0.68 and
+        +0.32 on job 4874631), leaving it at risk of becoming a second
+        uncontrolled objective alongside od_err.
+      * No Phase 7 intervention moves the injection share directly, so under the
+        2026-08-12 rule adopted from upstream -- anything with data is asserted
+        as an initial condition, only transitions an intervention moves stay
+        free -- it belongs on the validation side.
+
+    The target itself is unaffected: injecting_pct 0.32 rests on RIHRSS
+    (PMC10872563), not on any simulator run, and remains the value
+    demographics.*.drug_type.Inj.ppl is derived from.
+
+    Reducing the objective count is also the point, not a side effect. With five
+    objectives NSGA-II's front absorbs nearly everything and selection goes slack;
+    see docs/calibration_log/phase_6_completion_plan_2026-08-14.md section 2.2 for
+    the yield arithmetic. Everything that indexes trial.values positionally was
+    updated with this change, and no study persisted before 2026-08-17 can be
+    resumed against it.
 
     CHANGED 2026-08-04, and this is a reindexing, not an append. Two slots moved:
 
@@ -1140,16 +1171,11 @@ def multi_error(stats, targets):
         targets["moud_series"],
     )
 
-    inj_share_err = float(
-        (stats.get("inj_share_active_oud", 0) - targets["inj_share"]) ** 2
-    )
-
     return (
         oud_rmse,
         ridoh_hiv_err,
         od_err,
         moud_traj_rmse,
-        inj_share_err,
     )
 
 # =====================================================
@@ -1612,12 +1638,17 @@ def main():
         print(f"Study storage: JournalStorage at {journal_path}")
 
     study = optuna.create_study(
-        # 5 objectives since 2026-08-04, when hiv_prev_err was dropped and slot 1
-        # became ridoh_idu_err. No earlier study can be resumed against this: the
-        # vector changed length AND meaning. History of the same problem -- 6
-        # objectives from 2026-07-29 (inj_share_err appended), slot 1 redefined
-        # from an 11-point annual RMSE to a 3-period one on 2026-08-03.
-        directions=["minimize"] * 5,
+        # 4 objectives since 2026-08-17, when inj_share_err was demoted to a
+        # validation target. No earlier study can be resumed against this: the
+        # vector has changed length or meaning four times now -- 6 objectives from
+        # 2026-07-29 (inj_share_err appended), slot 1 redefined from an 11-point
+        # annual RMSE to a 3-period one on 2026-08-03, 5 objectives from
+        # 2026-08-04 (hiv_prev_err dropped, slot 1 became ridoh_idu_err), 4 today.
+        #
+        # The count is itself a lever. Non-dominated sorting discriminates less as
+        # the objective count rises, and at five the front was absorbing nearly
+        # every trial; see phase_6_completion_plan_2026-08-14.md section 2.2.
+        directions=["minimize"] * 4,
         storage=storage,
         study_name=os.environ.get("TITAN_CALIB_STUDY", "titan_ri_multi"),
         load_if_exists=True,
