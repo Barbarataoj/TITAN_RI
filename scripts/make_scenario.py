@@ -88,6 +88,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE = REPO_ROOT / "titan" / "calibration" / "scenario_source.yml"
+TARGETS = REPO_ROOT / "titan" / "calibration" / "calibration_targets.yml"
 DEFAULT_OUT = REPO_ROOT / "calibrated_scenario_multi_5obj.yml"
 
 # The three demographic axes, in the order they nest in the scenario. Level names
@@ -219,16 +220,24 @@ def build_scenario(source):
     scenario = copy.deepcopy(source["scenario"])
     scenario["demographics"] = build_demographics(source)
 
-    # The sampling block is stated once here and written into `model`, rather than
-    # being three unrelated literals buried at different depths of a 4,300-line
-    # file. `model.seed.ppl` in particular was invisible for four refits; see
-    # docs/calibration_log/phase_6_completion_plan_2026-08-14.md section 2.8.
-    sampling = source["sampling"]
+    # Sampling is DERIVED from calibration_targets.yml rather than restated here.
+    #
+    # These four quantities used to live in two places at once: the scoring path
+    # read `calibration.population` while the engine read `model.*` from the base
+    # scenario, and nothing connected them. `burn_steps` drifted apart in exactly
+    # that gap and ran at 720 for two days while every log said 120. Deriving them
+    # is the same rule CLAUDE.md states for any paired value.
+    #
+    # `population_seeds` is a list; the scenario file holds one realization, so the
+    # first entry goes here and the driver loops the rest. See
+    # optuna_calibration.population_seeds().
+    pop = load_yaml(TARGETS)["calibration"]["population"]
     model = scenario.setdefault("model", {})
-    model["num_pop"] = sampling["population_size"]
-    model.setdefault("time", {})["burn_steps"] = sampling["burn_steps"]
-    model["time"]["num_steps"] = sampling["scored_steps"]
-    model.setdefault("seed", {})["ppl"] = sampling["population_seed"]
+    model["num_pop"] = int(pop["size"])
+    model.setdefault("time", {})["burn_steps"] = int(pop["burn_steps"])
+    model["time"]["num_steps"] = int(pop["steps"])
+    model.setdefault("seed", {})["ppl"] = int(pop["population_seeds"][0])
+    model["seed"]["run"] = 0
 
     return scenario
 
@@ -320,17 +329,9 @@ def extract(scenario_path):
         levels[name] = {"constants": unflatten(constants), "varying": varying}
 
     rest = {k: v for k, v in scenario.items() if k != "demographics"}
-    model = rest.get("model", {})
-    sampling = {
-        "population_size": model.get("num_pop"),
-        "burn_steps": model.get("time", {}).get("burn_steps"),
-        "scored_steps": model.get("time", {}).get("num_steps"),
-        "population_seed": model.get("seed", {}).get("ppl"),
-    }
 
     return {
         "axes": {"races": races, "sex_types": sexes, "drug_types": drugs},
-        "sampling": sampling,
         "demographics": levels,
         "scenario": rest,
     }

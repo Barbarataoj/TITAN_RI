@@ -160,6 +160,38 @@ calibration:
     steps: 132        # 11 years × 12 months
     burn_steps: 120   # was 720; see above. Requires a non-zero NonInj hiv.init.
 
+    # Network realizations to score each trial across. ADDED 2026-08-17.
+    #
+    # This was a literal, `model.seed.ppl: 12345`, buried at line 4311 of the base
+    # scenario, and nothing in the driver ever wrote it. Replicates vary
+    # `model.seed.run` only, so all 40 of them draw the SAME population. Between-
+    # population variance is therefore not sampling noise that replicates average
+    # away -- within a study it is a fixed offset shared by every trial, and only
+    # more entries in this list can reduce it.
+    #
+    # The consequence, unnoticed across jobs 4743939, 4830724 and 4874631: every
+    # trial of every refit has been fitted to one network realization. Comparisons
+    # BETWEEN trials stayed sound, because the offset is common to all of them,
+    # which is why the search looked internally consistent. What is not sound is
+    # the fitted values, which are conditioned on population 12345 -- and job
+    # 4963250 measured that draw as worth about one gate-width on
+    # hiv_prev_drift_pwid. It is also why validate_candidates, which HAS varied
+    # this seed since Phase 4, has repeatedly been the step where candidates lose
+    # their margin.
+    #
+    # Still a single entry today, so behaviour is unchanged. Stage A1 measures the
+    # between- and within-population components separately and Stage A2 prices the
+    # split at fixed budget (8 seeds x 5 reps against today's 1 x 40); Stage E
+    # scores every trial across whatever list those choose, using the SAME list for
+    # every trial so the comparison stays paired. See
+    # docs/calibration_log/phase_6_completion_plan_2026-08-14.md sections 2.8-2.9.
+    population_seeds: [12345]
+
+    # Monte Carlo replicates per population seed. The engine takes this from the
+    # -n CLI flag (params.model.num_reps is dead config that nothing reads), so it
+    # is stated here to be recorded and passed, not to be read by TITAN.
+    reps_per_seed: 40
+
   n_runs: 10
 
   # --------------------------------------------

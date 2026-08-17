@@ -123,19 +123,76 @@ def test_bin_blocks_carry_every_field(source):
 
 
 @pytest.mark.unit
-def test_sampling_block_reaches_the_model(source):
-    """The sampling knobs are stated once in the source and written into `model`.
+def test_sampling_is_derived_from_the_targets_file(source):
+    """The sampling design has exactly one owner: calibration.population.
 
-    `model.seed.ppl` sat unread at line 4311 of the old artifact across four
-    refits, which is how every trial came to be fitted against one network
-    realization. It is a named field now; keep it wired.
+    These four quantities used to live in two places -- the scoring path read
+    `calibration.population` while the engine read `model.*` from the scenario --
+    and `burn_steps` drifted apart in that gap, running at 720 for two days while
+    every log said 120. `model.seed.ppl` was worse: it was in the scenario alone
+    and nothing read it, so four refits were fitted to one network realization.
     """
+    from make_scenario import TARGETS  # noqa: PLC0415
+
+    with open(TARGETS) as f:
+        pop = yaml.safe_load(f)["calibration"]["population"]
+
     generated = build_scenario(source)
-    sampling = source["sampling"]
-    assert generated["model"]["num_pop"] == sampling["population_size"]
-    assert generated["model"]["time"]["burn_steps"] == sampling["burn_steps"]
-    assert generated["model"]["time"]["num_steps"] == sampling["scored_steps"]
-    assert generated["model"]["seed"]["ppl"] == sampling["population_seed"]
+    assert generated["model"]["num_pop"] == pop["size"]
+    assert generated["model"]["time"]["burn_steps"] == pop["burn_steps"]
+    assert generated["model"]["time"]["num_steps"] == pop["steps"]
+    assert generated["model"]["seed"]["ppl"] == pop["population_seeds"][0]
+    # run seed stays 0 so replicates vary within a population; the population is
+    # what population_seeds varies.
+    assert generated["model"]["seed"]["run"] == 0
+
+
+@pytest.mark.unit
+def test_population_seeds_is_a_validated_list():
+    """population_seeds() is the accessor every multi-seed caller goes through."""
+    from titan.calibration.optuna_calibration import (  # noqa: PLC0415
+        ANCHORED_PATHS,
+        population_seeds,
+        reps_per_seed,
+        set_population_seed,
+    )
+
+    from make_scenario import TARGETS  # noqa: PLC0415
+
+    with open(TARGETS) as f:
+        calib = yaml.safe_load(f)
+
+    seeds = population_seeds(calib)
+    assert isinstance(seeds, list) and seeds
+    assert len(set(seeds)) == len(seeds)
+    assert all(isinstance(s, int) for s in seeds)
+    assert reps_per_seed(calib) > 0
+
+    # A population seed is a sampling decision. Fitting it would let the search
+    # pick the network realization that flatters a vector.
+    assert "model.seed.ppl" in ANCHORED_PATHS
+
+    scenario = {}
+    assert set_population_seed(scenario, seeds[0]) == seeds[0]
+    assert scenario["model"]["seed"]["ppl"] == seeds[0]
+    assert scenario["model"]["seed"]["run"] == 0
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("bad", [None, [], [1, 1], 12345])
+def test_population_seeds_rejects_malformed_lists(bad):
+    """Each rejection is a failure mode that has cost this project time.
+
+    Missing is how the seed stayed invisible for four refits; a bare scalar is the
+    shape it had; duplicates cost a full run and reduce no variance.
+    """
+    from titan.calibration.optuna_calibration import population_seeds  # noqa: PLC0415
+
+    calib = {"calibration": {"population": {"population_seeds": bad}}}
+    if bad is None:
+        del calib["calibration"]["population"]["population_seeds"]
+    with pytest.raises(RuntimeError):
+        population_seeds(calib)
 
 
 @pytest.mark.unit

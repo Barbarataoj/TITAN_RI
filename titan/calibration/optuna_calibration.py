@@ -384,6 +384,10 @@ ANCHORED_PATHS = (
     "oud_state.transitions.inject_start_rate_per_year",
     "oud_state.transitions.inject_stop_rate_per_year",
     "partnership.injection.transmission.base",
+    # A population seed is a sampling decision, not a parameter. Fitting it would
+    # let the search pick the network realization that flatters a vector, which is
+    # the opposite of what varying it is for.
+    "model.seed.ppl",
 )
 
 def assert_not_fitted(calib):
@@ -435,6 +439,69 @@ def set_population_window(scenario, calib):
             f"parser and pop_scale all assume {STEPS_PER_YEAR}"
         )
     return size, steps, burn
+
+def population_seeds(calib):
+    """The network realizations every trial is scored across.
+
+    ADDED 2026-08-17, and it closes the same class of gap set_population_window()
+    closed on 2026-08-13: a quantity that governed every run while living only as
+    a literal in the base scenario, with nothing in the driver reading or writing
+    it.
+
+    `model.seed.ppl` was 12345 in `calibrated_scenario_multi_5obj.yml` and was
+    never overridden, so every trial of jobs 4743939, 4830724 and 4874631 was
+    scored against one network realization. Replicates vary `model.seed.run` only
+    and therefore cannot touch between-population variance -- within a study that
+    variance is a fixed offset shared by every trial, not noise. See
+    calibration_targets.yml `calibration.population.population_seeds` for the
+    consequences and phase_6_completion_plan_2026-08-14.md section 2.8.
+
+    Returns a list, always. A single-entry list is today's behaviour stated
+    explicitly rather than a scalar that a caller might forget can be plural.
+    """
+    pop = calib["calibration"]["population"]
+    seeds = pop.get("population_seeds")
+    if seeds is None:
+        raise RuntimeError(
+            "calibration.population.population_seeds is missing from "
+            "calibration_targets.yml. It is required: leaving the population seed "
+            "to the base scenario is what conditioned four refits on one network "
+            "realization."
+        )
+    if not isinstance(seeds, list) or not seeds:
+        raise RuntimeError(
+            f"calibration.population.population_seeds must be a non-empty list, "
+            f"got {seeds!r}"
+        )
+    if len(set(seeds)) != len(seeds):
+        raise RuntimeError(
+            f"calibration.population.population_seeds has duplicates: {seeds!r}. "
+            "A repeated seed re-draws the same population and buys no variance "
+            "reduction, while costing a full run."
+        )
+    return [int(s) for s in seeds]
+
+def reps_per_seed(calib):
+    """Replicates per population seed, as recorded in the targets file.
+
+    The engine takes the replicate count from run_titan's `-n` flag;
+    `params.model.num_reps` is dead config that nothing reads. This is the value
+    that gets passed there.
+    """
+    return int(calib["calibration"]["population"].get("reps_per_seed", 40))
+
+def set_population_seed(scenario, seed):
+    """Write one network realization into the scenario.
+
+    Paired with population_seeds(): the caller loops the list and calls this per
+    run. `model.seed.run` is deliberately left at 0 (random per replicate) -- the
+    point is to vary the POPULATION across runs while replicates still vary the
+    run seed within each one.
+    """
+    model = scenario.setdefault("model", {})
+    model.setdefault("seed", {})["ppl"] = int(seed)
+    model["seed"]["run"] = 0
+    return int(seed)
 
 def set_oud_initial_conditions(scenario, calib):
     """

@@ -23,15 +23,21 @@
 #                   values: nested dict keyed by those axes, in `by` order
 #
 # `by` is the SMALLEST set of axes on which the value is a well-defined function,
-# so an entry listing three axes is claiming genuine three-way structure. The
-# sentinel "__absent__" means the path does not exist in that cell -- the
-# cross-product is ragged, and a NonInj agent legitimately has no `Inj` or
-# `SexInj` partnership block.
+# so an entry listing two axes is claiming genuine two-way structure. The sentinel
+# "__absent__" means the path does not exist in that cell -- the cross-product is
+# ragged, and a NonInj agent legitimately has no `Inj` or `SexInj` partnership
+# block.
+#
+# NOT HERE: the sampling design. `model.num_pop`, `model.time.*` and
+# `model.seed.ppl` are DERIVED from `calibration.population` in
+# calibration_targets.yml when the scenario is generated, because they were
+# previously stated in both places at once and `burn_steps` drifted apart in
+# exactly that gap. Change them there.
 #
 # PROVENANCE AND CITATIONS. Parameter sourcing lives in
 # `RI_parameters_citations.md` and `RI_parameter_verification_APCD.md`; the record
 # of what was tried and refuted lives in the comments of
-# `titan/calibration/calibration_targets.yml`. Values that the calibration fits or
+# `titan/calibration/calibration_targets.yml`. Values the calibration fits or
 # anchors at runtime are applied by `optuna_calibration.py`'s `set_*` functions and
 # will overwrite whatever is written here.
 #
@@ -377,11 +383,6 @@ demographics:
         HM: 0.0
         MSM: 1.0
         MSMW: 1.0
-sampling:
-  burn_steps: 120
-  population_seed: 12345
-  population_size: 500
-  scored_steps: 132
 scenario:
   calibration:
     acquisition: 1.0
