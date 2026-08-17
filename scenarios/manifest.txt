@@ -7,6 +7,34 @@
 # ACTIVE (runnable now):
 #   -- NONE. See below.
 #
+# ===========================================================================
+# BLOCKER ADDED 2026-08-17 — the contrast design, not any one scenario file.
+# ===========================================================================
+#
+# run_scenarios.slurm loads ONE saved population through --poppath for every
+# scenario. Pairing is right and worth keeping: baseline and intervention on the
+# same population removes between-population variance from the difference, for
+# free. Being limited to one population is the defect.
+#
+# Every Phase 7 effect estimate would be conditioned on a single network
+# realization, exactly as the four refits were, with nothing in the output to
+# separate "the intervention did this" from "this draw did this". Job 4963250
+# measured a draw as worth about one gate-width on hiv_prev_drift_pwid, and
+# G4 -- re-check drift on the scenario horizon -- exists precisely to catch a
+# contrast inheriting drift as though the intervention caused it.
+#
+# REQUIRED before any contrast is reported:
+#   * array over (scenario x population), not scenario alone, using
+#     calibration.population.population_seeds;
+#   * contrast WITHIN a seed, then report the spread ACROSS seeds;
+#   * regenerate the saved population. results_RI_pop/pop/*_pop.tar.gz was
+#     written 2026-07-24 by job 4277443 from the trial-137 lineage, which was
+#     invalidated on 2026-07-28. As it stands, every contrast would run on a
+#     population from a discarded fit.
+#
+# See scripts/make_phase7_baseline.py and the note at the top of
+# run_scenarios.slurm.
+#
 # scenario_1_baseline.yml DEACTIVATED 2026-08-13, STRUCTURE REGENERATED 2026-08-14.
 #
 # As it stood on 2026-08-13 the file was not the calibrated model at all: stock

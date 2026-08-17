@@ -14,6 +14,32 @@
 # baseline population means every scenario differs only by its parameter deltas,
 # not by a fresh random draw.
 #
+# ===========================================================================
+# NOT RUNNABLE AS WRITTEN. Two defects recorded 2026-08-17.
+# ===========================================================================
+#
+# 1. ONE POPULATION. Pairing every scenario onto a single saved population is
+#    half right: it removes between-population variance from each contrast, for
+#    free, and that half should be kept. What it cannot do is say how much of a
+#    contrast is the intervention and how much is the draw -- every effect
+#    estimate would be conditioned on one network realization, exactly as the
+#    four refits were (completion plan section 2.8), and job 4963250 measured a
+#    draw as worth about one gate-width on hiv_prev_drift_pwid.
+#
+#    The fix keeps the pairing and adds populations: array over
+#    (scenario x population) using calibration.population.population_seeds,
+#    contrast WITHIN a seed, report the spread ACROSS seeds. That is a change to
+#    the array indexing and to --poppath resolution below, plus one saved
+#    population per seed.
+#
+# 2. THE SAVED POPULATION IS FROM A DISCARDED FIT. results_RI_pop/pop/*_pop.tar.gz
+#    was written on 2026-07-24 by job 4277443 from the trial-137 lineage, which
+#    was invalidated on 2026-07-28. Regenerate it from the refit's canonical pick
+#    before any contrast is reported.
+#
+# Both are Stage G work and neither is fixed here; this note exists so the design
+# is decided at G1 rather than discovered at G4. See scenarios/manifest.txt.
+#
 # Submit (sizes the array to the number of active manifest lines):
 #   cd /oscar/data/jtao9/TITAN_RI
 #   N=$(grep -cvE '^#|^$' scenarios/manifest.txt)

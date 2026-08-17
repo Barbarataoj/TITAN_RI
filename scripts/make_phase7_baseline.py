@@ -22,6 +22,42 @@ fields someone happened to check. Generating it makes the guarantee structural:
 the Phase 7 baseline IS the calibrated model, plus the scenario horizon, and
 nothing else.
 
+THE POPULATION SEED IS PART OF THE CONTRAST DESIGN. Added 2026-08-17.
+
+A Phase 7 result is a DIFFERENCE between a baseline run and an intervention run,
+so the population it is measured on matters twice over:
+
+  * PAIRED. Baseline and intervention must run on the SAME population, or the
+    contrast carries between-population variance it does not need. This is free
+    variance reduction and `run_scenarios.slurm` already gets it right, by
+    re-loading one saved population through `--poppath` for every scenario.
+  * PLURAL. That is also its defect. One population means the estimated effect of
+    every intervention is conditioned on a single network realization, exactly as
+    the four refits were (completion plan section 2.8), and there is nothing in
+    the output to say how much of the contrast is the intervention and how much is
+    the draw. Job 4963250 measured a draw as worth about one gate-width on
+    hiv_prev_drift_pwid.
+
+The design Phase 7 needs is therefore paired ACROSS several populations: for each
+population seed in `calibration.population.population_seeds`, run every scenario
+on that population, then contrast within seed and report the spread across seeds.
+`run_scenarios.slurm` currently arrays over scenarios alone and has to array over
+(scenario x population). See the note at the top of that file.
+
+`model.seed.ppl` here is derived from `calibration.population.population_seeds[0]`
+rather than inherited from the input file, so it cannot silently disagree with the
+calibration. It is the seed for the baseline's own run; the plural design is the
+runner's job, not this script's.
+
+TWO THINGS TO CHECK BEFORE PHASE 7 RUNS, neither of which this script can fix:
+
+  * `results_RI_pop/pop/*_pop.tar.gz` -- the population `run_scenarios.slurm`
+    loads -- was saved on 2026-07-24 by job 4277443 from the trial-137 lineage,
+    which was invalidated on 2026-07-28. It must be regenerated from the refit's
+    canonical pick, or every contrast runs on a population from a discarded fit.
+  * The baseline's PARAMETER VALUES are only as current as the fit behind them.
+    Regenerate after every refit.
+
 USAGE
 
     sbatch scripts/run_on_node.slurm python scripts/make_phase7_baseline.py
@@ -47,7 +83,9 @@ from titan.calibration.optuna_calibration import (  # noqa: E402
     load_yaml,
     set_hiv_initial_conditions,
     set_oud_initial_conditions,
+    population_seeds,
     set_per_act_transmission,
+    set_population_seed,
     set_population_window,
     write_yaml,
 )
@@ -89,6 +127,13 @@ def build(calibrated, calib, steps=None):
     set_oud_initial_conditions(scenario, calib)
     set_per_act_transmission(scenario)
     set_population_window(scenario, calib)
+
+    # Derived, not inherited: the input file carries whatever seed the calibration
+    # happened to write, and a Phase 7 baseline that disagrees with the
+    # calibration's sampling design is a contrast measured on a different
+    # population than the fit. See the docstring -- the plural design is the
+    # runner's job, but the single source of truth is here.
+    set_population_seed(scenario, population_seeds(calib)[0])
 
     if steps is not None:
         scenario["model"]["time"]["num_steps"] = int(steps)
