@@ -751,6 +751,39 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
             stats[f"hiv_prev_slope_{key}"] = decade
             stats[f"hiv_prev_mean_{key}"] = mean_prev
 
+    # Injection share, measured as a slope over the same scored window and by the
+    # same method as the prevalence drift above.
+    #
+    # WHY THIS EXISTS. `inj_share_active_oud` is a post-burn time AVERAGE, and an
+    # average cannot distinguish a quantity sitting on its target from one passing
+    # through it. Three anchored quantities imply three different injection shares
+    # -- 0.32 from the initial condition, 0.281 from INJECT_START_RATE /
+    # (INJECT_START_RATE + INJECT_STOP_RATE), and a measured 0.262 at burn 120
+    # rising to 0.337 at burn 720 (completion plan section 2.5). The model starts
+    # at 0.32, falls below the two-state steady state, crosses back near burn 240
+    # and is still climbing at 720, so it is not a simple two-state process and
+    # the average alone cannot say whether any burn length is long enough.
+    #
+    # Reported, never scored: `inj_share_err` was demoted to a validation target
+    # on 2026-08-17 and this is a diagnostic on that target, not a second one.
+    if not scored.empty:
+        per_step = scored.groupby(["t", "drug_type"])["oud_active"].sum().unstack(
+            fill_value=0.0
+        )
+        if "Inj" in per_step:
+            active_all = per_step.sum(axis=1)
+            per_step = per_step[active_all > 0]
+            active_all = active_all[active_all > 0]
+            if len(per_step) >= 2:
+                share = (per_step["Inj"] / active_all).to_numpy(dtype=float)
+                t = per_step.index.to_numpy(dtype=float)
+                mean_share = float(share.mean())
+                if np.isfinite(mean_share) and mean_share > 0:
+                    slope = float(np.polyfit(t, share, 1)[0])
+                    decade = slope * steps_per_year * 10.0
+                    stats["inj_share_drift"] = decade / mean_share
+                    stats["inj_share_slope"] = decade
+
     # Same prevalence over the look-back PWID denominator that matches how the
     # APCD target was constructed (see OUDState.set_stats). Reported for
     # validate_candidates, NOT scored -- swapping the objective's denominator is a
