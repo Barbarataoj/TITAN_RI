@@ -622,52 +622,6 @@ def warm_start_trials(calib, path=WARM_START_YAML):
     return out
 
 
-def pool_seed_stats(per_seed_stats):
-    """Collapse one stats dict per population seed into a single trial-level dict.
-
-    MEAN for every scalar diagnostic, because each population is one draw of the
-    same quantity and the trial's estimate of it is their average -- the same
-    aggregation the returned objective vector uses.
-
-    SUM for the two counts, and the distinction matters:
-
-      * `hiv_new_pooled` is a COUNT of infections pooled over replicates, and
-        select_canonical screens it against a floor derived for a whole trial's
-        replicate budget (min_transmission_events). Splitting 40 replicates across
-        8 populations does not change how many infections a trial produced, so the
-        total is what keeps that screen at the strictness it was calibrated at.
-        Averaging instead would divide the count by the number of seeds and make
-        the floor 8x stricter without anyone having decided that.
-      * `n_reps` is the trial's total simulation count, for the same reason.
-
-    Series-valued entries are dropped: the callers of the pooled dict are the
-    journal diagnostics, which take scalars only. The objective vector is averaged
-    from the per-seed errors in objective(), never recomputed from this dict.
-    """
-    summed = {"hiv_new_pooled", "n_reps"}
-    keys = set()
-    for stats in per_seed_stats:
-        keys.update(stats)
-
-    pooled = {}
-    for key in keys:
-        values = []
-        for stats in per_seed_stats:
-            value = stats.get(key)
-            if value is None or isinstance(value, (list, tuple, np.ndarray)):
-                continue
-            try:
-                numeric = float(value)
-            except (TypeError, ValueError):
-                continue
-            if np.isfinite(numeric):
-                values.append(numeric)
-        if not values:
-            continue
-        pooled[key] = float(np.sum(values)) if key in summed else float(np.mean(values))
-    return pooled
-
-
 def set_population_seed(scenario, seed):
     """Write one network realization into the scenario.
 
@@ -762,6 +716,37 @@ def run_titan(params_file, output_dir, n_reps=None):
 # =====================================================
 # basicReport.txt parser (TSV, per-timestep × stratum)
 # =====================================================
+def concat_reports(paths, dest):
+    """Join several basicReport.txt files into one, keeping the replicates distinct.
+
+    `run_id` is what parse_basic_report counts replicates with
+    (`df["run_id"].nunique()`), and it divides every annual COUNT series by that
+    number -- so an id repeated across two files would make 40 replicates look
+    like 5 and inflate the counts eightfold. TITAN writes a random 8-character id
+    per run, which is already unique across invocations, but the guarantee is
+    incidental rather than contractual: an earlier build wrote a per-invocation
+    counter, and nothing stops one doing so again. Prefixing each file's ids with
+    its block index makes the uniqueness structural and costs nothing.
+
+    Everything else pools by construction -- the parser groups by timestep and
+    sums numerators and denominators, which is the same arithmetic whether the
+    rows came from one population or eight.
+
+    Returns the parsed stats for the joined file, and leaves the file on disk so a
+    trial's pooled report can be re-read without re-running anything.
+    """
+    frames = []
+    for block, path in enumerate(paths):
+        frame = pd.read_csv(path, sep="\t")
+        if "run_id" in frame.columns:
+            frame["run_id"] = f"b{block}_" + frame["run_id"].astype(str)
+        frames.append(frame)
+
+    joined = pd.concat(frames, ignore_index=True)
+    joined.to_csv(dest, sep="\t", index=False)
+    return parse_basic_report(dest)
+
+
 def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
     """
     Parse basicReport.txt (TSV, one row per timestep × demographic stratum) into
@@ -1796,8 +1781,8 @@ def objective(trial):
     set_population_seed(scenario, seeds[0])
     write_yaml(OUTPUT_DIR / f"trial_{trial.number}.yml", scenario)
 
-    per_seed_stats = []
     per_seed_errs = []
+    report_paths = []
     for seed in seeds:
         set_population_seed(scenario, seed)
 
@@ -1812,17 +1797,40 @@ def objective(trial):
 
         stats = run_titan(trial_yaml, outdir, n_reps=n_reps)
         record_trial_diagnostics(trial, stats, targets, prefix=f"seed{seed}_")
-        per_seed_stats.append(stats)
         per_seed_errs.append(multi_error(stats, targets))
+        report_paths.append(outdir / "basicReport.txt")
 
-    # The trial's score is the mean of the per-population errors, not the error of
-    # the pooled statistics. The two differ for every non-linear objective here
-    # (od_err is squared, the three RMSEs are square roots), and the mean of the
-    # errors is the quantity A1's noise floor was measured on.
-    errs = tuple(float(np.mean(column)) for column in zip(*per_seed_errs))
+    # THE TRIAL IS SCORED ON THE POOLED REPORT, NOT ON THE MEAN OF THE PER-
+    # POPULATION SCORES. Measured 2026-09-01 by analysis/probe_split_bias.py, at
+    # `t290_s0.8` on these eight populations:
+    #
+    #   replicates per population      5       10       20       40
+    #   od_err (gate 0.01)        0.0201   0.0149   0.0061   0.0037
+    #   oud_rmse (gate 0.05)      0.0192   0.0198   0.0207   0.0204
+    #
+    # `od_err` is a mean of SQUARED proportional errors, and E[(x+e)^2] = x^2 +
+    # var(e): sampling noise does not average out of a squared objective, it adds.
+    # Scoring each population separately and averaging the scores averages that
+    # bias IN, so a configuration truly at ~0.003 reads 0.020 at five replicates
+    # and fails a gate it comfortably satisfies. The two well-measured RMSE
+    # objectives move by 0.94x and 1.00x over the same sweep, which is what makes
+    # the mechanism identifiable rather than a story about the configuration.
+    #
+    # Pooling first restores the precision the gates were priced at -- every rate
+    # rests on all 40 runs, exactly as it did under the 1 x 40 design -- while the
+    # trial is still scored across eight networks. The per-population scores stay
+    # in the journal as diagnostics; they are no longer what the search selects on.
+    pooled_path = OUTPUT_DIR / f"trial_{trial.number}_pooled_basicReport.txt"
+    pooled = concat_reports(report_paths, pooled_path)
+    errs = tuple(float(e) for e in multi_error(pooled, targets))
 
-    pooled = pool_seed_stats(per_seed_stats)
     record_trial_diagnostics(trial, pooled, targets, errs=errs)
+
+    # The spread the pooled score hides. Recorded per objective so that a trial
+    # whose populations disagree is visible without re-reading eight reports.
+    for i, name in enumerate(OBJECTIVE_NAMES):
+        column = [e[i] for e in per_seed_errs]
+        trial.set_user_attr(f"spread_{name}", float(np.std(column, ddof=1)))
     trial.set_user_attr("population_seeds", [int(s) for s in seeds])
     trial.set_user_attr("reps_per_seed", n_reps)
 
@@ -1893,12 +1901,9 @@ def record_trial_diagnostics(trial, stats, targets, prefix="", errs=None):
     measures and the one the gates have to be justified against.
 
     `errs` supplies the objective vector instead of recomputing it from `stats`.
-    Required for the trial-level record, where `stats` is pool_seed_stats()'s
-    average over populations: the objectives a trial is SCORED on are the mean of
-    the per-seed errors, and the error of the mean stats is a different number.
-    Recomputing here would write journal values that disagree with the trial's own
-    optimisation history, which is precisely the sort of quiet inconsistency the
-    journal exists to rule out.
+    The trial-level record passes the vector the search was actually given, so a
+    journal value can never disagree with the trial's own optimisation history --
+    the sort of quiet inconsistency the journal exists to rule out.
     """
     for stat_key, attr in TRIAL_DIAGNOSTICS:
         value = stats.get(stat_key)

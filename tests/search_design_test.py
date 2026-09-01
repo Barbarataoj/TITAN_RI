@@ -11,9 +11,11 @@ These guard three things that are silent when they break:
   * A warm start that no longer matches the search space. Optuna drops enqueued
     keys it was not asked to suggest and clamps out-of-range ones, so a stale
     vector runs as a DIFFERENT point than the one recorded, with no error.
-  * The per-population pooling. `hiv_new_pooled` feeds the canonical pick's
-    transmission floor; averaging it instead of summing would make that screen
-    8x stricter the day the seed list went plural, silently.
+  * The per-population report join. A trial is scored on the eight populations'
+    reports pooled into one, because scoring them separately and averaging the
+    scores biases the squared objective upward (measured 5.4x at 5 replicates by
+    analysis/probe_split_bias.py). The join has to keep replicate ids distinct or
+    every count series comes out eight times too high.
 
 See docs/calibration_log/phase_6_stage_d_search_rebuild_2026-09-01.md.
 """
@@ -30,8 +32,8 @@ from titan.calibration.optuna_calibration import (
     UNKNOWN_CONSTRAINT,
     WARM_START_YAML,
     constraints_func,
+    concat_reports,
     load_yaml,
-    pool_seed_stats,
     trial_constraints,
     warm_start_trials,
 )
@@ -142,29 +144,48 @@ def test_stale_warm_starts_fail_at_startup(calib, tmp_path, mutation):
 
 
 @pytest.mark.unit
-def test_counts_are_summed_and_levels_are_averaged():
-    """The pooling rule that keeps the transmission floor at its measured strictness."""
-    per_seed = [
-        {"hiv_new_pooled": 10, "n_reps": 5, "inj_share_active_oud": 0.20},
-        {"hiv_new_pooled": 20, "n_reps": 5, "inj_share_active_oud": 0.30},
-    ]
-    pooled = pool_seed_stats(per_seed)
+def test_joined_report_keeps_replicates_distinct(tmp_path):
+    """Replicate ids restart per TITAN run, so a plain concatenation miscounts them.
 
-    assert pooled["hiv_new_pooled"] == 30
-    assert pooled["n_reps"] == 10
-    assert pooled["inj_share_active_oud"] == pytest.approx(0.25)
+    parse_basic_report divides its annual COUNT series by `run_id.nunique()`. If
+    eight per-population reports each carrying run_ids 0-4 were joined unchanged,
+    that count would read 5 instead of 40 and every count series would come out
+    eight times too high -- which would look like a model transmitting eight times
+    as much HIV as it does.
+    """
+    import pandas as pd  # noqa: PLC0415
 
+    paths = []
+    for block in range(3):
+        frame = pd.DataFrame({
+            "t": [1, 2], "run_id": [0, 1], "agents": [500, 500], "hiv": [10, 11],
+        })
+        path = tmp_path / f"report_{block}.txt"
+        frame.to_csv(path, sep="\t", index=False)
+        paths.append(path)
 
-@pytest.mark.unit
-def test_pooling_ignores_series_and_non_numeric_entries():
-    """parse_basic_report returns trajectories too; the journal takes scalars only."""
-    pooled = pool_seed_stats([
-        {"series": [1, 2, 3], "label": "x", "nan": float("nan"), "level": 1.0},
-        {"series": np.array([4, 5, 6]), "label": "y", "nan": float("nan"), "level": 3.0},
-    ])
+    dest = tmp_path / "pooled.txt"
+    captured = {}
 
-    assert "series" not in pooled and "label" not in pooled and "nan" not in pooled
-    assert pooled["level"] == pytest.approx(2.0)
+    def fake_parse(path, **kwargs):
+        captured["frame"] = pd.read_csv(path, sep="\t")
+        return {"parsed": True}
+
+    import titan.calibration.optuna_calibration as oc  # noqa: PLC0415
+
+    real_parse = oc.parse_basic_report
+    oc.parse_basic_report = fake_parse
+    try:
+        stats = oc.concat_reports(paths, dest)
+    finally:
+        oc.parse_basic_report = real_parse
+
+    assert stats == {"parsed": True}
+    joined = captured["frame"]
+    assert len(joined) == 6
+    # Two replicates per file, three files, and no id shared between blocks.
+    assert joined["run_id"].nunique() == 6
+    assert dest.exists()
 
 
 class _FrontTrial:
