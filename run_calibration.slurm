@@ -123,6 +123,18 @@ cd /oscar/data/jtao9/TITAN_RI
 # the discrimination threshold at 20 reps, so they lose nothing here. HIV is the
 # objective this entire refit exists to fix, so it is the one to spend reps on.
 export TITAN_CALIB_TRIALS=1000
+
+# TITAN_CALIB_REPS NO LONGER GOVERNS THE REFIT, 2026-09-01. objective() reads the
+# sampling design from calibration_targets.yml -- 8 population seeds x 5
+# replicates, the same 40 runs per trial this variable used to buy on one
+# population -- and passes the replicate count to run_titan explicitly. The
+# variable is left exported because run_titan() still falls back to it for
+# callers that do not pass n_reps (the probes in analysis/, and smoke tests).
+#
+# Expect roughly +16% walltime against job 4874631 at the same trial budget: the
+# eight populations cost eight network constructions per trial instead of one,
+# measured at 1.156x by analysis/probe_rebuild_overhead.py. That is the whole
+# price of the change; the simulated agent-steps are identical.
 export TITAN_CALIB_REPS=40
 
 # NSGA-II population halved with the trial budget so the generation count is
@@ -153,8 +165,12 @@ export TITAN_CALIB_POP=50
 # recency mechanism, merged INERT at its 999-year default.
 #
 # READ THE RESULT AGAINST validate_candidates.OBJECTIVES, not eyeballed
-# thresholds: OUD 0.05, RIDOH HIV 1.1, overdose 0.01, MOUD 0.10, injection
-# share 0.0025. If this run again returns zero 5-of-5 candidates, that is the
+# thresholds: OUD 0.05, RIDOH HIV 1.1, overdose 0.01, MOUD 0.10. (Injection share
+# 0.0025 was the fifth gate until 2026-08-17, when the objective was demoted to
+# the validation list.) Those numbers now live in
+# optuna_calibration.OBJECTIVE_GATES and the search itself selects against them
+# as NSGA-II constraints, so a run that returns no feasible candidate has been
+# actively looking for one rather than sampling past it. If this run again returns zero 5-of-5 candidates, that is the
 # structural result and the response is a targets conversation, not a third
 # rebound of the box.
 python titan/calibration/optuna_calibration.py

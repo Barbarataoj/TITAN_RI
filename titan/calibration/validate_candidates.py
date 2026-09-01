@@ -27,6 +27,7 @@ import pandas as pd
 from titan.calibration.optuna_calibration import (
     CALIB_YAML,
     COMPOSITE_CLIP_QUANTILE,
+    OBJECTIVE_GATES,
     SQUARED_OBJECTIVES,
     build_targets,
     load_yaml,
@@ -36,8 +37,15 @@ from titan.calibration.optuna_calibration import (
 )
 
 # Objective order must match multi_error()'s return tuple.
+#
+# THE NUMBERS COME FROM optuna_calibration.OBJECTIVE_GATES as of 2026-09-01, and
+# the reasoning for each one stays here. The search reads the same tuple as
+# NSGA-II constraints (D2), so a gate stated in two files would be a gate that
+# drifts: the run would be selecting against one threshold and validated against
+# another, and nothing would report the difference. Only the labels and the
+# derivations live here now.
 OBJECTIVES = [
-    ("OUD distribution", 0.05),
+    ("OUD distribution", OBJECTIVE_GATES[0]),
     # Scale changed 2026-08-03 with the objective itself: hiv_traj_rmse is now
     # RMSE over three period means, not eleven annual points. Reference values on
     # the new scale: zero-transmission 0.00684, flat-at-mean predictor 0.00121,
@@ -102,7 +110,7 @@ OBJECTIVES = [
     # Note what the 1.73 row buys: a candidate that zeroes injection transmission
     # while matching all-route diagnoses scores WORSE than a real fit, so the
     # degenerate solution the IDU-only objective invited is now penalised.
-    ("RIDOH PWID diagnoses", 1.1),
+    ("RIDOH PWID diagnoses", OBJECTIVE_GATES[1]),
     # HIV prevalence was dropped as an objective on 2026-08-04 -- APCD #25 has the
     # same any-transmission-route problem as the incidence series it was paired
     # with, and RIDOH publishes no PLWH breakdown by transmission category to
@@ -120,8 +128,8 @@ OBJECTIVES = [
     # all three components" -- the gate below is that, in the objective's squared
     # units. The canonical trial scores 0.1609, i.e. an RMS proportional miss of
     # 40%.
-    ("Overdose", 0.01),
-    ("MOUD trajectory", 0.10),
+    ("Overdose", OBJECTIVE_GATES[2]),
+    ("MOUD trajectory", OBJECTIVE_GATES[3]),
     # "Injection share", 0.0025 was the fifth objective from 2026-07-29
     # (EPIDEMIC_DYNAMICS_MAP_2026-07-29.md P2) until 2026-08-17, when it was
     # demoted to the VALIDATION list below. See multi_error() for the four

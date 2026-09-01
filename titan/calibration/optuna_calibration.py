@@ -44,6 +44,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CALIB_YAML = REPO_ROOT / "titan/calibration/calibration_targets.yml"
 BASE_SCENARIO = REPO_ROOT / "calibrated_scenario_multi_5obj.yml"
 
+# Designed starting points enqueued ahead of the search (Stage D4). Absent file
+# is not an error -- the search simply starts cold -- but a malformed one is; see
+# warm_start_trials().
+WARM_START_YAML = REPO_ROOT / "titan/calibration/warm_start_trials.yml"
+
 # Where main() writes the canonical pick. Overridable because it is the one
 # output that is NOT under SCRATCH: setting SCRATCH to a temp dir isolates the
 # trial directories, the study journal and the front CSV, but a short smoke run
@@ -101,6 +106,40 @@ SQUARED_OBJECTIVES = (2,)   # od_err
 # does not require knowing which positional order was in force on the day it ran
 # -- that order has changed four times since 2026-07-29.
 OBJECTIVE_NAMES = ("oud_rmse", "ridoh_hiv_err", "od_err", "moud_traj_rmse")
+
+# The pass/fail gate for each slot of OBJECTIVE_NAMES, in the same order.
+#
+# STATED HERE BECAUSE THE SEARCH NOW READS THEM. Until 2026-09-01 the gates lived
+# only in validate_candidates.OBJECTIVES and were applied after a run had
+# finished; the search itself never saw them, so NSGA-II selected on Pareto
+# domination alone and a trial that failed every gate could dominate one that
+# passed three (completion plan section 2.2). D2 passes these to the sampler as
+# constraints, which makes feasibility rather than domination drive selection.
+#
+# validate_candidates.OBJECTIVES imports this tuple rather than restating the
+# numbers, so the gate the search targets and the gate a candidate is validated
+# against cannot drift apart. The DERIVATION of each number stays where it was
+# written, in the comments of that list -- this is the value, not the argument
+# for it.
+#
+#   oud_rmse       0.05   OUD state distribution
+#   ridoh_hiv_err  1.1    statewide PWID diagnoses/yr, RMSE over the RIDOH windows
+#   od_err         0.01   mean squared proportional error, i.e. within ~10% on
+#                         all three overdose components. Confirmed reachable at
+#                         0.00327 by job 5053123 and kept 2026-08-24 after B1
+#                         proposed relaxing it to 0.08
+#   moud_traj_rmse 0.10   MOUD uptake trajectory
+OBJECTIVE_GATES = (0.05, 1.1, 0.01, 0.10)
+
+# What constraints_func reports for a trial that has no recorded constraint
+# vector. Trials from a study created before 2026-09-01 have none, and neither
+# does a trial whose objective() raised before it could record one.
+#
+# Positive means infeasible, so an unknown trial is treated as failing rather
+# than passing. The alternative -- defaulting to 0.0 -- would mark every
+# pre-existing trial feasible on no evidence and let them crowd out the
+# measured-feasible ones in exactly the selection step this change exists to fix.
+UNKNOWN_CONSTRAINT = 1e6
 
 # Upper anchor for the composite's per-objective normalization, as a quantile of
 # the candidate pool rather than its max. Scores above the anchor clip to 1.0.
@@ -495,6 +534,139 @@ def reps_per_seed(calib):
     that gets passed there.
     """
     return int(calib["calibration"]["population"].get("reps_per_seed", 40))
+
+def trial_constraints(errs):
+    """The constraint vector Optuna's NSGA-II reads, one entry per objective.
+
+    Optuna's convention: <= 0 is satisfied, > 0 is violated, and the magnitude is
+    used to rank infeasible trials against each other. So the natural expression
+    of "this objective is inside its gate" is (error - gate), which is negative by
+    exactly the margin the trial has in hand and positive by exactly the amount it
+    misses by.
+
+    ADDED 2026-09-01 (D2). The gates existed before this only as a post-hoc filter
+    in validate_candidates, so the search optimised four objectives with no notion
+    of a target value: on job 4874631 a trial missing every gate could dominate one
+    passing three, because domination compares objectives pairwise and knows
+    nothing about where the acceptable region is. Feeding these to
+    NSGAIISampler(constraints_func=...) makes feasible trials sort ahead of
+    infeasible ones regardless of domination, which is the selection pressure
+    section 2.2 of the completion plan found missing.
+    """
+    return [float(err) - float(gate) for err, gate in zip(errs, OBJECTIVE_GATES)]
+
+
+def constraints_func(trial):
+    """Hand a completed trial's constraint vector back to the sampler.
+
+    Optuna calls this once per trial, after objective() returns, and requires the
+    value to be reachable from the trial object alone -- which is why objective()
+    records it as a user_attr rather than returning it.
+    """
+    recorded = trial.user_attrs.get("constraints")
+    if recorded is None:
+        return [UNKNOWN_CONSTRAINT] * len(OBJECTIVE_GATES)
+    return [float(c) for c in recorded]
+
+
+def warm_start_trials(calib, path=WARM_START_YAML):
+    """Designed starting points to enqueue before the search samples anything.
+
+    Returns a list of (label, params) with params keyed by the same dotted paths
+    parameters_to_optimize declares, ready for study.enqueue_trial(). An absent
+    file returns [] -- a cold start is a legitimate configuration and must not
+    need a file to express.
+
+    VALIDATED AT STARTUP, NOT AT USE. Every vector in the file was lifted from a
+    trial of an earlier study, so it can disagree with today's search in three
+    ways: a parameter that has since left parameters_to_optimize, one that has
+    since joined it, or a value outside a bound that has since moved. All three
+    are silent at enqueue time and expensive later -- Optuna would either drop the
+    unknown key or clamp the out-of-range value and run a trial that is not the
+    point anyone intended. Each is a startup error here instead, for the same
+    reason assert_not_fitted() is.
+    """
+    if not Path(path).exists():
+        return []
+
+    spec = {p["path"]: p for p in calib["calibration"]["parameters_to_optimize"]}
+    doc = load_yaml(path) or {}
+    entries = doc.get("warm_start") or []
+
+    out = []
+    for i, entry in enumerate(entries):
+        label = entry.get("label", f"warm_start_{i}")
+        params = entry.get("params") or {}
+
+        missing = sorted(set(spec) - set(params))
+        extra = sorted(set(params) - set(spec))
+        if missing or extra:
+            raise RuntimeError(
+                f"{path} entry '{label}' does not match parameters_to_optimize: "
+                f"missing {missing}, unknown {extra}. A warm start has to be a "
+                f"complete point in today's search space -- Optuna silently "
+                f"ignores keys it was not asked to suggest."
+            )
+
+        cleaned = {}
+        for name, value in params.items():
+            lower, upper = spec[name]["lower"], spec[name]["upper"]
+            if not (lower <= value <= upper):
+                raise RuntimeError(
+                    f"{path} entry '{label}': {name}={value} is outside its box "
+                    f"[{lower}, {upper}]. Re-anchor the vector or move the bound; "
+                    f"do not leave Optuna to clamp it."
+                )
+            cleaned[name] = int(value) if spec[name].get("type") == "int" else float(value)
+        out.append((label, cleaned))
+    return out
+
+
+def pool_seed_stats(per_seed_stats):
+    """Collapse one stats dict per population seed into a single trial-level dict.
+
+    MEAN for every scalar diagnostic, because each population is one draw of the
+    same quantity and the trial's estimate of it is their average -- the same
+    aggregation the returned objective vector uses.
+
+    SUM for the two counts, and the distinction matters:
+
+      * `hiv_new_pooled` is a COUNT of infections pooled over replicates, and
+        select_canonical screens it against a floor derived for a whole trial's
+        replicate budget (min_transmission_events). Splitting 40 replicates across
+        8 populations does not change how many infections a trial produced, so the
+        total is what keeps that screen at the strictness it was calibrated at.
+        Averaging instead would divide the count by the number of seeds and make
+        the floor 8x stricter without anyone having decided that.
+      * `n_reps` is the trial's total simulation count, for the same reason.
+
+    Series-valued entries are dropped: the callers of the pooled dict are the
+    journal diagnostics, which take scalars only. The objective vector is averaged
+    from the per-seed errors in objective(), never recomputed from this dict.
+    """
+    summed = {"hiv_new_pooled", "n_reps"}
+    keys = set()
+    for stats in per_seed_stats:
+        keys.update(stats)
+
+    pooled = {}
+    for key in keys:
+        values = []
+        for stats in per_seed_stats:
+            value = stats.get(key)
+            if value is None or isinstance(value, (list, tuple, np.ndarray)):
+                continue
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if np.isfinite(numeric):
+                values.append(numeric)
+        if not values:
+            continue
+        pooled[key] = float(np.sum(values)) if key in summed else float(np.mean(values))
+    return pooled
+
 
 def set_population_seed(scenario, seed):
     """Write one network realization into the scenario.
@@ -1588,15 +1760,76 @@ def objective(trial):
     # this closes.
     set_population_window(scenario, calib)
 
-    # Run TITAN
-    trial_yaml = OUTPUT_DIR / f"trial_{trial.number}.yml"
-    write_yaml(trial_yaml, scenario)
-    outdir = OUTPUT_DIR / f"trial_{trial.number}"
-    outdir.mkdir(exist_ok=True)
+    # Run TITAN once per population seed, and score the trial on the mean.
+    #
+    # ADDED 2026-09-01 (E1). Every trial of jobs 4743939, 4830724 and 4874631 was
+    # run on the single population `model.seed.ppl: 12345` carried by the base
+    # scenario, with the replicates varying `model.seed.run` only. Between-
+    # population variance is not something replicates average away -- within a
+    # study it is a fixed offset shared by every trial -- so the search stayed
+    # internally consistent while the fitted values it produced were conditioned
+    # on one network realization. That is why validate_candidates, which has
+    # varied the population since Phase 4, has repeatedly been the step where a
+    # candidate lost its margin.
+    #
+    # THE SEED LIST IS THE SAME FOR EVERY TRIAL, deliberately. The point is not to
+    # average the offset away trial by trial; it is to keep the comparison BETWEEN
+    # trials paired, so that a candidate whose margin exists only on population
+    # 12345 cannot win the selection step. A per-trial random population would
+    # remove the bias and replace it with noise of the same size.
+    #
+    # Cost is unchanged from the single-population design: A1 measured that only
+    # the number of populations `p` and the total simulation count `B` matter, not
+    # how the budget splits between them, so the 8 x 5 read from the targets file
+    # buys 8 populations at the same 40 runs per trial that 1 x 40 spent on one.
+    # See docs/calibration_log/phase_6_noise_floor_2026-08-17.md section 3.
+    seeds = population_seeds(calib)
+    n_reps = reps_per_seed(calib)
 
-    stats = run_titan(trial_yaml, outdir)
-    record_trial_diagnostics(trial, stats, targets)
-    return multi_error(stats, targets)
+    # `trial_<n>.yml` is still written, with the first population applied, because
+    # six downstream readers address a trial by that exact name -- validate_candidates
+    # (F1), probe_discrimination, probe_noninj_seed, probe_noise_floor and
+    # probe_od_reachability all reconstruct a trial's fitted vector from it. They
+    # read the fitted values and re-anchor and re-seed the scenario themselves, so
+    # which population it carries does not matter to them; that the file exists
+    # does. The per-population copies below differ from it only in `model.seed.ppl`.
+    set_population_seed(scenario, seeds[0])
+    write_yaml(OUTPUT_DIR / f"trial_{trial.number}.yml", scenario)
+
+    per_seed_stats = []
+    per_seed_errs = []
+    for seed in seeds:
+        set_population_seed(scenario, seed)
+
+        # One scenario file and one output directory per population, so a failed
+        # trial can be reproduced exactly and the per-seed basicReport.txt files
+        # are not overwritten by the next seed in the loop.
+        tag = f"trial_{trial.number}_pop{seed}"
+        trial_yaml = OUTPUT_DIR / f"{tag}.yml"
+        write_yaml(trial_yaml, scenario)
+        outdir = OUTPUT_DIR / tag
+        outdir.mkdir(exist_ok=True)
+
+        stats = run_titan(trial_yaml, outdir, n_reps=n_reps)
+        record_trial_diagnostics(trial, stats, targets, prefix=f"seed{seed}_")
+        per_seed_stats.append(stats)
+        per_seed_errs.append(multi_error(stats, targets))
+
+    # The trial's score is the mean of the per-population errors, not the error of
+    # the pooled statistics. The two differ for every non-linear objective here
+    # (od_err is squared, the three RMSEs are square roots), and the mean of the
+    # errors is the quantity A1's noise floor was measured on.
+    errs = tuple(float(np.mean(column)) for column in zip(*per_seed_errs))
+
+    pooled = pool_seed_stats(per_seed_stats)
+    record_trial_diagnostics(trial, pooled, targets, errs=errs)
+    trial.set_user_attr("population_seeds", [int(s) for s in seeds])
+    trial.set_user_attr("reps_per_seed", n_reps)
+
+    # Feasibility for D2's constrained sampler. Recorded rather than returned:
+    # Optuna reads it back through constraints_func() after the trial completes.
+    trial.set_user_attr("constraints", trial_constraints(errs))
+    return errs
 
 # Everything worth having in the journal when a run is being diagnosed months
 # later, as (stat key, user_attr name). Objective VALUES are stored by optuna
@@ -1643,7 +1876,7 @@ TRIAL_DIAGNOSTICS = (
 )
 
 
-def record_trial_diagnostics(trial, stats, targets, prefix=""):
+def record_trial_diagnostics(trial, stats, targets, prefix="", errs=None):
     """Write the per-trial diagnostics into the Optuna journal.
 
     ADDED 2026-08-17. Until now the only user_attr stored was `hiv_new_pooled`, so
@@ -1658,6 +1891,14 @@ def record_trial_diagnostics(trial, stats, targets, prefix=""):
     when a trial is scored across several network realizations the spread is
     recoverable and not just the mean. That spread is the quantity Stage A1
     measures and the one the gates have to be justified against.
+
+    `errs` supplies the objective vector instead of recomputing it from `stats`.
+    Required for the trial-level record, where `stats` is pool_seed_stats()'s
+    average over populations: the objectives a trial is SCORED on are the mean of
+    the per-seed errors, and the error of the mean stats is a different number.
+    Recomputing here would write journal values that disagree with the trial's own
+    optimisation history, which is precisely the sort of quiet inconsistency the
+    journal exists to rule out.
     """
     for stat_key, attr in TRIAL_DIAGNOSTICS:
         value = stats.get(stat_key)
@@ -1676,7 +1917,8 @@ def record_trial_diagnostics(trial, stats, targets, prefix=""):
     # The objective components themselves, named, so that a reader does not have
     # to know the positional order the vector had on the day the study ran. That
     # order has changed four times.
-    errs = multi_error(stats, targets)
+    if errs is None:
+        errs = multi_error(stats, targets)
     for name, value in zip(OBJECTIVE_NAMES, errs):
         trial.set_user_attr(f"{prefix}err_{name}", float(value))
 
@@ -1693,6 +1935,47 @@ def _quantile(values, q):
     if f + 1 >= len(s):
         return s[-1]
     return s[f] + (k - f) * (s[f + 1] - s[f])
+
+def constraint_violation(trial):
+    """Total amount by which a trial misses its gates, 0.0 if it misses none."""
+    return sum(max(0.0, c) for c in constraints_func(trial))
+
+
+def unconstrained_pareto_front(trials):
+    """The non-dominated set of `trials`, ignoring feasibility.
+
+    ADDED 2026-09-01, and it exists for one case: `study.best_trials` returns only
+    FEASIBLE non-dominated trials once a constraints_func is attached, so a run in
+    which nothing clears all four gates returns an EMPTY front. Every consumer
+    downstream -- select_canonical, the null-transmission diagnostic, the front CSV
+    -- indexes into that list, and the first smoke run of the constrained sampler
+    died on `pareto[0]` after a clean two-trial search.
+
+    An all-infeasible run is not an error. It is the most likely outcome of the
+    first constrained refit and it is exactly the result that has to be reported
+    rather than crashed on: the front computed without the feasibility filter is
+    what the study would have returned before D2, so falling back to it keeps the
+    canonical pick and the CSV intact and leaves the constrained front as the thing
+    that was empty.
+
+    O(n^2) in the number of completed trials, which at the 1000-trial budget is a
+    few seconds once, after the search.
+    """
+    front = []
+    for candidate in trials:
+        dominated = False
+        for other in trials:
+            if other is candidate:
+                continue
+            if all(o <= c for o, c in zip(other.values, candidate.values)) and any(
+                o < c for o, c in zip(other.values, candidate.values)
+            ):
+                dominated = True
+                break
+        if not dominated:
+            front.append(candidate)
+    return front
+
 
 def select_canonical(pareto, min_events=MIN_HIV_TRANSMISSION_EVENTS, hiv_null=None):
     """
@@ -1809,7 +2092,17 @@ def main():
 
     # Before any compute: a data-anchored path that has drifted back into the
     # search would waste the whole run, since the anchor overwrites it per trial.
-    assert_not_fitted(load_yaml(CALIB_YAML))
+    calib = load_yaml(CALIB_YAML)
+    assert_not_fitted(calib)
+
+    # The sampling design, printed because it is now plural and because a journal
+    # read months later should not have to infer it from the trial directories.
+    seeds = population_seeds(calib)
+    print(
+        f"Sampling design: {len(seeds)} populations x {reps_per_seed(calib)} "
+        f"replicates = {len(seeds) * reps_per_seed(calib)} runs per trial; "
+        f"population seeds {seeds}"
+    )
 
     # Seed the sampler. The winning trial of this study becomes
     # calibrated_scenario_best.yml and every downstream scenario result, so the
@@ -1880,8 +2173,28 @@ def main():
         sampler=optuna.samplers.NSGAIISampler(
             seed=sampler_seed,
             population_size=int(os.environ.get("TITAN_CALIB_POP", 100)),
+            # D2, 2026-09-01. Without this the sampler ranks trials by Pareto
+            # domination alone and has no notion of the gates the run is trying to
+            # clear; with it, a feasible trial always sorts ahead of an infeasible
+            # one and infeasible trials are ordered by total violation. See
+            # trial_constraints() for the sign convention and completion plan
+            # section 2.2 for the yield arithmetic this is meant to fix.
+            constraints_func=constraints_func,
         ),
     )
+
+    # D4's designed starting points, ahead of anything the sampler draws.
+    #
+    # skip_if_exists keeps a relaunch against the same journal from re-running
+    # them: JournalStorage makes a timed-out study resumable, and a warm start
+    # that re-enqueued itself on every resume would spend the budget on points
+    # already evaluated.
+    for label, params in warm_start_trials(calib):
+        study.enqueue_trial(
+            params, user_attrs={"warm_start": label}, skip_if_exists=True
+        )
+        print(f"Enqueued warm start: {label}")
+
     study.optimize(
         objective,
         n_trials=n_trials,
@@ -1890,11 +2203,45 @@ def main():
     )
 
     # Persist the Pareto front
+    #
+    # With D2's constraints attached, study.best_trials is the front among trials
+    # that satisfy every gate. Report the feasibility count alongside it: it is the
+    # number the constrained search exists to move, and it is not recoverable from
+    # the front's size alone.
+    completed = [
+        t for t in study.trials
+        if t.state == optuna.trial.TrialState.COMPLETE and t.values is not None
+    ]
+    feasible = [t for t in completed if constraint_violation(t) <= 0.0]
+    print(
+        f"Feasible trials (all {len(OBJECTIVE_GATES)} gates): {len(feasible)}/"
+        f"{len(completed)} completed"
+    )
+
     pareto = study.best_trials
+    if not pareto:
+        # Not an error -- see unconstrained_pareto_front(). The pick that follows is
+        # the best available compromise, not a calibrated model, and every screen in
+        # select_canonical still applies to it.
+        pareto = unconstrained_pareto_front(completed)
+        if pareto:
+            closest = min(constraint_violation(t) for t in pareto)
+            print(
+                "WARNING: no trial satisfied all gates, so the constrained Pareto "
+                f"front is empty. Falling back to the unconstrained front "
+                f"({len(pareto)} trials); the smallest total gate violation on it "
+                f"is {closest:.4f}. The canonical pick below is the best available "
+                "compromise, not a calibrated model."
+            )
+        else:
+            print("WARNING: no completed trials to select from.")
     print(f"Pareto front: {len(pareto)} parameter sets")
 
+    if not pareto:
+        print("No completed trials; nothing to select or write.")
+        return
+
     # Select and write the canonical calibrated scenario (see select_canonical)
-    calib = load_yaml(CALIB_YAML)
     int_params = {
         p["path"] for p in calib["calibration"]["parameters_to_optimize"]
         if p.get("type") == "int"

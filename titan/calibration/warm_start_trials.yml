@@ -1,0 +1,164 @@
+# Designed starting points for the refit's first generation (Stage D4).
+#
+# Read by optuna_calibration.warm_start_trials() and handed to
+# study.enqueue_trial() before study.optimize() runs, so NSGA-II's initial
+# population contains points that are already known to satisfy part of the gate
+# vector instead of being drawn uniformly from the box.
+#
+# WHY A FILE AND NOT A LOOKUP. Every vector here was lifted from a trial YAML
+# under /oscar/scratch/$USER/titan_calibration/optuna_multi_runs/, which is
+# scratch: job 4874631's trial files are not backed up and will be purged. The
+# warm start is part of the search design and has to survive that, so the
+# vectors are materialised here with their provenance rather than re-read from
+# scratch at launch time.
+#
+# RE-ANCHORING. These trials predate three changes to the search, so a vector
+# lifted verbatim is not a point in today's box. Two corrections are applied to
+# every entry and both are recorded per entry under `deviations`:
+#
+#   1. `calibration.injection.act` did not exist as a fitted parameter until
+#      2026-08-13, when `partnership.injection.transmission.base` was pinned at
+#      the published 0.0063 and the scaling half became the fitted one. Only the
+#      PRODUCT is identifiable (see the block in objective()), so the value
+#      recorded here is the trial's own fitted base divided by 0.0063 -- it puts
+#      the injection route at the transmission level the trial was fitted at.
+#   2. `hiv_testing.base_prob_annual`'s upper bound was tightened to 0.2 when the
+#      box was rebased on 2026-08-11. All three shortlist trials sit above it
+#      (0.28-0.49) and are clipped to 0.2. This is a real change to the HIV
+#      coordinate, not a formality: these points are warm starts, not
+#      reproductions of the runs they came from.
+#
+# The vectors must cover exactly the paths in
+# calibration_targets.yml parameters_to_optimize, and every value must lie in
+# that parameter's box. warm_start_trials() enforces both at startup so a
+# stale entry fails the run before any compute is spent, the same way
+# assert_not_fitted() does for the anchors.
+
+warm_start:
+
+  # The point od_err was measured reachable at. Job 5053123 ran trial 290's
+  # vector with both overdose base probabilities scaled by 0.80 and measured
+  # od_err = 0.00327 against a 0.01 gate, with oud_rmse also passing, at 8
+  # population seeds x 40 replicates. Both scaled values are interior to their
+  # bounds rather than on them. See
+  # docs/calibration_log/phase_6_od_reachability_2026-08-24.md.
+  #
+  # `calibration.injection.act` is 1.0 here, NOT trial 290's fitted level: the
+  # probe built its scenario from the anchored base, which carries the engine
+  # default of 1.0, so 1.0 is the value the measured od_err was produced at.
+  # The level-preserving variant is the next entry.
+  - label: t290_s0.8
+    source: >-
+      trial 290 of job 4874631, both overdose base probabilities x 0.80,
+      as run by analysis/probe_od_reachability.py (job 5053123)
+    deviations:
+      - "hiv_testing.base_prob_annual 0.486567 clipped to the box top 0.2"
+      - "calibration.injection.act 1.0 -- the engine default the probe ran, not
+         trial 290's fitted injection level"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.23043358
+      oud_state.transitions.relapse_rate_per_year: 0.31921235
+      oud_state.transitions.relapse_to_inj_prob: 0.76077044
+      overdose.base_prob_inj: 0.14107456
+      overdose.base_prob_noninj: 0.06081623
+      overdose.fatal_frac: 0.20645548
+      overdose.high_risk_mult: 1.67477959
+      moud.overdose_scale.active: 0.60844793
+      moud.injection_scale.active: 0.55057546
+      moud.discontinue_per_month: 0.14479567
+      moud.reinit_prob: 0.14662444
+      moud.post_overdose_rr: 2.23271398
+      calibration.sex.act: 0.52017244
+      calibration.injection.act: 1.0
+      hiv_testing.base_prob_annual: 0.2
+      high_risk.partner_scale: 8
+
+  # The same overdose corner at trial 290's own injection transmission level.
+  #
+  # Trial 290 was fitted with partnership.injection.transmission.base at
+  # 0.0011193; the entry above runs the injection route at 0.0063 x 1.0, which is
+  # 5.6x hotter than the configuration those overdose values were selected
+  # alongside. That is why job 5053123 measured ridoh_hiv_err at 4.451 for this
+  # arm -- barely inside the 4.782 null. Enqueuing both variants costs two trials
+  # and lets the sampler start from the overdose corner at either transmission
+  # level rather than committing to the accident of which one the probe used.
+  - label: t290_s0.8_injlevel
+    source: >-
+      trial 290 of job 4874631, both overdose base probabilities x 0.80,
+      injection route held at the trial's own fitted level
+    deviations:
+      - "hiv_testing.base_prob_annual 0.486567 clipped to the box top 0.2"
+      - "calibration.injection.act 0.177663 = fitted base 0.0011193 / pinned 0.0063"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.23043358
+      oud_state.transitions.relapse_rate_per_year: 0.31921235
+      oud_state.transitions.relapse_to_inj_prob: 0.76077044
+      overdose.base_prob_inj: 0.14107456
+      overdose.base_prob_noninj: 0.06081623
+      overdose.fatal_frac: 0.20645548
+      overdose.high_risk_mult: 1.67477959
+      moud.overdose_scale.active: 0.60844793
+      moud.injection_scale.active: 0.55057546
+      moud.discontinue_per_month: 0.14479567
+      moud.reinit_prob: 0.14662444
+      moud.post_overdose_rr: 2.23271398
+      calibration.sex.act: 0.52017244
+      calibration.injection.act: 0.177663
+      hiv_testing.base_prob_annual: 0.2
+      high_risk.partner_scale: 8
+
+  # trial 301 -- the only shortlist member that passes the MOUD trajectory gate
+  # (moud_traj_rmse 0.0854 against 0.10, measured at 8 seeds by job 5053123).
+  # t290's lineage does not reach that objective at any overdose scale, so this
+  # vector carries a different corner of the gate vector into the first
+  # generation.
+  - label: t301
+    source: trial 301 of job 4874631, re-anchored
+    deviations:
+      - "hiv_testing.base_prob_annual 0.412492 clipped to the box top 0.2"
+      - "calibration.injection.act 0.387937 = fitted base 0.0024440 / pinned 0.0063"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.24944844
+      oud_state.transitions.relapse_rate_per_year: 0.10434604
+      oud_state.transitions.relapse_to_inj_prob: 0.64663573
+      overdose.base_prob_inj: 0.17043729
+      overdose.base_prob_noninj: 0.05665834
+      overdose.fatal_frac: 0.19647209
+      overdose.high_risk_mult: 1.45357378
+      moud.overdose_scale.active: 0.54522251
+      moud.injection_scale.active: 0.65583763
+      moud.discontinue_per_month: 0.08846587
+      moud.reinit_prob: 0.19221513
+      moud.post_overdose_rr: 2.15285397
+      calibration.sex.act: 1.0625682
+      calibration.injection.act: 0.387937
+      hiv_testing.base_prob_annual: 0.2
+      high_risk.partner_scale: 7
+
+  # trial 561 -- the nearest uniform miss on job 4874631, all five of the
+  # then-live objectives within 1.8x of their gates. Named in D4 of the
+  # completion plan. It passes nothing outright, which is why it is last: its
+  # value is as a point in the middle of the feasible region rather than at one
+  # corner of it.
+  - label: t561
+    source: trial 561 of job 4874631, re-anchored
+    deviations:
+      - "hiv_testing.base_prob_annual 0.277931 clipped to the box top 0.2"
+      - "calibration.injection.act 0.387937 = fitted base 0.0024440 / pinned 0.0063"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.18856191
+      oud_state.transitions.relapse_rate_per_year: 0.18521997
+      oud_state.transitions.relapse_to_inj_prob: 0.58824997
+      overdose.base_prob_inj: 0.17043729
+      overdose.base_prob_noninj: 0.07190427
+      overdose.fatal_frac: 0.18566606
+      overdose.high_risk_mult: 1.45357378
+      moud.overdose_scale.active: 0.39851945
+      moud.injection_scale.active: 0.59381148
+      moud.discontinue_per_month: 0.08846587
+      moud.reinit_prob: 0.11833204
+      moud.post_overdose_rr: 2.51597084
+      calibration.sex.act: 0.5170378
+      calibration.injection.act: 0.387937
+      hiv_testing.base_prob_annual: 0.2
+      high_risk.partner_scale: 13

@@ -185,12 +185,32 @@ calibration:
     # scores every trial across whatever list those choose, using the SAME list for
     # every trial so the comparison stays paired. See
     # docs/calibration_log/phase_6_completion_plan_2026-08-14.md sections 2.8-2.9.
-    population_seeds: [12345]
+    # Eight, from A1: the between-population term stops binding beyond that
+    # (phase_6_noise_floor_2026-08-17.md section 3). This is the same list the
+    # A1, A2 and C2 probes drew their seeds from, so their measured noise floors
+    # apply to the refit unchanged rather than to a neighbouring design.
+    #
+    # WENT PLURAL 2026-09-01, when objective() started looping it (E1). Before
+    # that the accessor existed and nothing called it, so the single entry was the
+    # live behaviour and this block described a plan.
+    population_seeds: [12345, 20260720, 777, 4242, 31337, 90210, 5150, 8675309]
 
     # Monte Carlo replicates per population seed. The engine takes this from the
     # -n CLI flag (params.model.num_reps is dead config that nothing reads), so it
     # is stated here to be recorded and passed, not to be read by TITAN.
-    reps_per_seed: 40
+    #
+    # 40 -> 5 ON 2026-09-01, WITH THE SEED LIST GOING 1 -> 8. The product is what
+    # a trial costs, and it is unchanged at 40 runs: this is the 8 x 5 the
+    # completion plan's E1 specifies, not an increase. A1 measured that at fixed
+    # total budget only the number of populations and the total run count matter,
+    # so the split itself is free and the 8 populations are bought with the
+    # replicates that were being spent re-drawing one.
+    #
+    # These two numbers are a pair, like the HIV seed and burn_steps: raising one
+    # without lowering the other multiplies the refit's walltime by the ratio.
+    # objective() passes this value to run_titan's n_reps, so TITAN_CALIB_REPS no
+    # longer governs the refit -- it only affects callers that leave n_reps unset.
+    reps_per_seed: 5
 
   n_runs: 10
 
