@@ -122,7 +122,7 @@ cd /oscar/data/jtao9/TITAN_RI
 # The other four objectives are population-wide shares and were already clearing
 # the discrimination threshold at 20 reps, so they lose nothing here. HIV is the
 # objective this entire refit exists to fix, so it is the one to spend reps on.
-export TITAN_CALIB_TRIALS=1000
+export TITAN_CALIB_TRIALS=${TITAN_CALIB_TRIALS:-1000}   # overridable: sbatch --export=ALL,TITAN_CALIB_TRIALS=200 for a pilot (2026-09-29)
 
 # TITAN_CALIB_REPS NO LONGER GOVERNS THE REFIT, 2026-09-01. objective() reads the
 # sampling design from calibration_targets.yml -- 8 population seeds x 5
@@ -135,13 +135,13 @@ export TITAN_CALIB_TRIALS=1000
 # eight populations cost eight network constructions per trial instead of one,
 # measured at 1.156x by analysis/probe_rebuild_overhead.py. That is the whole
 # price of the change; the simulated agent-steps are identical.
-export TITAN_CALIB_REPS=40
+export TITAN_CALIB_REPS=${TITAN_CALIB_REPS:-40}
 
 # NSGA-II population halved with the trial budget so the generation count is
 # preserved: 1000/50 = 20 generations, the same depth 2000/100 gave. Leaving the
 # default 100 would have given 10 generations, which is not enough for the front
 # to converge.
-export TITAN_CALIB_POP=50
+export TITAN_CALIB_POP=${TITAN_CALIB_POP:-50}
 
 # ---------------------------------------------------------------------------
 # RUN OF 2026-08-11: same budget, rebased search box

@@ -99,6 +99,12 @@ class MOUD(base_feature.BaseFeature):
         if not hasattr(self.agent, "recent_relapse"):
             self.agent.recent_relapse = False
 
+        # Raised by STEP 5 when an agent stops MOUD; read by the overdose
+        # feature (overdose.post_moud_stop_rr) and expired by its update_pop.
+        if not hasattr(self.agent, "recent_moud_stop"):
+            self.agent.recent_moud_stop = False
+            self.agent.recent_moud_stop_timer = 0
+
         moud_params = (
             self.agent.location.params.demographics[self.agent.race]
             .sex_type[self.agent.sex_type]
@@ -273,6 +279,13 @@ class MOUD(base_feature.BaseFeature):
                 self.time_on_moud = 0
                 self.agent.on_moud = False
                 self.remove_agent(self.agent)
+                # Loss-of-tolerance window. The overdose feature runs after
+                # this one within the step (it is declared later), so the
+                # elevated risk applies from the month of stopping; the
+                # overdose feature's update_pop expires the flag after
+                # overdose.post_moud_stop_window steps.
+                self.agent.recent_moud_stop = True
+                self.agent.recent_moud_stop_timer = 0
             else:
                 self.time_on_moud += 1
                 self.agent.on_moud = True
@@ -388,4 +401,8 @@ class MOUD(base_feature.BaseFeature):
         self.ever = True
         self.time_on_moud = 0
         self.agent.on_moud = True
+        # Back on treatment: the post-stop loss-of-tolerance window no longer
+        # applies, whatever is left of it.
+        self.agent.recent_moud_stop = False
+        self.agent.recent_moud_stop_timer = 0
         self.add_agent(self.agent)

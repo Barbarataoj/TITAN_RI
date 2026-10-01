@@ -11,11 +11,38 @@ calibration:
       description: Scales number of sex acts during sex transmission
       type: float
       min: 0
+    act_msm:
+      default: -1.0
+      description: |
+        Scales the number of sex acts in partnerships involving an MSM or MSMW
+        agent, in place of `act`. -1 (default) means "use `act`". Added
+        2026-09-29: the per-act HIV acquisition probability for male-male sex
+        is ~12x the heterosexual value, so a single act scalar fitted to the
+        heterosexual route overheats the MSM compartment. The calibration
+        fixes this at the NSFG-anchored prior (1.0) and fits `act` for the
+        heterosexual route only.
+      type: float
+      min: -1.0
     partner:
       default: 1.0
       description: Scales probability of partner acquisition
       type: float
       min: 0
+  background:
+    msm_inj_mult:
+      default: -1.0
+      description: |
+        Multiplier on the background (non-OUD partner) sexual act rate for
+        MSM/MSMW agents who inject, in place of
+        hiv.background_sex.inj_multiplier. -1 (default) means "use
+        inj_multiplier". Added 2026-09-29: RIDOH attributes ~71% of HIV
+        diagnoses among people who inject to the MSM/IDU category, i.e. mostly
+        sexual acquisition from the MSM community by men who also inject; with
+        the internal MSM pool held at a plausible prevalence the model cannot
+        produce that without a separate outside-exposure term for this group.
+        Fitted by the calibration against RIDOH's all-route PWID windows.
+      type: float
+      min: -1.0
   acquisition:
     default: 1.0
     description: Scales probability of acquisition

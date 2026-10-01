@@ -178,3 +178,76 @@ def test_set_stats():
 
     assert stats["overdose_events"] == 2
     assert stats["overdose_deaths"] == 1
+
+
+@pytest.mark.unit
+def test_post_moud_stop_multiplier_applies_only_off_moud():
+    """
+    The loss-of-tolerance term (added 2026-09-29): overdose.post_moud_stop_rr
+    multiplies the per-step probability while `recent_moud_stop` is set and the
+    agent is off MOUD, and never while on MOUD, whose own scale applies instead.
+
+    base_prob_inj 0.12/yr is 0.01059 per step; x3 is 0.0318. A draw of 0.02
+    fires only with the multiplier.
+    """
+    params = make_params(base_prob_inj=0.12, post_moud_stop_rr=3.0)
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+    assert a.recent_moud_stop is False
+
+    model = make_fake_model(params, FakeRandom(0.02), [a])
+    a.overdose.update_agent(model)
+    assert a.overdose.events_this_step == 0
+
+    a.recent_moud_stop = True
+    a.on_moud = False
+    a.overdose.update_agent(model)
+    assert a.overdose.events_this_step == 1
+
+    a.on_moud = True  # re-initiated: the flag is ignored while on treatment
+    a.overdose.update_agent(model)
+    assert a.overdose.events_this_step == 0
+
+
+@pytest.mark.unit
+def test_post_moud_stop_window_counts_the_stopping_step():
+    """
+    A window of 1 is the month of stopping only: the flag is raised by the
+    moud feature within the step (before overdose runs) and the next step's
+    update_pop clears it. A window of n stays up for n - 1 further steps.
+    """
+    params = make_params(post_moud_stop_window=1)
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+    a.recent_moud_stop = True
+    a.recent_moud_stop_timer = 0
+
+    model = make_fake_model(params, FakeRandom(1.1), [a])
+    Overdose.update_pop(model)
+    assert a.recent_moud_stop is False
+    assert a.recent_moud_stop_timer == 0
+
+    params = make_params(post_moud_stop_window=3)
+    b = make_fake_agent(params)
+    b.overdose.init_agent(None, 0)
+    b.recent_moud_stop = True
+
+    model = make_fake_model(params, FakeRandom(1.1), [b])
+    Overdose.update_pop(model)
+    assert b.recent_moud_stop is True
+    Overdose.update_pop(model)
+    assert b.recent_moud_stop is True
+    Overdose.update_pop(model)
+    assert b.recent_moud_stop is False
+
+    # The two windows are independent: an overdose flag on the same agent is
+    # advanced by the same call and expires on its own schedule.
+    c = make_fake_agent(make_params(post_overdose_window=1, post_moud_stop_window=2))
+    c.overdose.init_agent(None, 0)
+    c.recent_overdose = True
+    c.recent_moud_stop = True
+    model = make_fake_model(c.location.params, FakeRandom(1.1), [c])
+    Overdose.update_pop(model)
+    assert c.recent_overdose is True and c.recent_moud_stop is True
+    Overdose.update_pop(model)
+    assert c.recent_overdose is False and c.recent_moud_stop is False

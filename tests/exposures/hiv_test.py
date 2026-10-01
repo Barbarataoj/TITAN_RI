@@ -492,6 +492,98 @@ def test_background_foi_uses_stratified_per_act_probability():
 
 
 @pytest.mark.unit
+def test_background_foi_sex_type_override_replaces_the_scalars():
+    """
+    hiv.background_sex.by_sex_type[sex_type] (2026-09-29) overrides the partner
+    prevalence and the act rate for that sex type; a zero in either field, or
+    no entry at all, falls back to the scalars. Same per-act table for both
+    agents here, so the ratio of the two probabilities is the ratio of
+    rate x prevalence.
+    """
+    acquisition = {"MSM": {"receptive": 0.01, "insertive": 0.01, "versatile": 0.01},
+                   "HM": {"receptive": 0.01, "insertive": 0.01, "versatile": 0.01}}
+
+    def make(sex_type, by_sex_type):
+        agent = SimpleNamespace(drug_type="NonInj", sex_type=sex_type, sex_role="versatile")
+        agent.hiv = HIV(agent)
+        agent.location = SimpleNamespace(
+            params=SimpleNamespace(
+                hiv=SimpleNamespace(
+                    background_sex=SimpleNamespace(
+                        rate_nonoud_per_timestep=0.5,
+                        partner_hiv_prevalence_nonoud=0.0034,
+                        inj_multiplier=1.0,
+                        by_sex_type=by_sex_type,
+                    )
+                ),
+                partnership=SimpleNamespace(sex=SimpleNamespace(acquisition=acquisition)),
+            )
+        )
+        return agent
+
+    model = SimpleNamespace(time=1, features=[], calibration=SimpleNamespace(acquisition=1.0))
+    overrides = {
+        "MSM": SimpleNamespace(partner_hiv_prevalence=0.10, rate_per_timestep=2.0),
+        "HM": SimpleNamespace(partner_hiv_prevalence=0.0, rate_per_timestep=0.0),
+    }
+
+    p_msm = make("MSM", overrides).hiv.get_background_foi_probability(model)
+    p_hm = make("HM", overrides).hiv.get_background_foi_probability(model)
+    p_hm_no_block = make("HM", None).hiv.get_background_foi_probability(model)
+
+    assert p_msm == pytest.approx(1 - math.exp(-2.0 * 0.10 * 0.01), rel=1e-9)
+    assert p_hm == pytest.approx(1 - math.exp(-0.5 * 0.0034 * 0.01), rel=1e-9)
+    assert p_hm == pytest.approx(p_hm_no_block, rel=1e-12)
+
+
+@pytest.mark.unit
+def test_background_foi_msm_inj_multiplier_applies_only_to_msm_who_inject():
+    """
+    calibration.background.msm_inj_mult (2026-09-29) replaces the all-agent
+    inj_multiplier for MSM/MSMW who inject; -1 or absence means "use
+    inj_multiplier". Heterosexual injectors and non-injecting MSM are untouched.
+    """
+    acquisition = {st: {"receptive": 0.01, "insertive": 0.01, "versatile": 0.01}
+                   for st in ("MSM", "MSMW", "HM")}
+
+    def make(sex_type, drug_type):
+        agent = SimpleNamespace(drug_type=drug_type, sex_type=sex_type, sex_role="versatile")
+        agent.hiv = HIV(agent)
+        agent.location = SimpleNamespace(
+            params=SimpleNamespace(
+                hiv=SimpleNamespace(
+                    background_sex=SimpleNamespace(
+                        rate_nonoud_per_timestep=0.5,
+                        partner_hiv_prevalence_nonoud=0.1,
+                        inj_multiplier=1.5,
+                        by_sex_type=None,
+                    )
+                ),
+                partnership=SimpleNamespace(sex=SimpleNamespace(acquisition=acquisition)),
+            )
+        )
+        return agent
+
+    def model(mult):
+        cal = SimpleNamespace(acquisition=1.0)
+        if mult is not None:
+            cal.background = SimpleNamespace(msm_inj_mult=mult)
+        return SimpleNamespace(time=1, features=[], calibration=cal)
+
+    def p(lam):
+        return 1 - math.exp(-lam)
+
+    base = 0.5 * 0.1 * 0.01
+    assert make("MSM", "Inj").hiv.get_background_foi_probability(model(6.0)) == pytest.approx(p(base * 6.0))
+    assert make("MSMW", "Inj").hiv.get_background_foi_probability(model(6.0)) == pytest.approx(p(base * 6.0))
+    assert make("HM", "Inj").hiv.get_background_foi_probability(model(6.0)) == pytest.approx(p(base * 1.5))
+    assert make("MSM", "NonInj").hiv.get_background_foi_probability(model(6.0)) == pytest.approx(p(base))
+    # -1 and an absent block both fall back to inj_multiplier
+    assert make("MSM", "Inj").hiv.get_background_foi_probability(model(-1.0)) == pytest.approx(p(base * 1.5))
+    assert make("MSM", "Inj").hiv.get_background_foi_probability(model(None)) == pytest.approx(p(base * 1.5))
+
+
+@pytest.mark.unit
 def test_background_foi_role_matters():
     """Receptive acquisition risk exceeds insertive for the same sex type."""
     acquisition = {"MSM": {"receptive": 0.015, "insertive": 0.005, "versatile": 0.01}}

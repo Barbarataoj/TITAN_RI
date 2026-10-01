@@ -108,7 +108,9 @@ def test_injection_rates_are_pinned_and_relapse_to_inj_is_left_alone():
     tr = sc["oud_state"]["transitions"]
     assert tr["inject_start_rate_per_year"] == INJECT_START_RATE
     assert tr["inject_stop_rate_per_year"] == INJECT_STOP_RATE
-    # GAP #6 has no source, so this one stays fitted and must survive untouched
+    # Not this function's to write: relapse_to_inj_prob is fixed by
+    # set_anchored_parameters() (since 2026-09-29), and the OUD anchor must
+    # leave it untouched rather than own it twice.
     assert tr["relapse_to_inj_prob"] == 0.5
 
 
@@ -126,7 +128,9 @@ def test_guard_fires_when_an_anchored_path_is_fitted(path):
 
 
 def test_guard_passes_on_a_search_of_only_free_parameters():
+    # relapse_to_inj_prob left this list on 2026-09-29, when it was fixed at 0.5
+    # under anchored_parameters; the two below are still searched.
     assert_not_fitted(calib(fitted_paths=[
-        "oud_state.transitions.relapse_to_inj_prob",
+        "oud_state.transitions.relapse_rate_per_year",
         "oud_state.transitions.remission_rate_per_year",
     ]))

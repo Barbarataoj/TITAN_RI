@@ -70,3 +70,30 @@ overdose:
     type: int
     min: 0
     max: 120
+
+  post_moud_stop_rr:
+    default: 1.0
+    description: |
+      Multiplier on overdose risk in the window immediately after an agent
+      stops MOUD (loss of opioid tolerance), applied on top of the ordinary
+      off-MOUD risk while the agent's `recent_moud_stop` flag is set. The
+      flag is raised by the moud feature's discontinuation step and cleared
+      on re-initiation. Sordo 2017 (BMJ): all-cause mortality in the first
+      four weeks after leaving treatment vs the rest of time out, rate ratio
+      2.38 (methadone) and 2.94 (buprenorphine); Santo 2021 (JAMA Psych):
+      6.01 in the first four weeks vs 1.81 thereafter, both against time on
+      treatment, i.e. 3.3. The default of 1.0 is inert -- the term has to be
+      set by the scenario.
+    type: float
+    min: 0.0
+    max: 20.0
+
+  post_moud_stop_window:
+    default: 1
+    description: |
+      Number of timesteps, counting the step MOUD was stopped on, during
+      which `recent_moud_stop` stays True. 1 = the month of stopping only,
+      which matches the four-week window the evidence is measured over.
+    type: int
+    min: 0
+    max: 120

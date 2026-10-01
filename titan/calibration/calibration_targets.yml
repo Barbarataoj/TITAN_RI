@@ -384,11 +384,37 @@ calibration:
   # Overdose calibration targets (ANNUALIZED, RI APCD T3)
   # --------------------------------------------
   # APCD per-stratum rates from RI_parameter_verification_APCD.md (#17, #18, T3 avg).
-  # Weighted nonfatal = 0.45 * 0.091 + 0.55 * 0.045 = 0.066.
+  # Weighted nonfatal at injecting_pct 0.32 = 0.32 * 0.091 + 0.68 * 0.045 = 0.0597
+  # (the 0.066 below was weighted at the old, uncited 0.45 share and is kept only
+  # as a record).
   # Fatal rate from RIDOH (#42 anchor): 256 OD deaths 2019 / ~13,704 OUD ≈ 0.018; keep 0.015 as conservative anchor.
+  #
+  # SCORING WINDOW AND THE FATAL TERM, 2026-09-29. T3 is 2021-2022, so the model
+  # is scored on its last two years (optuna_calibration.OD_SCORING_YEARS), not
+  # the final year alone. And od_err now scores the two NONFATAL rates only:
+  # overdose.fatal_frac is a flat per-event coin flip in the engine, so it is
+  # DERIVED from these targets -- fatal / (fatal + weighted nonfatal) = 0.015 /
+  # (0.015 + 0.0597) = 0.201 -- and the fatal rate becomes a check rather than
+  # a third, noisy, mechanically redundant component (it was 81.5% of trial
+  # 561's od_err on 2026-08-17). See derived_fatal_frac() and od_error().
+  #
+  # Two things about 0.015 to keep straight:
+  #   * RIDOH's deaths are all residents; the 13,704 denominator is insured
+  #     people with an F11 diagnosis, the population the nonfatal rates and the
+  #     MOUD series describe. Deaths / 13,704 (0.0187 in 2019, ~0.027 in 2022)
+  #     therefore overstates this cohort's rate by the share of decedents
+  #     outside it, which is unmeasured. 0.015 is roughly the 2019 figure at an
+  #     ~80% in-cohort share and near the 2012-2022 window average, and it is a
+  #     sensitivity axis (0.012-0.027), not a settled number.
+  #   * RIDOH's own fatal fraction, 256 / (256 + ~1,501 EMS nonfatal) = 0.146, is
+  #     NOT the model's fatal_frac. EMS attends about twice the nonfatal
+  #     overdoses that claims record (RIDOH ~1,900/yr against APCD ~0.066 x
+  #     13,704 = ~900/yr), so the two fractions have different denominators. The
+  #     model's overdose event is the claims-recorded one, and 0.20 is the
+  #     fraction on that footing.
   overdose:
-    fatal_rate_annual: 0.015           # 256 RIDOH OD deaths (2019) / 13,704 T3-avg OUD (APCD #39, 2021-22) ≈ 0.0187; 0.015 kept as conservative anchor. See comment above.
-    nonfatal_rate_annual: 0.066        # APCD T3 weighted (was 0.18 — over-counted vs claims)
+    fatal_rate_annual: 0.015           # RIDOH deaths on the F11-insured footing; derives overdose.fatal_frac and is CHECKED, not scored, since 2026-09-29. See above.
+    nonfatal_rate_annual: 0.066        # APCD T3 weighted at the old 0.45 share (record only; 0.0597 at 0.32)
     nonfatal_rate_inj_annual: 0.091    # APCD T3 (#17)
     nonfatal_rate_noninj_annual: 0.045 # APCD T3 (#18)
 
@@ -658,7 +684,31 @@ calibration:
     # heterosexual category instead. Scoring it two-sided therefore biases the
     # model slightly low. That is accepted while the model sits 2-5x ABOVE the
     # target; revisit if a refit brings it close.
+    #
+    # OPIOID ADJUSTMENT, 2026-09-29 (Jun, option 1). The model is an opioid use
+    # disorder cohort; RIDOH's MSM/IDU category counts any injection drug use.
+    # In NHBS-PWID (2012 and 2015 cycles, n = 961 MSM who inject), 33.7% reported
+    # methamphetamine as the drug injected most often (Drug Alcohol Depend 2018,
+    # PubMed 30055426). The scored all-route windows are therefore
+    #
+    #     IDU + (1 - stimulant_share_of_msm_idu) x MSM/IDU
+    #
+    # derived by build_targets() from `parts`, so the parts and the scored
+    # number cannot drift apart. 0.34 is conservative (NHBS-PWID recruits mostly
+    # through opioid-injecting networks); sensitivity 0 and 0.5. Grid 4 (job
+    # 6830581) showed the unadjusted 8.7/yr unreachable with the non-injecting
+    # MSM compartment at a plausible ~0.2 prevalence (solve at 98x), and the
+    # adjusted target reachable inside the box. `windows` below keeps the
+    # unadjusted RIDOH record; the objective reads the derived values.
     ridoh_pwid_dx_all_routes:
+      stimulant_share_of_msm_idu: 0.34
+      parts:
+        - years: [2015, 2019]
+          idu: 1.8
+          msm_idu: 3.6
+        - years: [2018, 2022]
+          idu: 2.5
+          msm_idu: 6.2
       windows:
         - years: [2015, 2019]
           cases_per_year: 5.4
@@ -771,9 +821,175 @@ calibration:
         network parameters. Measure with
         analysis/oud_feasibility_2026-07-30/probe_denominator.py.
 
+    hiv_testing:
+      # Added 2026-09-29 with the pinning of hiv_testing.base_prob_annual, so the
+      # pin is checkable against the survey it came from. NHBS-PWID: 45% (2022)
+      # and 48% (2024) of PWID tested for HIV in the past year. The model
+      # reports TESTS per PWID person-year (hiv_tests_per_pwid_yr); with lambda
+      # tests per person-year the share tested at least once is about
+      # 1 - exp(-lambda), so 0.45 <-> 0.60 and the +/-0.10 survey band <-> 0.43-0.80.
+      tests_per_pwid_yr: 0.60
+      tolerance: 0.18
+      share_tested_past_year: 0.45      # the survey quantity the rate above encodes
+
+    overdose_fatal:
+      # The fatal rate left od_err on 2026-09-29 (see the overdose block above);
+      # it is checked here instead. With overdose.fatal_frac derived from the
+      # targets a miss means the nonfatal rates missed, not the fraction.
+      fatal_rate_annual: 0.015
+      tolerance: 0.003
+
+    noninj_msm_hiv:
+      # Added 2026-09-29. The HIV grid (jobs 6812107, 6817937) showed the model
+      # can reach RIDOH's all-route PWID diagnosis level while its non-injecting
+      # MSM compartment sits at 0.4-0.8 HIV prevalence -- the sexual route into
+      # PWID fed by an overheated 5% subpopulation. RIDOH 2022: about 6-7% of RI
+      # GBMSM are living with HIV (GBMSM denominator ~26,500 from the per-100k
+      # new-diagnosis rates); among MSM who use drugs, NHBS-style samples run
+      # 0.15-0.25. A fit above 0.30 reached the target through the wrong
+      # reservoir. Reported as hiv_prevalence_noninj_msm; never scored.
+      # Re-sourced 2026-09-29: band 0.05-0.25. Floor ~7% of RI GBMSM living
+      # with HIV (RIDOH 2022); ceiling 25% among MSM who inject (NHBS-PWID
+      # 2018, CDC MMWR 2021;70(42):1459-65), which non-injecting MSM with OUD
+      # should not exceed. Was 0.20 +/- 0.10 with a thinner source.
+      prevalence: 0.15
+      tolerance: 0.10
+
+  # --------------------------------------------
+  # PARAMETERS FIXED FROM DATA (not searched) -- 2026-09-29
+  # --------------------------------------------
+  # Applied by optuna_calibration.set_anchored_parameters() after the suggest
+  # loop, at every site that materialises a runnable scenario, and guarded by
+  # assert_not_fitted(): a path listed here AND in parameters_to_optimize is a
+  # startup error. The engine's own parameter files still carry defaults for
+  # these paths; the values below override them for every calibration run and
+  # for the canonical scenario.
+  #
+  # Tiers 1-2 of docs/calibration_log/phase_6_parameter_audit_2026-09-01.md,
+  # decided 2026-09-29. Each was worth < 0.005 of holdout R^2 on every objective
+  # in job 5569988 -- fitted in name, randomised in fact -- and each has either a
+  # measurement or a derivation. The uncertainty in each belongs to the
+  # sensitivity analysis (ranges noted per entry), not to a search dimension.
+  #
+  # overdose.fatal_frac is NOT listed: it is derived from the overdose targets by
+  # derived_fatal_frac() and written alongside these. See the overdose block.
+  anchored_parameters:
+
+    # NHBS-PWID past-year testing 45% (2022) / 48% (2024): a person tested at
+    # least once in a year at lambda tests/yr is 1 - exp(-lambda), so 45% is
+    # lambda = 0.60 tests per PWID-year (validation_targets.hiv_testing).
+    #
+    # RE-DERIVED 2026-09-30. The first pin, 0.155 = 0.45 / pwid_mult 3.0, divided
+    # by only one of the multipliers hiv_testing.py stacks on the base rate:
+    # ~80% of this cohort's PWID are on MOUD (moud_stable_mult 1.5, early 3.0),
+    # plus the high-risk, post-relapse and post-overdose windows. The pilot
+    # refit (job 6832656, 200 trials) measured the composite: 1.14 tests per
+    # PWID-year at base 0.155 (p10-p90 1.02-1.24), i.e. an effective multiplier
+    # of 7.35 (6.6-8.0), and the diagnosed share sat at 0.967 against RIDOH's
+    # 0.932. base = 0.598 / 7.35 = 0.081. Cross-check: probe_seed_burn's
+    # dose-response (block above) puts the diagnosed share near 0.92 at this
+    # value. Sensitivity 0.07-0.09 (the p10-p90 of the multiplier). Scenario 5
+    # multiplies this baseline. Was fitted in [0.05, 0.20], worth 0.0003 of R^2
+    # on the best objective it touched.
+    - path: "hiv_testing.base_prob_annual"
+      value: 0.08
+      source: "NHBS-PWID 45% tested/yr = 0.60 tests/PWID-yr, / measured composite multiplier 7.35 (pilot job 6832656); citations row #28"
+
+    # No extra post-overdose MOUD uptake beyond the ordinary re-engagement rate.
+    # The 2026-09-01 audit proposed deriving this so 30% of survivors are on
+    # medication within 12 months (Larochelle 2018; RI APCD job2b 26-31%). That
+    # is not reachable: at the reinit_prob the coverage series needs (~0.36/mo
+    # against discontinuation 0.078), an ever-on survivor restarts within 12
+    # months with probability ~0.99 at rr = 1.0 already. What the model CAN be
+    # held to is the 30-day figure -- RI 13-20% within 30 days (job2b) against
+    # the model's ~20-36% per month for ever-on agents -- and rr > 1 only moves
+    # it further off. 1.0 is the least-wrong value and the box floor; the
+    # overshoot is a limitation to state, and the 12-month linkage among
+    # survivors is a diagnostic still to add. Scenario 2's lever: its arm value
+    # is target linkage / fitted reinit_prob.
+    - path: "moud.post_overdose_rr"
+      value: 1.0
+      source: "Larochelle 2018 (30% at 12 mo) unreachable at any rr; RI APCD job2b 30-day 13-20% bounds it at 1.0"
+
+    # RI PDMP buprenorphine 12-month retention 37.8% (Hallowell; citations row
+    # #9): 1 - 0.378^(1/12) = 0.0779. The 6-month figure (45%) implies 0.124 and
+    # the RI cascade 0.069; retention hazards fall with time on treatment and
+    # methadone retains better than buprenorphine, so a single constant is a
+    # compromise. 0.078 is the direct RI measurement over the horizon the
+    # coverage series spans. Sensitivity 0.069-0.124. Second-strongest lever on
+    # moud_traj_rmse (0.242 of R^2): pinning it means reinit_prob carries the
+    # MOUD objective alone, which is why its upper bound moved to 0.50.
+    - path: "moud.discontinue_per_month"
+      value: 0.078
+      source: "RI PDMP 12-mo buprenorphine retention 37.8%, citations row #9"
+
+    # Overdose risk while on MOUD relative to off, applied to every overdose
+    # event (fatal and nonfatal alike, since the fatal roll is separate).
+    # Confirmed by literature search 2026-09-29 (Jun's request):
+    #   Sordo 2017, BMJ 357:j1550 -- overdose mortality in vs out of treatment,
+    #     methadone 2.6 vs 12.7 per 1000 PY (RR out/in 4.80, 2.90-7.96, i.e.
+    #     0.21 in/out), buprenorphine 1.4 vs 4.6 (0.30).
+    #   Santo 2021, JAMA Psychiatry 78(9):979 -- meta-analysis, RR during vs
+    #     out of OAT: unintentional drug-induced deaths 0.41 (0.33-0.52),
+    #     unintentional opioid deaths 0.31 (0.23-0.43), all-cause 0.47.
+    #   Wakeman 2020, JAMA Netw Open (claims, any overdose, intention to treat):
+    #     aHR 0.24 (0.14-0.41) at 3 months, 0.41 (0.31-0.55) at 12 months --
+    #     ITT includes people who stopped, so an upper bound on the on-treatment
+    #     effect the model applies.
+    #   Pearce 2020, BMJ 368:m772 (BC, fentanyl era): all-cause off/on 2.6-3.4,
+    #     i.e. 0.29-0.38 on/off.
+    # Every estimate sits in 0.21-0.41; 0.30 is buprenorphine's on/off value
+    # and the centre of the range, and RI's MOUD mix is majority buprenorphine.
+    # Sensitivity 0.21-0.41. The 2026-08-11 box [0.316, 0.70] excluded most of
+    # this evidence, and the fitted 0.55-0.61 on the shortlist trials sat above
+    # all of it.
+    - path: "moud.overdose_scale.active"
+      value: 0.30
+      source: "Sordo 2017 (0.21 methadone, 0.30 buprenorphine); Santo 2021 (0.31-0.41); Wakeman 2020 ITT (0.24-0.41); Pearce 2020 (0.29-0.38)"
+
+    # Overdose risk multiplier during the post-release high-risk window
+    # (titan/features/high_risk.py: an agent is high_risk for
+    # high_risk.duration = 6 steps after release from incarceration, and 20%
+    # of agents start in that state). Merrall 2010 (Addiction, meta-analysis of
+    # post-release drug-related death): weeks 1-2 carry 3-8x the rate of weeks
+    # 3-12, with weeks 3-12 themselves still elevated. Averaged over a 6-month
+    # window against the long-run off-MOUD baseline -- ~5x for 2 weeks, ~1.5x
+    # for weeks 3-12, ~1.2x for months 4-6 -- the multiplier is about 1.6.
+    # CITATION TO VERIFY against the paper's pooled estimates before the
+    # methods are written; the model is insensitive to it (0.003 of R^2 on the
+    # best objective) and no Phase 7 arm touches incarceration. Sensitivity
+    # 1.2-2.5. Citations row #20's RIDOC evidence (Green 2018, Macmadu 2023) is
+    # about MOUD blunting this spike, not its size.
+    - path: "overdose.high_risk_mult"
+      value: 1.6
+      source: "Merrall et al. 2010 post-release drug-related death, time-averaged over the 6-step window; verify"
+
+    # Share of relapses that return to injection among people who previously
+    # injected. GAP #6, no clean source. Fixed at the scenario's 0.5 because
+    # that is the value the C2 stationarity probe (job 5568xxx series,
+    # phase_6_c2_injection_share_2026-08-24.md) measured the model's own
+    # steady-state injection share at: 0.305-0.313 against the RIHRSS 0.32
+    # anchor, i.e. the anchor is already met at this value to within a point.
+    # Its only leverage was on inj_share_err, which is no longer scored
+    # (0.034 of R^2 on the live objectives). Sensitivity 0.43-0.85, the old box.
+    - path: "oud_state.transitions.relapse_to_inj_prob"
+      value: 0.5
+      source: "model steady state 0.305-0.313 vs RIHRSS 0.32 at this value (C2, 2026-08-24)"
+
   # --------------------------------------------
   # PARAMETERS TO BE CALIBRATED (wide ranges per user direction)
   # --------------------------------------------
+  # NINE SINCE 2026-09-29, from sixteen. The seven that left are listed under
+  # anchored_parameters above (six) and derived_fatal_frac() (one). The nine
+  # that remain: the three OUD transition rates without data (remission,
+  # relapse), moud.reinit_prob (the most identifiable of the sixteen and
+  # scenario 3's lever), moud.injection_scale.active, the two overdose base
+  # probabilities (kept fitted rather than converted by hand from the targets,
+  # because the conversion runs through the MOUD, high-risk, relapse and SSP
+  # multipliers and the scoring window -- exactly what the objective does
+  # exactly), and the three network/transmission levers injection.act,
+  # partner_scale and -- since later on 2026-09-29, in place of sex.act --
+  # background.msm_inj_mult, the outside exposure of MSM who inject.
   parameters_to_optimize:
 
     # ================================================================
@@ -847,9 +1063,11 @@ calibration:
       lower: 0.05
       upper: 0.49237   # refit box 2026-08-11; prior bound 0.50 NEW
 
-    - path: "oud_state.transitions.relapse_to_inj_prob"
-      lower: 0.425809   # refit box 2026-08-11; prior bound 0.30
-      upper: 0.846842   # refit box 2026-08-11; prior bound 0.85 NEW
+    # oud_state.transitions.relapse_to_inj_prob was REMOVED here 2026-09-29 and
+    # fixed at 0.5 under `anchored_parameters` (its box was [0.425809,
+    # 0.846842]). Its only leverage was on the demoted inj_share_err, and the
+    # C2 probe showed the model's steady-state injection share already meets
+    # the RIHRSS anchor at 0.5.
 
     # inject_start_rate_per_year and inject_stop_rate_per_year were REMOVED here
     # 2026-08-13 (step 2 of the 2026-08-12 plan). They are now stated once in
@@ -870,39 +1088,47 @@ calibration:
     # judgment pick inside an eight-fold spread (GAP #5). See the constants in
     # optuna_calibration.py, which carry the full note and the sensitivity range.
     #
-    # relapse_to_inj_prob above STAYS fitted: GAP #6 has no clean source, and it
-    # is now the only free lever on the injection share.
+    # relapse_to_inj_prob left the search 2026-09-29 -- see anchored_parameters.
 
     # ---- Overdose dynamics (overdose.py) — bounds anchored to APCD ----
+    #
+    # BOXES RE-WIDENED 2026-09-29. The 2026-08-11 intersection boxes ([0.1135,
+    # 0.1791] and [0.0563, 0.0786]) were drawn around trials fitted with
+    # moud.overdose_scale.active at 0.40-0.61. That parameter is now fixed at
+    # 0.30, and with ~80% of active OUD on MOUD over the scoring window the
+    # off/on blend falls from ~0.69 to ~0.43 -- so the base probabilities that
+    # reproduce the same nonfatal rates are ~1.5-1.9x higher and sit above the
+    # old boxes. The bounds below are the original priors' width, re-centred; the
+    # warm starts carry the rescaled values.
     - path: "overdose.base_prob_inj"
-      lower: 0.113537   # refit box 2026-08-11; prior bound 0.04
-      upper: 0.179074   # refit box 2026-08-11; prior bound 0.18 tightened from 0.40 per APCD #17 T3 = 0.091
+      lower: 0.08      # 2026-09-29; refit box 2026-08-11 was [0.113537, 0.179074]; prior [0.04, 0.40]
+      upper: 0.40
 
     - path: "overdose.base_prob_noninj"
-      lower: 0.0562739   # refit box 2026-08-11; prior bound 0.005
-      upper: 0.0786008   # refit box 2026-08-11; prior bound 0.08 widened upper from 0.02 per APCD #18 T3 = 0.045
+      lower: 0.03      # 2026-09-29; refit box 2026-08-11 was [0.0562739, 0.0786008]; prior [0.005, 0.08]
+      upper: 0.16
 
-    - path: "overdose.fatal_frac"
-      lower: 0.175536   # refit box 2026-08-11; prior bound 0.05
-      upper: 0.210156   # refit box 2026-08-11; prior bound 0.25
-
-    - path: "overdose.high_risk_mult"
-      lower: 1.44995   # refit box 2026-08-11; prior bound 1.0
-      upper: 2.47922   # refit box 2026-08-11; prior bound 3.0
+    # overdose.fatal_frac was REMOVED here 2026-09-29 (box was [0.175536,
+    # 0.210156]). It is DERIVED from the overdose targets by
+    # derived_fatal_frac() -- the engine rolls it as a flat per-event coin flip,
+    # so the targets fix it at 0.015 / (0.015 + 0.0597) = 0.201 whatever the
+    # search does, and fitting it alongside a fatal-rate target stated one
+    # number twice.
+    #
+    # overdose.high_risk_mult was REMOVED here 2026-09-29 (box was [1.44995,
+    # 2.47922]) and fixed at 1.6 under anchored_parameters.
 
     # ---- MOUD dynamics ----
-    - path: "moud.overdose_scale.active"
-      lower: 0.316196   # refit box 2026-08-11; prior bound 0.20
-      upper: 0.70
+    # moud.overdose_scale.active was REMOVED here 2026-09-29 (box was [0.316196,
+    # 0.70]) and fixed at 0.30 under anchored_parameters.
 
     - path: "moud.injection_scale.active"
       lower: 0.412639   # refit box 2026-08-11; prior bound 0.40
       upper: 0.805525   # refit box 2026-08-11; prior bound 0.90
 
-    # MOUD discontinuation per month — Hallowell anchor 0.078/mo (37.8% 12-mo retention)
-    - path: "moud.discontinue_per_month"
-      lower: 0.0374973   # refit box 2026-08-11; prior bound 0.03
-      upper: 0.173124   # refit box 2026-08-11; prior bound 0.18 NEW; bounds Hallowell ±
+    # moud.discontinue_per_month was REMOVED here 2026-09-29 (box was
+    # [0.0374973, 0.173124]) and fixed at the Hallowell 0.078 under
+    # anchored_parameters.
 
     # MOUD re-initiation per month (top-level override, moud.py update_agent STEP 2).
     # The equilibrium coverage ceiling among ever-on agents is
@@ -911,9 +1137,14 @@ calibration:
     # 0.82 (2022) target. Bounds span ~3-20-month re-engagement: at disc=0.06,
     # reinit=0.27 -> equilibrium 0.82. Added 2026-07-24 with the init_coverage lever
     # so MOUD coverage is genuinely fit (not hand-set). See calibration_log.
+    #
+    # UPPER BOUND 0.338 -> 0.50, 2026-09-29. With discontinuation fixed at 0.078
+    # the 2022 coverage of 0.82 needs an ever-on equilibrium of at least 0.82,
+    # i.e. reinit >= 0.078 x 0.82 / 0.18 = 0.355, which the old box excluded.
+    # 0.50 gives an equilibrium ceiling of 0.865.
     - path: "moud.reinit_prob"
       lower: 0.05
-      upper: 0.338183   # refit box 2026-08-11; prior bound 0.35 NEW 2026-07-24
+      upper: 0.50   # 2026-09-29; refit box 2026-08-11 was 0.338183; prior 0.35
 
     # NOTE: moud.init_coverage is deliberately NOT optimized (removed 2026-07-29).
     # It sets only the t=0 placement probability, and with use_reinit true coverage
@@ -925,10 +1156,9 @@ calibration:
     # run at that equilibrium and removes the transient rather than fitting a value
     # that gets overwritten. See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P6.
 
-    # Post-overdose MOUD initiation relative risk (Larochelle proxy ≈ 2x)
-    - path: "moud.post_overdose_rr"
-      lower: 1.0
-      upper: 4.3454   # refit box 2026-08-11; prior bound 5.0 NEW
+    # moud.post_overdose_rr was REMOVED here 2026-09-29 (box was [1.0, 4.3454])
+    # and fixed at 1.0 under anchored_parameters -- the Larochelle derivation the
+    # audit proposed is unreachable at any value in the box; see the entry there.
 
     # ---- HIV transmission & testing ----
     # Per-act injection HIV transmission (canonical 0.0063; allow wider for RI fit)
@@ -1036,9 +1266,56 @@ calibration:
     # the only other frequency in the repo (tests/params/oud_ri_baseline.yml,
     # ~19 acts/month) drove prevalence to 95%, which brackets how sensitive this is.
     # See EPIDEMIC_DYNAMICS_MAP_2026-07-29.md finding P1.
-    - path: "calibration.sex.act"
-      lower: 0.38765   # refit box 2026-08-11; prior bound 0.25
-      upper: 2.53519   # refit box 2026-08-11; prior bound 3.0 NEW 2026-07-29
+    #
+    # UPPER BOUND 2.535 -> 4.0, 2026-09-29, from analysis/probe_hiv_grid.py (job
+    # 6812107; 6 x 6 grid, 8 populations x 10 replicates, pins applied). With
+    # everything else at warm start t301 the all-route PWID series reaches its
+    # 8.7/yr target only at the very top of the old box (8.72 at sex.act 2.535,
+    # injection.act 1.5, where the injection series overshoots 2x), the one
+    # feasible point (0.89 corrected) sits on the old upper bound, and the
+    # log-linear solve for both 2018-2022 windows lands at sex.act 2.87 /
+    # injection.act 0.84 -- outside it. Nowhere on the grid scores worse than
+    # null, so the "dead region at the top" that motivated the 2026-08-11 cut
+    # does not exist under the pinned configuration. 4.0 is ~16 acts/month on
+    # the NSFG-anchored 4.0/month prior mean; the solved point is enqueued as a
+    # warm start.
+    #
+    # REMOVED FROM THE SEARCH, later on 2026-09-29, and replaced by
+    # calibration.background.msm_inj_mult below. Fixed at the NSFG prior 1.0 in
+    # the base scenario and guarded by ANCHORED_PATHS. Grid 3 (job 6824974),
+    # run with male-male partnerships decoupled onto calibration.sex.act_msm,
+    # showed the all-route PWID series barely answers this scalar (elasticity
+    # 0.23; the log-linear solve for the RIDOH windows landed at 14.8): the
+    # all-route count had been coming through the MSM route all along, which is
+    # what RIDOH's MSM/IDU category (71% of PWID diagnoses) says. The last box
+    # was [0.38765, 4.0].
+
+    # Outside sexual exposure of MSM/MSMW who INJECT, as a multiplier on the
+    # background act rate in place of hiv.background_sex.inj_multiplier (1.5).
+    # ADDED 2026-09-29 (Jun, option A). RIDOH: 6.2 of 8.7 PWID diagnoses a year
+    # (2018-2022) are MSM/IDU, i.e. ~3%/yr incidence among roughly 200-250 MSM
+    # who inject statewide. With the internal MSM pool held at a plausible 0.20
+    # prevalence (act_msm 0.47, derived) the model produces 2.5-3.1 all-route
+    # diagnoses a year against 8.7 (analysis/probe_act_msm.py, job 6826397), so
+    # this group needs an outside exposure the all-agent multiplier does not
+    # give it. Reaching ~3%/yr at partner prevalence 0.10 and 0.00745 per act
+    # needs ~40 outside acts a year, about 6x the base 0.5/step -- NHBS finds
+    # MSM who inject at 2-3x the HIV prevalence of MSM overall. Box [1.5, 12]:
+    # the floor is the all-agent value.
+    #
+    # This is an exogenous route, which audit F9 warned against as a FITTED
+    # lever. The difference here: it is fitted to the one series that
+    # identifies it (all-route minus injection-attributed = mostly MSM/IDU),
+    # its target group is named, and the PrEP and testing arms still act on it
+    # through the acquisition-side multipliers. MOUD and SSP arms cannot reach
+    # these infections, which is a finding about Rhode Island's epidemic to
+    # state, not a model artefact to hide.
+    #
+    # UPPER BOUND 12 -> 20, 2026-09-29: against the opioid-adjusted all-route
+    # target grid 4's best point sat on the old upper bound (12).
+    - path: "calibration.background.msm_inj_mult"
+      lower: 1.5
+      upper: 20.0
 
     # Injection exposure frequency, ADDED TO THE SEARCH 2026-08-13 (step 4).
     # Scales mean_num_acts in titan/interactions/injection.py:43-46, i.e. shared
@@ -1105,9 +1382,11 @@ calibration:
     # probability whose old floor was 0.134 is not compatible with that.
     #
     # Closes citations GAP #28 (HIV testing rate) and GAP #29 (% HIV-diagnosed).
-    - path: "hiv_testing.base_prob_annual"
-      lower: 0.05      # was 0.133949
-      upper: 0.20      # was 0.545579; above ~0.15 the cascade saturates
+    #
+    # hiv_testing.base_prob_annual was REMOVED here 2026-09-29 (box was [0.05,
+    # 0.20]) and fixed at 0.155 under anchored_parameters: NHBS-PWID measures the
+    # quantity directly and nothing in the search could identify it (0.0003 of
+    # R^2). The block above stays as the record of the saturation measurement.
 
     # ---- Network structure ----
     # Linear partner-count boost during a high-risk burst (~20% of agents, ~6-step

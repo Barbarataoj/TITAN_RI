@@ -12,9 +12,9 @@
 # vectors are materialised here with their provenance rather than re-read from
 # scratch at launch time.
 #
-# RE-ANCHORING. These trials predate three changes to the search, so a vector
-# lifted verbatim is not a point in today's box. Two corrections are applied to
-# every entry and both are recorded per entry under `deviations`:
+# RE-ANCHORING. These trials predate several changes to the search, so a vector
+# lifted verbatim is not a point in today's box. The corrections applied to
+# every entry are recorded per entry under `deviations`:
 #
 #   1. `calibration.injection.act` did not exist as a fitted parameter until
 #      2026-08-13, when `partnership.injection.transmission.base` was pinned at
@@ -22,11 +22,37 @@
 #      PRODUCT is identifiable (see the block in objective()), so the value
 #      recorded here is the trial's own fitted base divided by 0.0063 -- it puts
 #      the injection route at the transmission level the trial was fitted at.
-#   2. `hiv_testing.base_prob_annual`'s upper bound was tightened to 0.2 when the
-#      box was rebased on 2026-08-11. All three shortlist trials sit above it
-#      (0.28-0.49) and are clipped to 0.2. This is a real change to the HIV
-#      coordinate, not a formality: these points are warm starts, not
-#      reproductions of the runs they came from.
+#   2. Seven coordinates left the search on 2026-09-29 and are now fixed from
+#      data (calibration_targets.yml `anchored_parameters`, plus the derived
+#      fatal fraction): hiv_testing.base_prob_annual, moud.post_overdose_rr,
+#      moud.discontinue_per_month, moud.overdose_scale.active,
+#      overdose.high_risk_mult, overdose.fatal_frac and
+#      oud_state.transitions.relapse_to_inj_prob. Each entry's original values
+#      for those seven are recorded under `dropped` so the point can still be
+#      compared with the run it came from.
+#   3. Two coordinates were RE-DERIVED rather than dropped, because the pins
+#      change what they have to be:
+#        * moud.reinit_prob: with discontinuation fixed at 0.078, the coverage
+#          series (0.69 rising to 0.82) needs an ever-on equilibrium of at
+#          least 0.82, i.e. reinit >= 0.355. Every entry is set to 0.36; the
+#          original values (0.12-0.19, fitted alongside discontinuation rates of
+#          0.088-0.145) encode the old pairing, not a starting point for this
+#          one.
+#        * overdose.base_prob_inj / _noninj: moud.overdose_scale.active moved
+#          from the trials' 0.40-0.61 to 0.30 and coverage over the scoring
+#          window rises to ~0.8, so the off/on blend the base probabilities are
+#          multiplied by falls from ~0.66-0.80 to ~0.43. Each entry's pair is
+#          scaled by the ratio of those blends (1.55-1.9x) so the nonfatal
+#          rates land near where the trial had them. Approximate by
+#          construction -- the search owns these two coordinates.
+#
+#   4. Later on 2026-09-29 calibration.sex.act left the search (fixed at
+#      1.0) and calibration.background.msm_inj_mult joined it. Every entry
+#      starts that multiplier at 6.0, the value the RIDOH MSM/IDU count
+#      implies (~40 outside acts a year at partner prevalence 0.10); the
+#      trials' own sex.act values no longer mean anything and are dropped.
+#      The `hiv_grid_solved` entry was removed for the same reason -- it
+#      was a sex.act solution.
 #
 # The vectors must cover exactly the paths in
 # calibration_targets.yml parameters_to_optimize, and every value must lie in
@@ -39,9 +65,9 @@ warm_start:
   # The point od_err was measured reachable at. Job 5053123 ran trial 290's
   # vector with both overdose base probabilities scaled by 0.80 and measured
   # od_err = 0.00327 against a 0.01 gate, with oud_rmse also passing, at 8
-  # population seeds x 40 replicates. Both scaled values are interior to their
-  # bounds rather than on them. See
-  # docs/calibration_log/phase_6_od_reachability_2026-08-24.md.
+  # population seeds x 40 replicates. See
+  # docs/calibration_log/phase_6_od_reachability_2026-08-24.md. The overdose
+  # pair here is that measured point rescaled for the 2026-09-29 pins (x1.9).
   #
   # `calibration.injection.act` is 1.0 here, NOT trial 290's fitted level: the
   # probe built its scenario from the anchored base, which carries the engine
@@ -52,25 +78,28 @@ warm_start:
       trial 290 of job 4874631, both overdose base probabilities x 0.80,
       as run by analysis/probe_od_reachability.py (job 5053123)
     deviations:
-      - "hiv_testing.base_prob_annual 0.486567 clipped to the box top 0.2"
       - "calibration.injection.act 1.0 -- the engine default the probe ran, not
          trial 290's fitted injection level"
+      - "moud.reinit_prob 0.14662444 -> 0.36 (re-derived for discontinuation 0.078)"
+      - "overdose.base_prob_inj 0.14107456 -> 0.268, _noninj 0.06081623 -> 0.1155
+         (x1.9 for overdose_scale.active 0.608 -> 0.30 and coverage 0.50 -> 0.82)"
+    dropped:
+      hiv_testing.base_prob_annual: 0.2            # clipped from 0.486567; now fixed 0.155
+      moud.post_overdose_rr: 2.23271398            # now fixed 1.0
+      moud.discontinue_per_month: 0.14479567       # now fixed 0.078
+      moud.overdose_scale.active: 0.60844793       # now fixed 0.30
+      overdose.high_risk_mult: 1.67477959          # now fixed 1.6
+      overdose.fatal_frac: 0.20645548              # now derived 0.201
+      oud_state.transitions.relapse_to_inj_prob: 0.76077044   # now fixed 0.5
     params:
       oud_state.transitions.remission_rate_per_year: 0.23043358
       oud_state.transitions.relapse_rate_per_year: 0.31921235
-      oud_state.transitions.relapse_to_inj_prob: 0.76077044
-      overdose.base_prob_inj: 0.14107456
-      overdose.base_prob_noninj: 0.06081623
-      overdose.fatal_frac: 0.20645548
-      overdose.high_risk_mult: 1.67477959
-      moud.overdose_scale.active: 0.60844793
+      overdose.base_prob_inj: 0.268
+      overdose.base_prob_noninj: 0.1155
       moud.injection_scale.active: 0.55057546
-      moud.discontinue_per_month: 0.14479567
-      moud.reinit_prob: 0.14662444
-      moud.post_overdose_rr: 2.23271398
-      calibration.sex.act: 0.52017244
+      moud.reinit_prob: 0.36
+      calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 1.0
-      hiv_testing.base_prob_annual: 0.2
       high_risk.partner_scale: 8
 
   # The same overdose corner at trial 290's own injection transmission level.
@@ -87,52 +116,59 @@ warm_start:
       trial 290 of job 4874631, both overdose base probabilities x 0.80,
       injection route held at the trial's own fitted level
     deviations:
-      - "hiv_testing.base_prob_annual 0.486567 clipped to the box top 0.2"
       - "calibration.injection.act 0.177663 = fitted base 0.0011193 / pinned 0.0063"
+      - "moud.reinit_prob 0.14662444 -> 0.36 (re-derived for discontinuation 0.078)"
+      - "overdose.base_prob_inj 0.14107456 -> 0.268, _noninj 0.06081623 -> 0.1155 (x1.9)"
+    dropped:
+      hiv_testing.base_prob_annual: 0.2
+      moud.post_overdose_rr: 2.23271398
+      moud.discontinue_per_month: 0.14479567
+      moud.overdose_scale.active: 0.60844793
+      overdose.high_risk_mult: 1.67477959
+      overdose.fatal_frac: 0.20645548
+      oud_state.transitions.relapse_to_inj_prob: 0.76077044
     params:
       oud_state.transitions.remission_rate_per_year: 0.23043358
       oud_state.transitions.relapse_rate_per_year: 0.31921235
-      oud_state.transitions.relapse_to_inj_prob: 0.76077044
-      overdose.base_prob_inj: 0.14107456
-      overdose.base_prob_noninj: 0.06081623
-      overdose.fatal_frac: 0.20645548
-      overdose.high_risk_mult: 1.67477959
-      moud.overdose_scale.active: 0.60844793
+      overdose.base_prob_inj: 0.268
+      overdose.base_prob_noninj: 0.1155
       moud.injection_scale.active: 0.55057546
-      moud.discontinue_per_month: 0.14479567
-      moud.reinit_prob: 0.14662444
-      moud.post_overdose_rr: 2.23271398
-      calibration.sex.act: 0.52017244
+      moud.reinit_prob: 0.36
+      calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.177663
-      hiv_testing.base_prob_annual: 0.2
       high_risk.partner_scale: 8
 
   # trial 301 -- the only shortlist member that passes the MOUD trajectory gate
   # (moud_traj_rmse 0.0854 against 0.10, measured at 8 seeds by job 5053123).
   # t290's lineage does not reach that objective at any overdose scale, so this
   # vector carries a different corner of the gate vector into the first
-  # generation.
+  # generation. Its MOUD pass was produced by discontinuation 0.088 / reinit
+  # 0.192; with discontinuation now fixed at 0.078 the re-derived reinit is
+  # what carries that corner forward.
   - label: t301
     source: trial 301 of job 4874631, re-anchored
     deviations:
-      - "hiv_testing.base_prob_annual 0.412492 clipped to the box top 0.2"
       - "calibration.injection.act 0.387937 = fitted base 0.0024440 / pinned 0.0063"
+      - "moud.reinit_prob 0.19221513 -> 0.36 (re-derived for discontinuation 0.078)"
+      - "overdose.base_prob_inj 0.17043729 -> 0.273, _noninj 0.05665834 -> 0.0907
+         (x1.6 for overdose_scale.active 0.545 -> 0.30 and coverage 0.68 -> 0.82)"
+    dropped:
+      hiv_testing.base_prob_annual: 0.2            # clipped from 0.412492
+      moud.post_overdose_rr: 2.15285397
+      moud.discontinue_per_month: 0.08846587
+      moud.overdose_scale.active: 0.54522251
+      overdose.high_risk_mult: 1.45357378
+      overdose.fatal_frac: 0.19647209
+      oud_state.transitions.relapse_to_inj_prob: 0.64663573
     params:
       oud_state.transitions.remission_rate_per_year: 0.24944844
       oud_state.transitions.relapse_rate_per_year: 0.10434604
-      oud_state.transitions.relapse_to_inj_prob: 0.64663573
-      overdose.base_prob_inj: 0.17043729
-      overdose.base_prob_noninj: 0.05665834
-      overdose.fatal_frac: 0.19647209
-      overdose.high_risk_mult: 1.45357378
-      moud.overdose_scale.active: 0.54522251
+      overdose.base_prob_inj: 0.273
+      overdose.base_prob_noninj: 0.0907
       moud.injection_scale.active: 0.65583763
-      moud.discontinue_per_month: 0.08846587
-      moud.reinit_prob: 0.19221513
-      moud.post_overdose_rr: 2.15285397
-      calibration.sex.act: 1.0625682
+      moud.reinit_prob: 0.36
+      calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
-      hiv_testing.base_prob_annual: 0.2
       high_risk.partner_scale: 7
 
   # trial 561 -- the nearest uniform miss on job 4874631, all five of the
@@ -143,22 +179,153 @@ warm_start:
   - label: t561
     source: trial 561 of job 4874631, re-anchored
     deviations:
-      - "hiv_testing.base_prob_annual 0.277931 clipped to the box top 0.2"
       - "calibration.injection.act 0.387937 = fitted base 0.0024440 / pinned 0.0063"
+      - "moud.reinit_prob 0.11833204 -> 0.36 (re-derived for discontinuation 0.078)"
+      - "overdose.base_prob_inj 0.17043729 -> 0.264, _noninj 0.07190427 -> 0.1115
+         (x1.55 for overdose_scale.active 0.399 -> 0.30 and coverage 0.57 -> 0.82)"
+    dropped:
+      hiv_testing.base_prob_annual: 0.2            # clipped from 0.277931
+      moud.post_overdose_rr: 2.51597084
+      moud.discontinue_per_month: 0.08846587
+      moud.overdose_scale.active: 0.39851945
+      overdose.high_risk_mult: 1.45357378
+      overdose.fatal_frac: 0.18566606
+      oud_state.transitions.relapse_to_inj_prob: 0.58824997
     params:
       oud_state.transitions.remission_rate_per_year: 0.18856191
       oud_state.transitions.relapse_rate_per_year: 0.18521997
-      oud_state.transitions.relapse_to_inj_prob: 0.58824997
-      overdose.base_prob_inj: 0.17043729
-      overdose.base_prob_noninj: 0.07190427
-      overdose.fatal_frac: 0.18566606
-      overdose.high_risk_mult: 1.45357378
-      moud.overdose_scale.active: 0.39851945
+      overdose.base_prob_inj: 0.264
+      overdose.base_prob_noninj: 0.1115
       moud.injection_scale.active: 0.59381148
-      moud.discontinue_per_month: 0.08846587
-      moud.reinit_prob: 0.11833204
-      moud.post_overdose_rr: 2.51597084
-      calibration.sex.act: 0.5170378
+      moud.reinit_prob: 0.36
+      calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
-      hiv_testing.base_prob_annual: 0.2
       high_risk.partner_scale: 13
+
+  # ---------------------------------------------------------------------
+  # The pilot refit's best trials (job 6832656, 200 trials, 2026-09-30),
+  # by total gate violation. None passed all four gates; these are the
+  # closest, and the full refit starts from them. Their HIV coordinates
+  # were fitted with hiv_testing.base_prob_annual at 0.155; it is 0.08
+  # now, so they are starting points, not reproductions.
+  # ---------------------------------------------------------------------
+  - label: pilot_153
+    source: trial 153 of pilot job 6832656 (violation 0.0185, gates passed 2/4; oud 0.0581 hiv 0.901 od 0.0204 moud 0.0953)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.26998257
+      oud_state.transitions.relapse_rate_per_year: 0.28750126
+      overdose.base_prob_inj: 0.19174878
+      overdose.base_prob_noninj: 0.07851458
+      moud.injection_scale.active: 0.76417479
+      moud.reinit_prob: 0.39160029
+      calibration.background.msm_inj_mult: 12.07977777
+      calibration.injection.act: 0.26246694
+      high_risk.partner_scale: 10
+  - label: pilot_137
+    source: trial 137 of pilot job 6832656 (violation 0.0249, gates passed 2/4; oud 0.0566 hiv 1.007 od 0.0037 moud 0.1183)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.26998257
+      oud_state.transitions.relapse_rate_per_year: 0.28750126
+      overdose.base_prob_inj: 0.22424394
+      overdose.base_prob_noninj: 0.08232191
+      moud.injection_scale.active: 0.43228155
+      moud.reinit_prob: 0.46411315
+      calibration.background.msm_inj_mult: 12.07977777
+      calibration.injection.act: 0.26246694
+      high_risk.partner_scale: 10
+  - label: pilot_9
+    source: trial 9 of pilot job 6832656 (violation 0.0383, gates passed 2/4; oud 0.0027 hiv 0.167 od 0.0377 moud 0.1105)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29552238
+      oud_state.transitions.relapse_rate_per_year: 0.39265558
+      overdose.base_prob_inj: 0.2722947
+      overdose.base_prob_noninj: 0.06973176
+      moud.injection_scale.active: 0.72005128
+      moud.reinit_prob: 0.43386034
+      calibration.background.msm_inj_mult: 8.289783
+      calibration.injection.act: 0.32514255
+      high_risk.partner_scale: 5
+  - label: pilot_192
+    source: trial 192 of pilot job 6832656 (violation 0.0710, gates passed 2/4; oud 0.0881 hiv 1.092 od 0.0429 moud 0.0585)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.31624074
+      oud_state.transitions.relapse_rate_per_year: 0.28750126
+      overdose.base_prob_inj: 0.19174878
+      overdose.base_prob_noninj: 0.06570561
+      moud.injection_scale.active: 0.43228155
+      moud.reinit_prob: 0.29696466
+      calibration.background.msm_inj_mult: 12.07977777
+      calibration.injection.act: 0.72646301
+      high_risk.partner_scale: 8
+  - label: pilot_157
+    source: trial 157 of pilot job 6832656 (violation 0.1045, gates passed 3/4; oud 0.0043 hiv 0.788 od 0.1145 moud 0.0681)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.31180661
+      oud_state.transitions.relapse_rate_per_year: 0.39265558
+      overdose.base_prob_inj: 0.2722947
+      overdose.base_prob_noninj: 0.06190545
+      moud.injection_scale.active: 0.72005128
+      moud.reinit_prob: 0.31697705
+      calibration.background.msm_inj_mult: 8.289783
+      calibration.injection.act: 0.17037256
+      high_risk.partner_scale: 5
+  - label: pilot_3
+    source: trial 3 of pilot job 6832656 (violation 0.1094, gates passed 2/4; oud 0.0858 hiv 0.361 od 0.0836 moud 0.0843)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.18856191
+      oud_state.transitions.relapse_rate_per_year: 0.18521997
+      overdose.base_prob_inj: 0.264
+      overdose.base_prob_noninj: 0.1115
+      moud.injection_scale.active: 0.59381148
+      moud.reinit_prob: 0.36
+      calibration.background.msm_inj_mult: 6.0
+      calibration.injection.act: 0.387937
+      high_risk.partner_scale: 13
+  - label: pilot_154
+    source: trial 154 of pilot job 6832656 (violation 0.1193, gates passed 2/4; oud 0.0976 hiv 0.531 od 0.0816 moud 0.0696)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.33572225
+      oud_state.transitions.relapse_rate_per_year: 0.28750126
+      overdose.base_prob_inj: 0.24784545
+      overdose.base_prob_noninj: 0.05255589
+      moud.injection_scale.active: 0.76417479
+      moud.reinit_prob: 0.32741304
+      calibration.background.msm_inj_mult: 12.07977777
+      calibration.injection.act: 0.26246694
+      high_risk.partner_scale: 10
+  - label: pilot_78
+    source: trial 78 of pilot job 6832656 (violation 0.1228, gates passed 2/4; oud 0.0821 hiv 1.094 od 0.1006 moud 0.0714)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.31117995
+      oud_state.transitions.relapse_rate_per_year: 0.28750126
+      overdose.base_prob_inj: 0.20325176
+      overdose.base_prob_noninj: 0.05255589
+      moud.injection_scale.active: 0.76417479
+      moud.reinit_prob: 0.33270103
+      calibration.background.msm_inj_mult: 12.07977777
+      calibration.injection.act: 0.26246694
+      high_risk.partner_scale: 10
+  - label: pilot_114
+    source: trial 114 of pilot job 6832656 (violation 0.1271, gates passed 2/4; oud 0.0199 hiv 1.133 od 0.1043 moud 0.0581)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.33373949
+      oud_state.transitions.relapse_rate_per_year: 0.38737931
+      overdose.base_prob_inj: 0.29091057
+      overdose.base_prob_noninj: 0.06860636
+      moud.injection_scale.active: 0.69803485
+      moud.reinit_prob: 0.2946694
+      calibration.background.msm_inj_mult: 1.89312663
+      calibration.injection.act: 0.38377811
+      high_risk.partner_scale: 12
+  - label: pilot_152
+    source: trial 152 of pilot job 6832656 (violation 0.1342, gates passed 3/4; oud 0.1842 hiv 0.845 od 0.0039 moud 0.0428)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.19729656
+      oud_state.transitions.relapse_rate_per_year: 0.11742431
+      overdose.base_prob_inj: 0.2059614
+      overdose.base_prob_noninj: 0.07321412
+      moud.injection_scale.active: 0.75265159
+      moud.reinit_prob: 0.24004154
+      calibration.background.msm_inj_mult: 14.95049801
+      calibration.injection.act: 0.29282121
+      high_risk.partner_scale: 14

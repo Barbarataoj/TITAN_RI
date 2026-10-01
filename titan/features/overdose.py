@@ -79,6 +79,11 @@ class Overdose(base_feature.BaseFeature):
         self.agent.recent_overdose = False
         self.agent.recent_overdose_timer = 0
 
+        # Post-MOUD-stop memory (raised by the moud feature, read here)
+        if not hasattr(self.agent, "recent_moud_stop"):
+            self.agent.recent_moud_stop = False
+            self.agent.recent_moud_stop_timer = 0
+
     # ================= POPULATION-LEVEL UPDATE =================
 
     @classmethod
@@ -102,21 +107,35 @@ class Overdose(base_feature.BaseFeature):
             agent_feature = getattr(a, cls.name)
             if not agent_feature.active:
                 continue
-            if not getattr(a, "recent_overdose", False):
+            flagged_od = getattr(a, "recent_overdose", False)
+            flagged_stop = getattr(a, "recent_moud_stop", False)
+            if not (flagged_od or flagged_stop):
                 continue
 
             params = getattr(a.location.params, "overdose", None)
             if params is None:
                 continue
 
-            a.recent_overdose_timer = getattr(a, "recent_overdose_timer", 0) + 1
-            steps_per_year = model.params.model.time.steps_per_year
-            post_od_window = getattr(
-                params, "post_overdose_window", steps_per_year // 2
-            )
-            if a.recent_overdose_timer > post_od_window:
-                a.recent_overdose = False
-                a.recent_overdose_timer = 0
+            if flagged_od:
+                a.recent_overdose_timer = getattr(a, "recent_overdose_timer", 0) + 1
+                steps_per_year = model.params.model.time.steps_per_year
+                post_od_window = getattr(
+                    params, "post_overdose_window", steps_per_year // 2
+                )
+                if a.recent_overdose_timer > post_od_window:
+                    a.recent_overdose = False
+                    a.recent_overdose_timer = 0
+
+            # Post-MOUD-stop window. The count includes the step the agent
+            # stopped on -- the moud feature raises the flag before this
+            # feature's update_agent applies it within that step -- so a window
+            # of 1 is exactly the month of stopping, and the next step's
+            # update_pop clears it.
+            if flagged_stop:
+                a.recent_moud_stop_timer = getattr(a, "recent_moud_stop_timer", 0) + 1
+                if a.recent_moud_stop_timer >= getattr(params, "post_moud_stop_window", 1):
+                    a.recent_moud_stop = False
+                    a.recent_moud_stop_timer = 0
 
     # ================= PER-STEP UPDATE =================
 
@@ -164,6 +183,17 @@ class Overdose(base_feature.BaseFeature):
         # ---------- Elevated risk after relapse ----------
         if getattr(self.agent, "recent_relapse", False):
             prob *= getattr(params, "post_relapse_od_rr", 1.0)
+
+        # ---------- Elevated risk right after stopping MOUD ----------
+        # Loss of tolerance in the weeks after leaving treatment (Sordo 2017,
+        # Santo 2021: 2.4-3.3x the rest of time out of treatment). Applied on
+        # top of the off-MOUD baseline the block above already restored, and
+        # never while on MOUD, whose own scale applies instead.
+        if (
+            getattr(self.agent, "recent_moud_stop", False)
+            and not getattr(self.agent, "on_moud", False)
+        ):
+            prob *= getattr(params, "post_moud_stop_rr", 1.0)
 
         # ---------- High-risk phenotype ----------
         high_risk_feat = getattr(self.agent, "high_risk", None)

@@ -226,6 +226,25 @@ VALIDATION = [
     # reporting it -- the miss is a burn-length and initial-condition question
     # for Stage C, not something the optimizer should be trading HIV fit against.
     ("inj_share_active_oud",  "injection share | active OUD",  0.32, 0.05),
+    # Added 2026-09-29 with the pinning of hiv_testing.base_prob_annual at
+    # 0.155. NHBS-PWID's 45% tested in the past year, converted to tests per
+    # PWID person-year (0.60 = -ln(1 - 0.45)); see calibration_targets.yml
+    # validation_targets.hiv_testing for the band.
+    ("hiv_tests_per_pwid_yr", "HIV tests / PWID-yr (NHBS 0.45)", 0.60, 0.18),
+    # The fatal overdose rate left od_err the same day, when overdose.fatal_frac
+    # became a derived quantity. Checked here so a miss on the nonfatal rates
+    # still shows up on the fatal side, which is the Phase 7 headline outcome.
+    ("fatal_od_rate", "fatal OD rate (unscored)", 0.015, 0.003),
+    # Added 2026-09-29 after the HIV grid (job 6817937) found the model reaching
+    # RIDOH's all-route PWID level with 0.4-0.8 HIV prevalence among non-injecting
+    # MSM. RI GBMSM overall are ~0.07 (RIDOH 2022); MSM with OUD plausibly
+    # 0.15-0.25. Target 0.20 +/- 0.10: a fit above 0.30 reached the HIV target
+    # through the wrong reservoir.
+    # Re-sourced 2026-09-29: 0.15 +/- 0.10, i.e. 0.05-0.25. Floor: ~7% of RI
+    # GBMSM living with HIV (RIDOH 2022). Ceiling: 25% among MSM who INJECT
+    # (NHBS-PWID 2018, CDC MMWR 2021;70(42)), which non-injecting MSM with OUD
+    # should not exceed.
+    ("hiv_prevalence_noninj_msm", "NonInj MSM HIV prev (unscored)", 0.15, 0.10),
 ]
 
 
@@ -365,8 +384,11 @@ def main():
                 )
             # Validation quantities -- carried through but NOT scored, see
             # calibration_targets.yml `validation_targets`.
-            for k in ("incar_share", "art_among_dx", "suppressed_among_dx",
-                      "dx_among_hiv", "hiv_prevalence_pwid"):
+            # Every band in VALIDATION, so _report_validation() can print each one.
+            # Until 2026-10-01 only five keys were carried, and the drift, injection
+            # share, testing-rate and MSM-prevalence bands were defined but never
+            # shown; adhoc item2_checks.py recovered them from the saved reports.
+            for k in [v[0] for v in VALIDATION] + ["dx_among_hiv"]:
                 row[k] = stats.get(k, float("nan"))
             # The three rates od_err is the mean squared proportional error OF.
             # Added 2026-08-12: od_err is a scalar mean over three components, so

@@ -386,6 +386,14 @@ demographics:
 scenario:
   calibration:
     acquisition: 1.0
+    # Sexual act scalars, data slots since 2026-09-29, guarded by
+    # optuna_calibration.ANCHORED_PATHS: `act` at the NSFG-anchored prior;
+    # `act_msm` derived so non-injecting MSM HIV prevalence sits at 0.20
+    # (analysis/probe_act_msm.py, job 6826397: 0.473 and 0.466 at two operating
+    # points). The fitted sexual lever is background.msm_inj_mult.
+    sex:
+      act: 1.0
+      act_msm: 0.47
     test_frequency: 0.651830758384625
   classes:
     sex_types:
@@ -437,6 +445,17 @@ scenario:
     aids:
       prob: 0.01
     background_sex:
+      # MSM/MSMW overrides added 2026-09-29; the values are owned by
+      # optuna_calibration.BACKGROUND_MSM_* and re-applied by
+      # set_hiv_initial_conditions() on every calibration run. Carried here so
+      # the generated base scenario runs the same model on its own.
+      by_sex_type:
+        MSM:
+          partner_hiv_prevalence: 0.1
+          rate_per_timestep: 0.5
+        MSMW:
+          partner_hiv_prevalence: 0.1
+          rate_per_timestep: 0.5
       inj_multiplier: 1.5
       partner_hiv_prevalence_nonoud: 0.0034
       rate_nonoud_per_timestep: 0.5
@@ -511,6 +530,14 @@ scenario:
     base_prob_noninj: 0.0057040713523710184
     fatal_frac: 0.0942155430807794
     high_risk_mult: 1.6682146502960655
+    # Loss-of-tolerance window after stopping MOUD, added 2026-09-29 on Jun's
+    # decision to model it from the literature. 2.8 is the centre of three
+    # all-cause estimates for the first four weeks out of treatment against the
+    # rest of time out: Sordo 2017 methadone 2.38 (1.51-3.74), buprenorphine
+    # 2.94 (1.34-6.46); Santo 2021 6.01 / 1.81 = 3.3. Sensitivity 2.4-3.3
+    # (points), 1.5-3.7 (Sordo's methadone CI). Window 1 = the month of stopping.
+    post_moud_stop_rr: 2.8
+    post_moud_stop_window: 1
     post_overdose_window: 6
     post_relapse_od_rr: 2.0
     ssp_rr: 0.8

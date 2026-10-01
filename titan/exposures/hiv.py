@@ -527,6 +527,23 @@ class HIV(base_exposure.BaseExposure):
         if model.run_random.random() < p * aids_prob:
             self.aids = True
 
+    def _background_override(self, bg):
+        """The agent's sex-type entry of hiv.background_sex.by_sex_type, or None.
+
+        Tolerates both the engine's ObjMap (item access) and the plain
+        namespaces the unit tests build (attribute access).
+        """
+        by_sex = getattr(bg, "by_sex_type", None)
+        if by_sex is None:
+            return None
+        sex_type = getattr(self.agent, "sex_type", None)
+        if sex_type is None:
+            return None
+        try:
+            return by_sex[sex_type]
+        except (KeyError, TypeError, IndexError):
+            return getattr(by_sex, sex_type, None)
+
     # NEW: helper for background HIV risk from non-OUD partners
     def get_background_foi_probability(self, model: "model.TITAN") -> float:
         """
@@ -571,9 +588,37 @@ class HIV(base_exposure.BaseExposure):
         # There is no tracked source agent, so the susceptible's own role is used
         # as-is; `versatile` is already the blended entry in that table.
 
+        # Sex-type overrides (added 2026-09-29). MSM agents' non-OUD partners are
+        # drawn from the MSM community, not from all Rhode Island adults, and
+        # they have more of them: the all-adult prevalence and rate applied to
+        # MSM left MSM who inject unable to acquire HIV from outside the cohort,
+        # which is the reservoir RIDOH's MSM/IDU category describes. A zero in
+        # either field means "use the scalar", so a scenario without the block
+        # runs exactly as before.
+        override = self._background_override(bg)
+        if override is not None:
+            prev_override = float(getattr(override, "partner_hiv_prevalence", 0.0) or 0.0)
+            rate_override = float(getattr(override, "rate_per_timestep", 0.0) or 0.0)
+            if prev_override > 0.0:
+                prev_nonoud = prev_override
+            if rate_override > 0.0:
+                rate_nonoud = rate_override
+
         # Behavior multiplier for people with injecting OUD (if you use drug_type == "Inj")
+        #
+        # MSM/MSMW who inject take calibration.background.msm_inj_mult instead
+        # when it is set (>= 0), added 2026-09-29: RIDOH's MSM/IDU category is
+        # most PWID diagnoses in RI, and it is sexual acquisition from the MSM
+        # community by men who also inject -- an outside exposure the all-agent
+        # inj_multiplier does not describe.
         if getattr(self.agent, "drug_type", None) == "Inj":
-            rate_nonoud *= bg.inj_multiplier
+            inj_mult = bg.inj_multiplier
+            if getattr(self.agent, "sex_type", None) in ("MSM", "MSMW"):
+                cal_bg = getattr(getattr(model, "calibration", None), "background", None)
+                msm_inj = getattr(cal_bg, "msm_inj_mult", -1.0) if cal_bg is not None else -1.0
+                if msm_inj is not None and msm_inj >= 0.0:
+                    inj_mult = msm_inj
+            rate_nonoud *= inj_mult
 
         # Expected number of acts with HIV+ non-OUD partners in this timestep
         expected_acts_with_hiv_pos = rate_nonoud * prev_nonoud

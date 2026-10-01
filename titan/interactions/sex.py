@@ -17,9 +17,18 @@ class Sex(base_interaction.BaseInteraction):
             rel : Relationship
         """
         # unprotected sex probabilities for primary partnerships
-        mean_sex_acts = (
-            rel.get_number_of_sex_acts(model.np_random) * model.calibration.sex.act
-        )
+        #
+        # The act scalar is sex-type aware since 2026-09-29: partnerships with an
+        # MSM/MSMW agent use calibration.sex.act_msm when it is set (>= 0), so the
+        # fitted heterosexual scalar does not drive the male-male route, whose
+        # per-act probability is ~12x higher.
+        act_scale = model.calibration.sex.act
+        act_msm = getattr(model.calibration.sex, "act_msm", -1.0)
+        if act_msm is not None and act_msm >= 0.0 and (
+            rel.agent1.sex_type in ("MSM", "MSMW") or rel.agent2.sex_type in ("MSM", "MSMW")
+        ):
+            act_scale = act_msm
+        mean_sex_acts = rel.get_number_of_sex_acts(model.np_random) * act_scale
         total_sex_acts = poisson(model.np_random, mean_sex_acts)
 
         # Get condom usage

@@ -72,3 +72,20 @@ hiv:
       description: "Multiplier on background sexual risk for agents with injecting OUD (drug_type == 'Inj')."
       type: float
       min: 0.0
+    by_sex_type:
+      type: sub-dict
+      description: "Sex-type-specific overrides for the background route, added 2026-09-29. A value of 0 means 'use the scalar above'. The all-adult partner prevalence (0.0034) and the 0.5 acts/timestep were being applied to MSM agents too, which left MSM who inject unable to acquire HIV from the MSM community outside the cohort -- the reservoir RIDOH's MSM/IDU exposure category describes -- so the model reached RIDOH's all-route level only by driving its own 5% MSM pool to ~60% prevalence."
+      keys:
+        - sex_types
+      default:
+        partner_hiv_prevalence:
+          default: 0.0
+          description: "HIV prevalence among this sex type's non-OUD partners; 0 falls back to partner_hiv_prevalence_nonoud."
+          type: float
+          min: 0.0
+          max: 1.0
+        rate_per_timestep:
+          default: 0.0
+          description: "Sex acts per timestep with non-OUD partners for this sex type; 0 falls back to rate_nonoud_per_timestep."
+          type: float
+          min: 0.0
