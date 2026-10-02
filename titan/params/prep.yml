@@ -105,12 +105,35 @@ prep:
       when test_at_injection. Cabotegravir LA: 2 initiation injections, every
       2 months; lenacapavir: oral loading within the first step plus one
       injection, every 6 months.
+      Shares: share_of_starts is the share among starts at time t; -1 makes a
+      product take the remainder (1 minus the other products' current
+      shares). A product is unavailable before available_from_step, and its
+      share moves linearly from share_of_starts to share_end between
+      share_ramp_start_step and share_ramp_end_step (-1 = no ramp).
+      Protection: efficacy while on schedule (efficacy_injection, when >= 0,
+      for injection exposure, where neither injectable has trial data), held
+      for tail_full_steps after the due date, then decaying with half-life
+      tail_half_life_steps.
     fields:
       type:
         type: enum
         values: [Oral, Inj]
         default: Oral
       share_of_starts:
+        type: float
+        default: 0.0
+        min: -1.0
+        max: 1.0
+      available_from_step:
+        type: int
+        default: -9999
+      share_ramp_start_step:
+        type: int
+        default: -1
+      share_ramp_end_step:
+        type: int
+        default: -1
+      share_end:
         type: float
         default: 0.0
         min: 0.0
@@ -142,6 +165,15 @@ prep:
         default: 0.96
         min: 0.0
         max: 1.0
+      efficacy_injection:
+        type: float
+        default: -1.0
+        min: -1.0
+        max: 1.0
+      tail_full_steps:
+        type: int
+        default: 0
+        min: 0
       tail_half_life_steps:
         type: float
         default: 1.0

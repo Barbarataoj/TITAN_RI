@@ -159,12 +159,16 @@ class Prep(base_feature.BaseFeature):
             params = self.agent.location.params
             if self.type == "Inj" and self.product:
                 spec = params.prep.products[self.product]
+                eff = spec.efficacy
+                if interaction_type == "injection" and getattr(spec, "efficacy_injection", -1.0) >= 0:
+                    eff = spec.efficacy_injection
                 due = self.next_due if self.next_due is not None else time
-                if time <= due:
-                    return 1.0 - spec.efficacy
+                past = time - due - getattr(spec, "tail_full_steps", 0)
+                if past <= 0:
+                    return 1.0 - eff
                 half = spec.tail_half_life_steps
-                decay = 0.0 if half <= 0 else 0.5 ** ((time - due) / half)
-                return 1.0 - spec.efficacy * decay
+                decay = 0.0 if half <= 0 else 0.5 ** (past / half)
+                return 1.0 - eff * decay
             if self.type == "Oral":
                 adherence = "adherent" if self.adherent else "non_adherent"
                 return 1.0 - params.prep.efficacy[adherence]
@@ -293,7 +297,7 @@ class Prep(base_feature.BaseFeature):
         self.next_due = None
         self.overdue = False
         if getattr(params.prep, "use_products", False):
-            self.product = self.draw_product(params.prep.products, rand_gen)
+            self.product = self.draw_product(params.prep.products, rand_gen, time)
             spec = params.prep.products[self.product]
             self.type = spec.type
             if self.type == "Inj":
@@ -310,10 +314,33 @@ class Prep(base_feature.BaseFeature):
         self.add_agent(self.agent)
 
     @staticmethod
-    def draw_product(products, rand_gen) -> str:
-        """Draw a product name by share_of_starts (renormalised; first product if all shares are 0)."""
+    def product_share(spec, time) -> float:
+        """A product's share of starts at `time` (availability and linear ramp); -1 = remainder."""
+        if time is not None and time < getattr(spec, "available_from_step", -9999):
+            return 0.0
+        share = float(spec.share_of_starts)
+        if share < 0:
+            return -1.0
+        start = getattr(spec, "share_ramp_start_step", -1)
+        end = getattr(spec, "share_ramp_end_step", -1)
+        if time is not None and start >= 0 and end > start and time > start:
+            frac = min(1.0, (time - start) / (end - start))
+            share = share + frac * (float(getattr(spec, "share_end", share)) - share)
+        return share
+
+    @classmethod
+    def draw_product(cls, products, rand_gen, time=None) -> str:
+        """
+        Draw a product name by its share of starts at `time`. Products with
+        share -1 split the remainder (1 minus the others); first product if all
+        shares are 0.
+        """
         names = list(products.keys())
-        shares = [max(0.0, float(products[n].share_of_starts)) for n in names]
+        raw = [cls.product_share(products[n], time) for n in names]
+        fixed = sum(s for s in raw if s >= 0)
+        n_rem = sum(1 for s in raw if s < 0)
+        rem = max(0.0, 1.0 - fixed) / n_rem if n_rem else 0.0
+        shares = [s if s >= 0 else rem for s in raw]
         total = sum(shares)
         if total <= 0:
             return names[0]

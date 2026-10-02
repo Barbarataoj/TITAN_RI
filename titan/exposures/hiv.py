@@ -436,7 +436,12 @@ class HIV(base_exposure.BaseExposure):
             p *= agent_feature.get_transmission_risk_multiplier(self.time, interaction)
 
             partner_feature = getattr(partner, feature.name)
-            p *= partner_feature.get_acquisition_risk_multiplier(self.time, interaction)
+            # the partner's protection at the CURRENT step (2026-10-02): this
+            # passed self.time, the source agent's infection time, which every
+            # time-dependent acquisition multiplier (injectable PrEP decay,
+            # vaccine waning) would have evaluated at the wrong moment; oral
+            # PrEP ignores the argument, so calibrated results are unchanged
+            p *= partner_feature.get_acquisition_risk_multiplier(model.time, interaction)
 
         # Scaling parameter for acute HIV infections
         if self.get_acute_status(model.time):

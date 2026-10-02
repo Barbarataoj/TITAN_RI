@@ -619,3 +619,33 @@ def test_product_draw_by_share_and_oral_keeps_legacy_path(make_agent, make_model
     assert Prep.draw_product(a.location.params.prep.products, FakeRandom(0.95)) == "lenacapavir"
     a.prep.enroll(FakeRandom(0.5), 3)
     assert a.prep.type == "Oral" and a.prep.product == "oral" and a.prep.injections == 0
+
+
+@pytest.mark.unit
+def test_product_share_availability_ramp_and_remainder(make_agent):
+    from titan.parse_params import ObjMap
+    products = ObjMap({
+        "oral": {"type": "Oral", "share_of_starts": -1.0},
+        "len": dict(LEN, share_of_starts=0.02, available_from_step=162, share_ramp_start_step=162,
+                    share_ramp_end_step=229, share_end=0.1875),
+    })
+    assert Prep.product_share(products["len"], 161) == 0.0
+    assert Prep.product_share(products["len"], 162) == pytest.approx(0.02)
+    assert Prep.product_share(products["len"], 229) == pytest.approx(0.1875)
+    assert Prep.product_share(products["len"], 300) == pytest.approx(0.1875)
+    # oral takes the remainder: at 229 a draw of 0.80 is above 0.8125? no -> oral; 0.90 -> len
+    assert Prep.draw_product(products, FakeRandom(0.80), 229) == "oral"
+    assert Prep.draw_product(products, FakeRandom(0.90), 229) == "len"
+    assert Prep.draw_product(products, FakeRandom(0.99), 100) == "oral"       # len unavailable
+
+
+@pytest.mark.unit
+def test_full_protection_window_and_injection_exposure_efficacy(make_agent):
+    a = make_agent()
+    _use_products(a, {"cab_la": dict(CAB, efficacy=0.93, efficacy_injection=0.5, tail_full_steps=1,
+                                     tail_half_life_steps=3.0)})
+    a.prep.enroll(FakeRandom(0.0), 0)          # next due at 1 (second initiation injection)
+    assert a.prep.get_acquisition_risk_multiplier(1, "sex") == pytest.approx(0.07)
+    assert a.prep.get_acquisition_risk_multiplier(2, "sex") == pytest.approx(0.07)        # 1 step late: still full
+    assert a.prep.get_acquisition_risk_multiplier(5, "sex") == pytest.approx(1 - 0.93 * 0.5)  # 3 steps beyond the window
+    assert a.prep.get_acquisition_risk_multiplier(1, "injection") == pytest.approx(0.5)

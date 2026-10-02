@@ -705,39 +705,52 @@ scenario:
           adherent: 0.03
           non_adherent: 1.0
   prep:
-    # PrEP products (2026-10-02). Baseline is oral-only (injectable shares 0);
-    # Phase 7 arms / sensitivity set the shares. Schedules from the labels:
-    # cabotegravir LA two initiation injections one month apart then every
-    # 2 months; lenacapavir oral loading within the first step plus an
-    # injection, then every 6 months. Attendance / return / gap / efficacy /
-    # tail values: CHIA note section 8.2 (literature, to be filled).
+    # PrEP products (2026-10-02). Status-quo product mix with the secular
+    # rise of long-acting PrEP (DECISION for Jun: keep the trend in the
+    # baseline, or run an oral-only baseline as a sensitivity). Steps: 121 =
+    # 2022-01, 145 = 2024-01, 162 = 2025-06, 229 = 2031-01; calibration covers
+    # steps 1-132, so the 2022 CAB share is the only overlap (PrEP is ~0.2 % of
+    # agents). Sources: CHIA note section 8.2;
+    # /oscar/scratch/jtao9/titan_calibration/lit/strategy_effects_2026-10-02/injectable_prep.md
     use_products: true
     products:
       oral:
         type: Oral
-        share_of_starts: 1.0
+        share_of_starts: -1.0          # the remainder
       cab_la:
         type: Inj
-        share_of_starts: 0.0
-        initiation_injections: 2
-        interval_steps: 2
-        attendance: 0.8
-        return_prob: 0.3
-        max_gap_steps: 2
-        efficacy: 0.9
-        tail_half_life_steps: 2.0
-        test_at_injection: true
+        available_from_step: 121       # approved 2021-12
+        share_of_starts: 0.04          # US: 3-4 % of PrEP users 2022-24 (PMID 42360740); ~5.5 % mid-2025 (AIDS 2026)
+        share_ramp_start_step: 145
+        share_ramp_end_step: 229
+        share_end: 0.0625              # 25 % long-acting by 2031, CAB:LEN ~1:3 (estimate; LEN 37 % of users by 2030 is the upper scenario, PMID 42573428)
+        initiation_injections: 2       # two initiation injections one month apart
+        interval_steps: 2              # then every 2 months
+        attendance: 0.88               # per due injection, unsupported, OUD-adjusted (0.78-0.93): persistence 0.50-0.85 at 12 mo (42360740, 42150757, Trio), substance-use HR 2.23 (39484783); supported 0.95
+        return_prob: 0.40              # back within the no-restart window (label: <=3 months since last injection)
+        max_gap_steps: 1               # beyond 3 months since the last injection the label restarts initiation -> treated as stopped
+        efficacy: 0.93                 # RR 0.07 (0.04-0.15) vs no PrEP (HPTN 083/084: 34379922, 35378077; counterfactual 37363917)
+        efficacy_injection: -1.0       # same as sexual; no trial data for injection exposure (HPTN 083 excluded recent PWID): sensitivity 0.5
+        tail_full_steps: 1             # full protection through month 3 after the last injection
+        tail_half_life_steps: 3.0      # RR ~0.3 at months 4-5, ~0.7 at months 6-9 (trough 1.75 ug/mL, half-life 5.6-11.5 wk: 33830459, 35949044)
+        test_at_injection: true        # HIV Ag/Ab + RNA at every injection (CDC 2021)
       lenacapavir:
         type: Inj
-        share_of_starts: 0.0
-        initiation_injections: 1
-        interval_steps: 6
-        attendance: 0.85
-        return_prob: 0.3
-        max_gap_steps: 2
-        efficacy: 0.96
-        tail_half_life_steps: 3.0
-        test_at_injection: true
+        available_from_step: 162       # approved 2025-06
+        share_of_starts: 0.02          # ~1 % of users in the first months (AIDS 2026), leading LA new starts in 2026 (Gilead)
+        share_ramp_start_step: 162
+        share_ramp_end_step: 229
+        share_end: 0.1875
+        initiation_injections: 1       # oral loading days 1-2 + first injection, within one step
+        interval_steps: 6              # every 26 weeks
+        attendance: 0.55               # per due injection, unsupported, OUD-adjusted (0.45-0.72): trials 91-93 % on time, real world >70 % (company claim); supported 0.85
+        return_prob: 0.25
+        max_gap_steps: 2               # label restarts the oral load beyond 28 weeks; treated as a return within 2 steps
+        efficacy: 0.96                 # RR 0.04 (0.01-0.18) vs background (PURPOSE 1/2: 39046157, 39602624)
+        efficacy_injection: -1.0       # no data for injection exposure (<1 % of PURPOSE 2 injected): sensitivity 0.5
+        tail_full_steps: 2             # full protection through month 8 after the last injection
+        tail_half_life_steps: 3.5      # RR ~0.3 at months 9-11, ~0.7 at months 12-15 (PK-PD 40909830; CDC 40966169)
+        test_at_injection: true        # HIV Ag/Ab before each injection
     discontinue_late_mult: 0.4  # care_seeking layer (scripts/make_care_seeking_params.py): late-phase hazard as a share of the early one: general 0.08 -> 0.03/month (PMID 33527117), PWID 0.30 -> 0.14 (40222706, 31436610) -> 0.4 (0.3-0.5)
     discontinue_late_after_steps: 6  # care_seeking layer (scripts/make_care_seeking_params.py): months on PrEP after which the discontinuation hazard drops (persistence curves are front-loaded; CHIA note 7.4)
     monitoring_setting: primary_care  # care_seeking layer (scripts/make_care_seeking_params.py): where PrEP monitoring happens
