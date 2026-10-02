@@ -245,6 +245,10 @@ VALIDATION = [
     # (NHBS-PWID 2018, CDC MMWR 2021;70(42)), which non-injecting MSM with OUD
     # should not exceed.
     ("hiv_prevalence_noninj_msm", "NonInj MSM HIV prev (unscored)", 0.15, 0.10),
+    # APCD job 2b, 2018-2022: any MOUD within 30 days of the index overdose,
+    # 13.2-18.7% (mean 15.4%), survivors already on MOUD included. Added
+    # 2026-10-01 with the od_survivors_* / moud_start_postod_1step columns.
+    ("survivor_any_moud_30d_share", "survivors w/ MOUD at 30 d (job 2b)", 0.154, 0.04),
 ]
 
 
@@ -322,6 +326,63 @@ def _report_noninj_seed(trial):
     print(f"  NonInj HIV seed (fitted, NOT data-anchored): {shown}")
 
 
+def build_row(trial, seed, stats, targets, errs=None):
+    """
+    One validation_summary.csv row for a (trial, population seed) pair.
+
+    Split out of main() on 2026-10-01 so the row can be rebuilt from a saved
+    basicReport.txt without re-simulating: eight ensemble shards writing the
+    same OUT_DIR each overwrote validation_summary.csv, and the only
+    full-fidelity record left was the per-batch report
+    (scripts/rebuild_validation_summary.py).
+    """
+    if errs is None:
+        errs = multi_error(stats, targets)
+    row = {"trial": trial, "pop_seed": seed}
+    row.update({f"err_{i}": e for i, e in enumerate(errs)})
+    # Raw pooled infection count, not just the RMSE: a trial can score well
+    # on HIV trajectory with 0-1 stochastic infections (see
+    # docs/calibration_log/phase_4_ridoh_idu_validation_2026-07-21.md).
+    row["hiv_new_pooled"] = stats.get("hiv_new_pooled", 0)
+    # Injection-attributed diagnoses on RIDOH's statewide footing, which
+    # is what objective slot 1 actually compares. Carried as a raw
+    # quantity for the same reason hiv_new_pooled is: the RMSE alone does
+    # not say whether a good score came from matching RIDOH or from
+    # simulating almost no injection transmission at all.
+    # Both series the objective compares, so a good RMSE can be read
+    # against RIDOH's own numbers: IDU 1.8-2.5/yr, IDU + MSM/IDU
+    # 5.4-8.7/yr. Their ratio is the model's injection-attributed share
+    # of PWID diagnoses, which RIDOH puts at 29-40%.
+    for key, col in (
+        ("idu_dx_counts_per_year", "idu_dx_per_year_ri"),
+        ("pwid_dx_counts_per_year", "pwid_dx_per_year_ri"),
+    ):
+        series = stats.get(key)
+        row[col] = (
+            float(np.mean(series)) * targets["pop_scale"]
+            if series is not None and len(series)
+            else float("nan")
+        )
+    # Validation quantities -- carried through but NOT scored, see
+    # calibration_targets.yml `validation_targets`.
+    # Every band in VALIDATION, so _report_validation() can print each one.
+    # Until 2026-10-01 only five keys were carried, and the drift, injection
+    # share, testing-rate and MSM-prevalence bands were defined but never
+    # shown; adhoc item2_checks.py recovered them from the saved reports.
+    for k in [v[0] for v in VALIDATION] + ["dx_among_hiv"]:
+        row[k] = stats.get(k, float("nan"))
+    # The three rates od_err is the mean squared proportional error OF.
+    # Added 2026-08-12: od_err is a scalar mean over three components, so
+    # a 2x miss on the aggregate does not say whether one component is
+    # far off or all three are moderately off -- and the Optuna journal
+    # stores only hiv_new_pooled in user_attrs, so the decomposition is
+    # not recoverable from a finished study. Carrying the raw rates here
+    # makes it recoverable for anything this script re-runs.
+    for k in OD_COMPONENTS:
+        row[k] = stats.get(k, float("nan"))
+    return row
+
+
 def main():
     trials = [t.strip() for t in os.environ.get("TITAN_VAL_TRIALS", "54,172,111").split(",")]
     n_seeds = int(os.environ.get("TITAN_VAL_SEEDS", 5))
@@ -357,48 +418,7 @@ def main():
             stats = run_titan(yml, outdir, n_reps=n_reps)
             errs = multi_error(stats, targets)
 
-            row = {"trial": trial, "pop_seed": seed}
-            row.update({f"err_{i}": e for i, e in enumerate(errs)})
-            # Raw pooled infection count, not just the RMSE: a trial can score well
-            # on HIV trajectory with 0-1 stochastic infections (see
-            # docs/calibration_log/phase_4_ridoh_idu_validation_2026-07-21.md).
-            row["hiv_new_pooled"] = stats.get("hiv_new_pooled", 0)
-            # Injection-attributed diagnoses on RIDOH's statewide footing, which
-            # is what objective slot 1 actually compares. Carried as a raw
-            # quantity for the same reason hiv_new_pooled is: the RMSE alone does
-            # not say whether a good score came from matching RIDOH or from
-            # simulating almost no injection transmission at all.
-            # Both series the objective compares, so a good RMSE can be read
-            # against RIDOH's own numbers: IDU 1.8-2.5/yr, IDU + MSM/IDU
-            # 5.4-8.7/yr. Their ratio is the model's injection-attributed share
-            # of PWID diagnoses, which RIDOH puts at 29-40%.
-            for key, col in (
-                ("idu_dx_counts_per_year", "idu_dx_per_year_ri"),
-                ("pwid_dx_counts_per_year", "pwid_dx_per_year_ri"),
-            ):
-                series = stats.get(key)
-                row[col] = (
-                    float(np.mean(series)) * targets["pop_scale"]
-                    if series is not None and len(series)
-                    else float("nan")
-                )
-            # Validation quantities -- carried through but NOT scored, see
-            # calibration_targets.yml `validation_targets`.
-            # Every band in VALIDATION, so _report_validation() can print each one.
-            # Until 2026-10-01 only five keys were carried, and the drift, injection
-            # share, testing-rate and MSM-prevalence bands were defined but never
-            # shown; adhoc item2_checks.py recovered them from the saved reports.
-            for k in [v[0] for v in VALIDATION] + ["dx_among_hiv"]:
-                row[k] = stats.get(k, float("nan"))
-            # The three rates od_err is the mean squared proportional error OF.
-            # Added 2026-08-12: od_err is a scalar mean over three components, so
-            # a 2x miss on the aggregate does not say whether one component is
-            # far off or all three are moderately off -- and the Optuna journal
-            # stores only hiv_new_pooled in user_attrs, so the decomposition is
-            # not recoverable from a finished study. Carrying the raw rates here
-            # makes it recoverable for anything this script re-runs.
-            for k in OD_COMPONENTS:
-                row[k] = stats.get(k, float("nan"))
+            row = build_row(trial, seed, stats, targets, errs)
             rows.append(row)
             print(
                 "    "
@@ -417,6 +437,12 @@ def main():
     df = pd.DataFrame(rows)
     csv = OUT_DIR / "validation_summary.csv"
     df.to_csv(csv, index=False)
+    # Shards launched by make_phase7_ensemble.py share one OUT_DIR, so the
+    # last one to finish overwrites validation_summary.csv. Keep a per-job
+    # copy as well; the rebuild script merges them.
+    job_id = os.environ.get("SLURM_JOB_ID")
+    if job_id:
+        df.to_csv(OUT_DIR / f"validation_summary_{job_id}.csv", index=False)
     print(f"\nPer-seed results: {csv}\n")
 
     print("=" * 78)

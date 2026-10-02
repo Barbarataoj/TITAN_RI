@@ -895,21 +895,24 @@ calibration:
       value: 0.08
       source: "NHBS-PWID 45% tested/yr = 0.60 tests/PWID-yr, / measured composite multiplier 7.35 (pilot job 6832656); citations row #28"
 
-    # No extra post-overdose MOUD uptake beyond the ordinary re-engagement rate.
-    # The 2026-09-01 audit proposed deriving this so 30% of survivors are on
-    # medication within 12 months (Larochelle 2018; RI APCD job2b 26-31%). That
-    # is not reachable: at the reinit_prob the coverage series needs (~0.36/mo
-    # against discontinuation 0.078), an ever-on survivor restarts within 12
-    # months with probability ~0.99 at rr = 1.0 already. What the model CAN be
-    # held to is the 30-day figure -- RI 13-20% within 30 days (job2b) against
-    # the model's ~20-36% per month for ever-on agents -- and rr > 1 only moves
-    # it further off. 1.0 is the least-wrong value and the box floor; the
-    # overshoot is a limitation to state, and the 12-month linkage among
-    # survivors is a diagnostic still to add. Scenario 2's lever: its arm value
-    # is target linkage / fitted reinit_prob.
+    # Overdose survivors re-engage with MOUD LESS than other members, not more.
+    # RI APCD job 2b (docs/apcd_incoming/ABM_2/job2b_medication_after_overdose.csv):
+    # any MOUD within 30 days of the index overdose, 2018-2022: 173/1021,
+    # 150/1091, 182/973, 156/1073, 131/995 = 13.2-18.7%, mean 15.4%, survivors
+    # already on MOUD included; 26-30% within 12 months. The fitted reinit_prob
+    # (~0.367 a month) is what an ever-treated survivor off MOUD restarts at
+    # when this multiplier is 1.0, so 1.0 put the baseline above every linkage
+    # target and left scenario 2 nothing to add (phase_7_arm_design_rationale
+    # section 9). Pinned at 0.154 / 0.367 = 0.42; sensitivity 0.36-0.51 (the
+    # 2018-2022 range). Schema minimum lowered from 1.0 to 0 on 2026-10-01.
+    # What the pin cannot reach: model survivors are about half on MOUD at the
+    # event (coverage 0.82 x overdose_scale.active 0.3), so the model's own
+    # 30-day survivor linkage (survivor_any_moud_30d_share, reported since
+    # 2026-10-01) reads ~0.54 against 0.154 -- a composition limitation.
+    # Until 2026-10-01 this was 1.0 ("no extra uptake", the old box floor).
     - path: "moud.post_overdose_rr"
-      value: 1.0
-      source: "Larochelle 2018 (30% at 12 mo) unreachable at any rr; RI APCD job2b 30-day 13-20% bounds it at 1.0"
+      value: 0.42
+      source: "RI APCD job 2b 30-day any-MOUD among survivors 15.4% (2018-2022) / fitted reinit_prob 0.367; registry section 3"
 
     # RI PDMP buprenorphine 12-month retention 37.8% (Hallowell; citations row
     # #9): 1 - 0.378^(1/12) = 0.0779. The 6-month figure (45%) implies 0.124 and
@@ -990,6 +993,14 @@ calibration:
   # exactly), and the three network/transmission levers injection.act,
   # partner_scale and -- since later on 2026-09-29, in place of sex.act --
   # background.msm_inj_mult, the outside exposure of MSM who inject.
+    # init_at_equilibrium reads reinit_prob for the t=0 MOUD placement; with
+    # features.care_seeking on nothing else does (moud.py STEP 2a returns before
+    # STEP 2). Held at the 2026-10-01 canonical pick (trial 993) so the burn-in
+    # starts near the fitted coverage. Not a data pin: a seed. 2026-10-01.
+    - path: "moud.reinit_prob"
+      value: 0.3667
+      source: "trial 993 fitted value, job 6849408; inert with care_seeking on except for init_at_equilibrium"
+
   parameters_to_optimize:
 
     # ================================================================
@@ -1142,9 +1153,37 @@ calibration:
     # the 2022 coverage of 0.82 needs an ever-on equilibrium of at least 0.82,
     # i.e. reinit >= 0.078 x 0.82 / 0.18 = 0.355, which the old box excluded.
     # 0.50 gives an equilibrium ceiling of 0.865.
-    - path: "moud.reinit_prob"
+    # LEFT THE SEARCH 2026-10-01 with features.care_seeking on. moud.py's
+    # care-seeking branch starts MOUD only through encounters (a willing
+    # provider offers, the agent accepts) and returns before STEP 2, so
+    # reinit_prob no longer touches any objective. It is anchored at the
+    # 2026-10-01 pick's value (0.3667) because init_at_equilibrium still reads
+    # it for the t=0 placement. Its job as the MOUD level lever passes to
+    # moud.acceptance below; scripts/make_care_seeking_params.py explains the
+    # setting-level willingness and intensity values it multiplies.
+    #   - path: "moud.reinit_prob"   lower 0.05, upper 0.50 (2026-09-29 box)
+    #
+    # Patient-side acceptance of an offered MOUD start. The per-visit offer
+    # rate is p_willing_moud x intensity_moud per setting (RI APCD / RI
+    # literature / assumption, see make_care_seeking_params.py); this scalar
+    # sets the level the MOUD trajectory objective sees. Bounds: the 2022
+    # coverage of 0.82 needs ever-on starts of about 0.355 a month against
+    # discontinuation 0.078; the encounter pathway supplies about 1.8 willing
+    # visits a month at the APCD rates, so the identifiable range is wide.
+    - path: "moud.acceptance"
       lower: 0.05
-      upper: 0.50   # 2026-09-29; refit box 2026-08-11 was 0.338183; prior 0.35
+      upper: 1.0
+
+    # Annual probability of an HIV test outside any clinical setting (syringe
+    # services, community testing). With care-seeking on, clinical testing is
+    # fixed by the setting table at the claims-visible level (about 3% of ED
+    # users a year), while NHBS-PWID reports 45% of PWID tested in a year, so
+    # this carries most PWID testing and is the lever the RIDOH diagnosis
+    # objective and the testing validation band (0.43-0.80 tests per PWID-year)
+    # identify. Upper bound 0.6: 1 - exp(-0.9) tests/yr, above the band's top.
+    - path: "hiv_testing.nonclinical_annual"
+      lower: 0.0
+      upper: 0.6
 
     # NOTE: moud.init_coverage is deliberately NOT optimized (removed 2026-07-29).
     # It sets only the t=0 placement probability, and with use_reinit true coverage

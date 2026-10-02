@@ -87,3 +87,55 @@ def test_staying_on_moud_leaves_the_flag_down():
     agent.moud.update_agent(_make_model(discontinue_per_month=0.1, draw=0.14))
     assert agent.on_moud is True
     assert agent.recent_moud_stop is False
+
+
+# ---- restart within one step of an overdose (2026-10-01, post-overdose linkage diagnostic) ----
+
+def _stopped_survivor(last_overdose_t):
+    agent, demographic_moud = _make_agent()
+    agent.moud.initiate(FakeRandom(0.0), demographic_moud, "init")      # ever on MOUD
+    agent.moud.update_agent(_make_model(discontinue_per_month=0.5, draw=0.14))  # stops
+    assert agent.on_moud is False
+    agent.recent_overdose = True
+    agent.last_overdose_t = last_overdose_t
+    return agent
+
+
+@pytest.mark.unit
+def test_restart_within_one_step_of_an_overdose_is_counted_once():
+    agent = _stopped_survivor(last_overdose_t=0)
+    model = _make_model(discontinue_per_month=0.0, draw=0.1)   # reinit_prob 0.2 > 0.1: restarts
+    model.time = 1
+    agent.moud.update_agent(model)
+    assert agent.on_moud is True
+    assert agent.moud.started_postod_1step is True
+    stats = {k: 0 for k in MOUD.stats}
+    agent.moud.set_stats(stats, 1)
+    assert stats["moud_start_postod_1step"] == 1
+    assert agent.moud.started_postod_1step is False
+    later = {k: 0 for k in MOUD.stats}
+    agent.moud.set_stats(later, 2)
+    assert later["moud_start_postod_1step"] == 0
+
+
+@pytest.mark.unit
+def test_restart_later_in_the_window_is_not_thirty_day_linkage():
+    agent = _stopped_survivor(last_overdose_t=0)
+    model = _make_model(discontinue_per_month=0.0, draw=0.1)
+    model.time = 3
+    agent.moud.update_agent(model)
+    assert agent.on_moud is True
+    assert agent.moud.started_postod_1step is False
+    stats = {k: 0 for k in MOUD.stats}
+    agent.moud.set_stats(stats, 3)
+    assert stats["moud_start_postod_1step"] == 0
+
+
+@pytest.mark.unit
+def test_no_restart_no_count():
+    agent = _stopped_survivor(last_overdose_t=0)
+    model = _make_model(discontinue_per_month=0.0, draw=0.9)   # 0.9 > reinit_prob 0.2: stays off
+    model.time = 1
+    agent.moud.update_agent(model)
+    assert agent.on_moud is False
+    assert agent.moud.started_postod_1step is False

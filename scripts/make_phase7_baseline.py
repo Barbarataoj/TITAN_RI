@@ -81,6 +81,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from titan.calibration.optuna_calibration import (  # noqa: E402
     CALIB_YAML,
     load_yaml,
+    set_anchored_parameters,
     set_hiv_initial_conditions,
     set_oud_initial_conditions,
     population_seeds,
@@ -127,6 +128,12 @@ def build(calibrated, calib, steps=None):
     set_oud_initial_conditions(scenario, calib)
     set_per_act_transmission(scenario)
     set_population_window(scenario, calib)
+    # The data-anchored table in calibration_targets.yml (`anchored_parameters`:
+    # testing base rate, the post-overdose multiplier, ...). The refit applies it
+    # after the suggest loop; the baseline has to apply it too, or a value that
+    # changed after the pick was written -- moud.post_overdose_rr 1.0 -> 0.42 on
+    # 2026-10-01 -- would be inherited by every arm from a stale file.
+    set_anchored_parameters(scenario, calib)
 
     # Derived, not inherited: the input file carries whatever seed the calibration
     # happened to write, and a Phase 7 baseline that disagrees with the
@@ -146,6 +153,9 @@ def main():
     ap.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--output", type=Path, default=None,
+                    help="write the baseline here instead of scenarios/scenario_1_baseline.yml "
+                         "(ensemble members, 2026-10-01); --check still compares the default path")
     args = ap.parse_args()
 
     calib = load_yaml(CALIB_YAML)
@@ -179,8 +189,9 @@ def main():
         return 0
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    write_yaml(OUTPUT, scenario)
-    print(f"wrote {OUTPUT} from {args.input}")
+    out_path = args.output or OUTPUT
+    write_yaml(out_path, scenario)
+    print(f"wrote {out_path} from {args.input}")
     print(f"  population:   {got['sex_type_ppl']}")
     print(f"  drug_type:    {got['drug_type_ppl']}")
     print(f"  time:         {scenario['model']['time']}")

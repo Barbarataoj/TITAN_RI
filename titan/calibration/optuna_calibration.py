@@ -498,6 +498,9 @@ def set_hiv_initial_conditions(scenario):
 # would record a value it never simulated. assert_not_fitted() makes that a
 # startup error instead of a fitting artifact nobody notices.
 ANCHORED_PATHS = (
+    # 2026-10-01: a seed for init_at_equilibrium only once care_seeking is on;
+    # the MOUD level lever became moud.acceptance (calibration_targets.yml).
+    "moud.reinit_prob",
     "oud_state.init_active",
     "oud_state.init_remission",
     "oud_state.init_none",
@@ -1260,6 +1263,20 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
     events_total  = events_inj + events_noninj
     fatal_f = float(fatal_total)
 
+    # Post-overdose linkage (2026-10-01). Survivors split by MOUD status at the
+    # event, and restarts within one step of it, pooled over the scored window.
+    # `survivor_any_moud_30d_share` is the model's counterpart of APCD job 2b's
+    # "any MOUD within 30 days of the index overdose" (13-20% in RI, 2018-2022),
+    # which includes survivors already on MOUD; the other two decompose it.
+    surv_on = float(fy_all.get("od_survivors_on_moud", pd.Series([0])).sum())
+    surv_off = float(fy_all.get("od_survivors_off_moud", pd.Series([0])).sum())
+    starts_1 = float(fy_all.get("moud_start_postod_1step", pd.Series([0])).sum())
+    if surv_on + surv_off > 0:
+        stats["survivor_moud_at_index_share"] = surv_on / (surv_on + surv_off)
+        stats["survivor_any_moud_30d_share"] = (surv_on + starts_1) / (surv_on + surv_off)
+    if surv_off > 0:
+        stats["survivor_restart_1step_share"] = starts_1 / surv_off
+
     if events_total > 0:
         fatal_inj    = fatal_f * (events_inj / events_total)
         fatal_noninj = fatal_f * (events_noninj / events_total)
@@ -1427,12 +1444,22 @@ def hiv_null_value(calib):
     )
 
 def _traj_rmse(model_series, target_series):
-    """RMSE between two trajectories, trimming model_series to length of target."""
+    """RMSE between two annual trajectories that both start in the same calendar year.
+
+    Both series begin at the first post-burn year (2012 for the APCD MOUD
+    target), so a model series longer than the target is trimmed from the END:
+    model[:n] against target[:n]. Until 2026-10-01 this took model[-n:], the
+    tail, which is the same thing for a 132-step calibration run (11 model
+    years, 11 target years) but scores a 240-step Phase 7 run on 2021-2031
+    against the 2012-2022 target -- every ensemble member's moud_traj_rmse rose
+    by 0.015 at 240 steps for that reason alone. A model series shorter than
+    the target is compared on the years it has, as before.
+    """
     target = np.array(target_series)
     if model_series is None or len(model_series) == 0:
         return float(np.sqrt(np.mean(target ** 2)))  # max-penalty
     n = min(len(target), len(model_series))
-    diff = model_series[-n:] - target[-n:]
+    diff = np.asarray(model_series)[:n] - target[:n]
     return float(np.sqrt(np.mean(diff ** 2)))
 
 def null_traj_rmse(target_series):
@@ -2277,6 +2304,9 @@ TRIAL_DIAGNOSTICS = (
     # OUD compartment sizes, so an oud_rmse miss can be attributed without a rerun.
     ("oud_active", "oud_active"),
     ("oud_remission", "oud_remission"),
+    ("survivor_any_moud_30d_share", "survivor_any_moud_30d_share"),
+    ("survivor_moud_at_index_share", "survivor_moud_at_index_share"),
+    ("survivor_restart_1step_share", "survivor_restart_1step_share"),
     ("oud_none", "oud_none"),
     ("moud_uptake", "moud_uptake"),
     # HIV tests per PWID person-year, checked against NHBS-PWID's past-year
@@ -2558,11 +2588,23 @@ def main():
         storage = storage_url
         print(f"Study storage: {storage} (from TITAN_CALIB_STORAGE)")
     else:
-        journal_path = f"{OUTPUT_DIR}/study_{job}.journal"
+        # TITAN_CALIB_JOURNAL (2026-10-01): a fixed journal path so a refit can be
+        # split into several jobs under a 24 h wall. Each chunk opens the same
+        # journal with load_if_exists=True, enqueues the warm starts with
+        # skip_if_exists=True, and runs TITAN_CALIB_TRIALS NEW trials; NSGA-II
+        # reads its generations back from the journal, so the search continues
+        # rather than restarts. scripts/submit_refit_chunks.sh chains the jobs.
+        # ONE STUDY AT A TIME against OUTPUT_DIR: trial directories are named
+        # trial_<number>_pop<seed> and every study numbers from 0, while
+        # run_titan clears its output directory on start -- two studies running
+        # concurrently delete each other's reports mid-run (pilot 6937917 lost
+        # its four warm starts to a 2-trial resume test on 2026-10-01).
+        journal_path = os.environ.get("TITAN_CALIB_JOURNAL") or f"{OUTPUT_DIR}/study_{job}.journal"
+        resumed = bool(os.environ.get("TITAN_CALIB_JOURNAL")) and os.path.exists(journal_path)
         storage = optuna.storages.JournalStorage(
             optuna.storages.journal.JournalFileBackend(journal_path)
         )
-        print(f"Study storage: JournalStorage at {journal_path}")
+        print(f"Study storage: JournalStorage at {journal_path}" + (" (resuming an existing journal)" if resumed else " (new journal)"))
 
     study = optuna.create_study(
         # 4 objectives since 2026-08-17, when inj_share_err was demoted to a

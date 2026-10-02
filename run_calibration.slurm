@@ -14,6 +14,12 @@
 # the trailing echo ran anyway and became the job's exit code. A six-hour silent
 # failure looked identical to success.
 set -euo pipefail
+# SPLIT RUNS (2026-10-01): no job may exceed 24 h. Launch the refit through
+# scripts/submit_refit_chunks.sh, which passes TITAN_CALIB_JOURNAL (one journal
+# for every chunk), TITAN_CALIB_STUDY, a per-chunk TITAN_CALIB_SEED and a scratch
+# TITAN_CALIB_BEST_OUT, and overrides --time per chunk. Launched bare, this file
+# writes its pick to the repo's calibrated_scenario_best.yml -- set
+# TITAN_CALIB_BEST_OUT for anything that is not the final, reviewed run.
 
 echo "Job started on $(hostname) at $(date)"
 

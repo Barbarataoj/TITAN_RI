@@ -69,7 +69,9 @@ def test_live_config_has_nine_free_and_no_overlap(calib):
     assert_not_fitted(calib)
     fitted = {p["path"] for p in calib["calibration"]["parameters_to_optimize"]}
     assert not fitted & set(anchored_parameters(calib))
-    assert len(fitted) == 9
+    # 9 until 2026-10-01; moud.reinit_prob left (anchored) and moud.acceptance +
+    # hiv_testing.nonclinical_annual joined when features.care_seeking went on.
+    assert len(fitted) == 10
 
 
 @pytest.mark.unit

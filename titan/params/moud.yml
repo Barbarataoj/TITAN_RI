@@ -75,10 +75,19 @@ moud:
   post_overdose_rr:
     default: 3.0
     description: |
-      Relative increase in MOUD initiation probability following a recent
-      nonfatal overdose (ED referral / naloxone encounter).
+      Relative change in MOUD initiation probability while an agent carries
+      the `recent_overdose` flag (overdose.post_overdose_window steps after a
+      nonfatal overdose). Multiplies reinit_prob for ever-treated agents and
+      the enrolment probability for never-treated ones.
+
+      Values below 1 are allowed since 2026-10-01: in Rhode Island's APCD
+      (job 2b) only 13-20% of overdose survivors have any MOUD within 30 days
+      while about 70% of the cohort has MOUD in a year, so survivors re-engage
+      more slowly than other members, not faster. The calibrated baseline pins
+      this at 30-day survivor linkage / fitted reinit_prob (about 0.42); the
+      Phase 7 linkage arms raise it (ED-initiated buprenorphine 0.45 -> 1.23).
     type: float
-    min: 1.0
+    min: 0.0
     max: 20.0
 
   # post_overdose_rr's active window is controlled by

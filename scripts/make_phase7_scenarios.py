@@ -75,8 +75,13 @@ POST_OVERDOSE_RR_MAX = 20.0
 # ---------------------------------------------------------------------------
 # The evidence, as constants. Sources in phase_7_intervention_evidence_2026-08-17.md.
 # ---------------------------------------------------------------------------
-ED_BUP_LINKAGE_30D = 0.78      # D'Onofrio et al., JAMA 2015: ED-initiated buprenorphine, 78% engaged at 30 d
-INITIATION_MULTIPLIER = 2.11   # D'Onofrio 78% / 37% (referral alone = usual care; brief intervention was 45%)
+ED_BUP_LINKAGE_30D = 0.45      # D'Onofrio et al., JAMA 2026 (ED-INNOVATION, PMID 41670966): 29 US EDs, 2020-2024,
+                               #   n=1994, 76% fentanyl-positive, ED-initiated buprenorphine with a scheduled
+                               #   appointment within 7 d -> 43.8% (XR) / 44.9% (SL) engaged at 30 d. Jun, 2026-10-01.
+ED_BUP_LINKAGE_30D_2015 = 0.78 # D'Onofrio et al., JAMA 2015: one ED, 2009-2013, 78% engaged at 30 d. Pre-fentanyl,
+                               #   single-site efficacy; run as a labelled ceiling arm (scenario 2c), not the estimate.
+INITIATION_MULTIPLIER = 2.11   # D'Onofrio 2015 78% / 37% (referral alone = usual care; brief intervention was 45%);
+                               #   Armour 2024 meta-analysis OR 5.97 -> RR 2.1-2.4 at 30-37% comparators
 TESTING_STABLE_MULT = 3.8      # Ferraro et al., Addiction 2021: ever-OAT pooled OR 3.82 (2.96-4.95); Metsch 2012
                                #   RCT: on-site rapid testing 81-86% tested vs 24% by referral (RR 4.52 for results)
 TESTING_EARLY_MULT = 6.0       # keeps the baseline's early:stable ratio (3.0 : 1.5)
@@ -100,6 +105,11 @@ def build_arms(baseline, own_settings=False):
     """
     reinit = fitted(baseline, "moud.reinit_prob")
     discontinue = fitted(baseline, "moud.discontinue_per_month")
+    # The baseline's own post-overdose multiplier. Pinned below 1 since 2026-10-01
+    # (APCD job 2b: 13-20% of RI overdose survivors have any MOUD within 30 days,
+    # against a fitted reinit_prob of ~0.37 a month), so every linkage arm is a
+    # lift over rr_base, not over 1.0, and no arm may fall below it.
+    rr_base = fitted(baseline, "moud.post_overdose_rr")
     early = fitted(baseline, "hiv_testing.moud_early_mult")
     stable = fitted(baseline, "hiv_testing.moud_stable_mult")
     slots = fitted(baseline, "syringe_services.timeline.ssp_open.num_slots_start")
@@ -112,22 +122,35 @@ def build_arms(baseline, own_settings=False):
     # ---- Scenario 2: ED-initiated buprenorphine after a nonfatal overdose ----
     rr_ed = min(ED_BUP_LINKAGE_30D / reinit, POST_OVERDOSE_RR_MAX)
     notes2 = [
-        f"baseline: post_overdose_rr 1.0, reinit_prob {reinit:.5f}/step -> a previously treated",
-        f"  survivor restarts within one step with probability {reinit:.3f} (RI observed 0.13-0.20 at 30 days)",
-        f"arm: target linkage {ED_BUP_LINKAGE_30D} (D'Onofrio 2015) -> post_overdose_rr = "
+        f"baseline: post_overdose_rr {rr_base:.3f}, reinit_prob {reinit:.5f}/step -> a previously treated",
+        f"  survivor off MOUD restarts within one step with probability {min(1.0, reinit * rr_base):.3f}"
+        f" (RI APCD job 2b: 0.13-0.20 of survivors have any MOUD within 30 days)",
+        f"arm: target linkage {ED_BUP_LINKAGE_30D} (ED-INNOVATION, D'Onofrio 2026) -> post_overdose_rr = "
         f"{ED_BUP_LINKAGE_30D} / {reinit:.5f} = {ED_BUP_LINKAGE_30D / reinit:.3f}"
         + (f", capped at {POST_OVERDOSE_RR_MAX}" if ED_BUP_LINKAGE_30D / reinit > POST_OVERDOSE_RR_MAX else ""),
         f"  linkage probability in the arm: min(1, {reinit:.5f} x {rr_ed:.3f}) = {min(1.0, reinit * rr_ed):.3f}",
     ]
-    if rr_ed < 1.0:
-        notes2.append("  WARNING: rr < 1 -- the fitted reinit_prob already exceeds the target; the arm is the baseline")
-        rr_ed = 1.0
+    if rr_ed < rr_base:
+        notes2.append(f"  WARNING: rr {rr_ed:.3f} < baseline {rr_base:.3f} -- the target is below the baseline's"
+                      " own survivor restart rate; the arm is the baseline")
+        rr_ed = rr_base
     s2 = copy.deepcopy(baseline)
     set_yaml_value(s2, "moud.post_overdose_rr", rr_ed)
     arms["scenario_2_postod_linkage.yml"] = (s2, notes2)
 
+    # ---- Scenario 2c: the 2015 single-site efficacy result, a labelled ceiling ----
+    rr_2015 = max(rr_base, min(ED_BUP_LINKAGE_30D_2015 / reinit, POST_OVERDOSE_RR_MAX))
+    notes2c = [
+        f"ceiling: target linkage {ED_BUP_LINKAGE_30D_2015} (D'Onofrio 2015, pre-fentanyl, one ED) -> "
+        f"post_overdose_rr = {ED_BUP_LINKAGE_30D_2015} / {reinit:.5f} = {rr_2015:.3f}",
+        f"  linkage probability {min(1.0, reinit * rr_2015):.3f} -- report as the efficacy ceiling, not the estimate",
+    ]
+    s2c = copy.deepcopy(baseline)
+    set_yaml_value(s2c, "moud.post_overdose_rr", rr_2015)
+    arms["scenario_2c_ed_bup_2015_ceiling.yml"] = (s2c, notes2c)
+
     # ---- Scenario 2b: universal linkage, a labelled ceiling ----
-    rr_ceiling = min(1.0 / reinit, POST_OVERDOSE_RR_MAX)
+    rr_ceiling = max(rr_base, min(1.0 / reinit, POST_OVERDOSE_RR_MAX))
     notes2b = [
         f"ceiling: post_overdose_rr = 1 / {reinit:.5f} = {1.0 / reinit:.3f}"
         + (f", capped at {POST_OVERDOSE_RR_MAX}" if 1.0 / reinit > POST_OVERDOSE_RR_MAX else ""),
@@ -180,6 +203,15 @@ def build_arms(baseline, own_settings=False):
     else:
         rr6 = min(ED_BUP_LINKAGE_30D / reinit3, POST_OVERDOSE_RR_MAX)
         design = "common linkage: post_overdose_rr recomputed against scenario 3's reinit_prob"
+        if rr6 < rr_base:
+            # Scenario 3's raised reinit_prob already exceeds the linkage target, so the
+            # common design would push post-overdose linkage BELOW scenario 3's own
+            # rate. Floor at the baseline multiplier and say so; --own-settings is the
+            # alternative. At rr_base 1.0 this bound at reinit 0.367 (0.45 / 0.774 =
+            # 0.58 < 1); with rr_base pinned at ~0.42 from APCD job 2b it does not.
+            design += (f" -- WARNING: {ED_BUP_LINKAGE_30D} / {reinit3:.5f} = {rr6:.3f} < baseline {rr_base:.3f},"
+                       f" floored at {rr_base:.3f}; the post-overdose channel adds nothing over scenario 3 here")
+            rr6 = rr_base
     notes6 = [
         f"design: {design}",
         f"reinit_prob {reinit3:.5f} (scenario 3), post_overdose_rr {rr6:.3f} -> post-overdose linkage "

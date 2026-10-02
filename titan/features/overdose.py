@@ -24,7 +24,11 @@ class Overdose(base_feature.BaseFeature):
     """
 
     name = "overdose"
-    stats = ["overdose_events", "overdose_deaths"]
+    stats = ["overdose_events", "overdose_deaths",
+             # Nonfatal events split by the survivor's MOUD status at the event,
+             # added 2026-10-01 for the post-overdose linkage diagnostic (APCD
+             # job 2b: 13-20% of RI survivors have any MOUD within 30 days).
+             "od_survivors_on_moud", "od_survivors_off_moud"]
 
     # Class-level cumulative counts
     event_counts: ClassVar[Dict] = {}
@@ -145,6 +149,8 @@ class Overdose(base_feature.BaseFeature):
 
         self.events_this_step = 0
         self.deaths_this_step = 0
+        self.survivors_on_moud_this_step = 0
+        self.survivors_off_moud_this_step = 0
 
         params = getattr(self.agent.location.params, "overdose", None)
         if params is None:
@@ -222,6 +228,11 @@ class Overdose(base_feature.BaseFeature):
         # Flag nonfatal overdose for downstream linkage
         self.agent.recent_overdose = True
         self.agent.recent_overdose_timer = 0
+        # The step of the event, so moud can tell a restart within one step
+        # (the 30-day linkage the APCD measures) from any later restart in the
+        # post_overdose_window, whatever the feature update order does to the
+        # timer above.
+        self.agent.last_overdose_t = getattr(model, "time", None)
 
         # ---------- Fatality ----------
         fatal_frac = getattr(params, "fatal_frac", 0.0)
@@ -231,6 +242,11 @@ class Overdose(base_feature.BaseFeature):
 
             self.agent.exit_class = "death"
             self.agent.death_reason = "overdose"
+        else:
+            if getattr(self.agent, "on_moud", False):
+                self.survivors_on_moud_this_step += 1
+            else:
+                self.survivors_off_moud_this_step += 1
 
     # ================= STATS =================
 
@@ -239,3 +255,7 @@ class Overdose(base_feature.BaseFeature):
             stats["overdose_events"] += self.events_this_step
         if self.deaths_this_step:
             stats["overdose_deaths"] += self.deaths_this_step
+        if getattr(self, "survivors_on_moud_this_step", 0):
+            stats["od_survivors_on_moud"] += self.survivors_on_moud_this_step
+        if getattr(self, "survivors_off_moud_this_step", 0):
+            stats["od_survivors_off_moud"] += self.survivors_off_moud_this_step

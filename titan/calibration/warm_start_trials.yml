@@ -60,6 +60,14 @@
 # stale entry fails the run before any compute is spent, the same way
 # assert_not_fitted() does for the anchors.
 
+#
+#   3. 2026-10-01: features.care_seeking is on. `moud.reinit_prob` left the
+#      search (anchored at 0.3667, read only by init_at_equilibrium) and two
+#      coordinates joined it: `moud.acceptance` and
+#      `hiv_testing.nonclinical_annual`. No earlier trial measured either, so
+#      every entry starts them at 0.75 and 0.4 (the 2026-10-01 smoke run's feasible corner); the vectors below are
+#      starting points for the other eight coordinates, not full measured points.
+
 warm_start:
 
   # The point od_err was measured reachable at. Job 5053123 ran trial 290's
@@ -97,7 +105,8 @@ warm_start:
       overdose.base_prob_inj: 0.268
       overdose.base_prob_noninj: 0.1155
       moud.injection_scale.active: 0.55057546
-      moud.reinit_prob: 0.36
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 1.0
       high_risk.partner_scale: 8
@@ -133,7 +142,8 @@ warm_start:
       overdose.base_prob_inj: 0.268
       overdose.base_prob_noninj: 0.1155
       moud.injection_scale.active: 0.55057546
-      moud.reinit_prob: 0.36
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.177663
       high_risk.partner_scale: 8
@@ -166,7 +176,8 @@ warm_start:
       overdose.base_prob_inj: 0.273
       overdose.base_prob_noninj: 0.0907
       moud.injection_scale.active: 0.65583763
-      moud.reinit_prob: 0.36
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 7
@@ -197,7 +208,8 @@ warm_start:
       overdose.base_prob_inj: 0.264
       overdose.base_prob_noninj: 0.1115
       moud.injection_scale.active: 0.59381148
-      moud.reinit_prob: 0.36
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 13
@@ -217,7 +229,8 @@ warm_start:
       overdose.base_prob_inj: 0.19174878
       overdose.base_prob_noninj: 0.07851458
       moud.injection_scale.active: 0.76417479
-      moud.reinit_prob: 0.39160029
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.39160029) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -229,7 +242,8 @@ warm_start:
       overdose.base_prob_inj: 0.22424394
       overdose.base_prob_noninj: 0.08232191
       moud.injection_scale.active: 0.43228155
-      moud.reinit_prob: 0.46411315
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.46411315) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -241,7 +255,8 @@ warm_start:
       overdose.base_prob_inj: 0.2722947
       overdose.base_prob_noninj: 0.06973176
       moud.injection_scale.active: 0.72005128
-      moud.reinit_prob: 0.43386034
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.43386034) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 8.289783
       calibration.injection.act: 0.32514255
       high_risk.partner_scale: 5
@@ -253,7 +268,8 @@ warm_start:
       overdose.base_prob_inj: 0.19174878
       overdose.base_prob_noninj: 0.06570561
       moud.injection_scale.active: 0.43228155
-      moud.reinit_prob: 0.29696466
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.29696466) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.72646301
       high_risk.partner_scale: 8
@@ -265,7 +281,8 @@ warm_start:
       overdose.base_prob_inj: 0.2722947
       overdose.base_prob_noninj: 0.06190545
       moud.injection_scale.active: 0.72005128
-      moud.reinit_prob: 0.31697705
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.31697705) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 8.289783
       calibration.injection.act: 0.17037256
       high_risk.partner_scale: 5
@@ -277,7 +294,8 @@ warm_start:
       overdose.base_prob_inj: 0.264
       overdose.base_prob_noninj: 0.1115
       moud.injection_scale.active: 0.59381148
-      moud.reinit_prob: 0.36
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 13
@@ -289,7 +307,8 @@ warm_start:
       overdose.base_prob_inj: 0.24784545
       overdose.base_prob_noninj: 0.05255589
       moud.injection_scale.active: 0.76417479
-      moud.reinit_prob: 0.32741304
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.32741304) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -301,7 +320,8 @@ warm_start:
       overdose.base_prob_inj: 0.20325176
       overdose.base_prob_noninj: 0.05255589
       moud.injection_scale.active: 0.76417479
-      moud.reinit_prob: 0.33270103
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.33270103) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -313,7 +333,8 @@ warm_start:
       overdose.base_prob_inj: 0.29091057
       overdose.base_prob_noninj: 0.06860636
       moud.injection_scale.active: 0.69803485
-      moud.reinit_prob: 0.2946694
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.2946694) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 1.89312663
       calibration.injection.act: 0.38377811
       high_risk.partner_scale: 12
@@ -325,7 +346,28 @@ warm_start:
       overdose.base_prob_inj: 0.2059614
       overdose.base_prob_noninj: 0.07321412
       moud.injection_scale.active: 0.75265159
-      moud.reinit_prob: 0.24004154
+      moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.24004154) anchored, acceptance is the MOUD lever
+      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 14.95049801
       calibration.injection.act: 0.29282121
       high_risk.partner_scale: 14
+  - label: care_pilot_137
+    source: >-
+      trial 137 of the care_seeking pilot job 6937997 (2026-10-02; gates passed
+      4/4 in-search at 8x5: oud 0.0319 hiv 1.064 od 0.0094 moud 0.0734). The
+      only feasible point of that pilot, and the only one with moud.acceptance
+      near 1.0. Added 2026-10-02 before chunk 3 (job 6938000) of the care_refit
+      chain started, because the chain was launched afterok on the pilot and
+      never saw its result. Same box as the chain (no config change since the
+      pilot was submitted), so no re-anchoring was needed.
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.1882121368973268
+      oud_state.transitions.relapse_rate_per_year: 0.23718340960689577
+      overdose.base_prob_inj: 0.23967553204137615
+      overdose.base_prob_noninj: 0.09815019902425111
+      moud.injection_scale.active: 0.5416232040865556
+      moud.acceptance: 0.9980383222254678
+      hiv_testing.nonclinical_annual: 0.1700223624030517
+      calibration.background.msm_inj_mult: 3.651606170486115
+      calibration.injection.act: 0.5091117014206475
+      high_risk.partner_scale: 7

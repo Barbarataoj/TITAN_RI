@@ -13,6 +13,7 @@ within the same code state and seed set.
 Axes and ranges, as stated in section 10.1 item 4:
 
   inject_stop_rate_per_year   0.041 / 0.326   (INJECT_STOP_RATE, pinned 0.10)
+  moud.post_overdose_rr       0.36 / 0.51     (APCD job 2b 30-day survivor linkage range; pinned 0.42)
   overdose.fatal_frac         fatal-rate target 0.012 / 0.027 -> fatal_frac via
                               derived_fatal_frac's formula (about 0.17 / 0.31)
   moud.overdose_scale.active  0.21 / 0.41
@@ -88,6 +89,9 @@ def variants(base, msm_seed=None):
 
     single = [
         ("oud_state.transitions.inject_stop_rate_per_year", "stop", [0.041, 0.326]),
+        # APCD job 2b 2018-2022 range of 30-day survivor linkage, 13.2-18.7%, over
+        # the fitted reinit_prob ~0.367 (pinned at the mean, 0.42; 2026-10-01).
+        ("moud.post_overdose_rr", "postodrr", [0.36, 0.51]),
         ("moud.overdose_scale.active", "odscale", [0.21, 0.41]),
         ("moud.discontinue_per_month", "discont", [0.069, 0.124]),
         ("overdose.post_moud_stop_rr", "poststop", [2.4, 3.3]),

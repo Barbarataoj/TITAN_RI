@@ -17,7 +17,12 @@ class MOUD(base_feature.BaseFeature):
     """
 
     name = "moud"
-    stats = ["moud", "moud_active"]
+    stats = ["moud", "moud_active",
+             # Initiations by an overdose survivor within one step of the event
+             # (2026-10-01): with od_survivors_off_moud from the overdose feature
+             # this gives the model's 30-day post-overdose linkage, the quantity
+             # APCD job 2b measures and the Phase 7 linkage arms act on.
+             "moud_start_postod_1step"]
     """
         MOUD collects the following stats:
 
@@ -32,6 +37,7 @@ class MOUD(base_feature.BaseFeature):
         self.active = False  # currently on MOUD
         self.ever = False    # ever been on MOUD
         self.time_on_moud = 0  # consecutive steps on current MOUD episode
+        self.started_postod_1step = False  # set at a restart within one step of an overdose
 
     # ================= CLASS-LEVEL METHODS =================
 
@@ -261,6 +267,9 @@ class MOUD(base_feature.BaseFeature):
             p_start = min(1.0, max(0.0, p_start))
 
             if model.run_random.random() < p_start:
+                last_od = getattr(self.agent, "last_overdose_t", None)
+                if last_od is not None and 0 <= model.time - last_od <= 1:
+                    self.started_postod_1step = True
                 self.initiate(model.run_random, moud_params, "prob")
 
         # ======================================================
@@ -305,6 +314,9 @@ class MOUD(base_feature.BaseFeature):
             # coverage ratio's numerator and denominator share the same population.
             if getattr(self.agent, "has_oud", False):
                 stats["moud_active"] += 1
+        if getattr(self, "started_postod_1step", False):
+            stats["moud_start_postod_1step"] += 1
+            self.started_postod_1step = False
 
     def get_overdose_risk_multiplier(self) -> float:
         """

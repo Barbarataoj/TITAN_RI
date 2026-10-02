@@ -251,3 +251,44 @@ def test_post_moud_stop_window_counts_the_stopping_step():
     assert c.recent_overdose is True and c.recent_moud_stop is True
     Overdose.update_pop(model)
     assert c.recent_overdose is False and c.recent_moud_stop is False
+
+
+# ---- survivor MOUD status at the event (2026-10-01, post-overdose linkage diagnostic) ----
+
+@pytest.mark.unit
+def test_nonfatal_event_records_survivor_moud_status():
+    params = make_params(fatal_frac=0.0)
+    on = make_fake_agent(params)
+    on.overdose.init_agent(None, 0)
+    on.on_moud = True
+    off = make_fake_agent(params)
+    off.overdose.init_agent(None, 0)
+    off.on_moud = False
+    model = make_fake_model(params, FakeRandom(0.0), [on, off])
+    model.time = 7
+    on.overdose.update_agent(model)
+    off.overdose.update_agent(model)
+    assert (on.overdose.survivors_on_moud_this_step, on.overdose.survivors_off_moud_this_step) == (1, 0)
+    assert (off.overdose.survivors_on_moud_this_step, off.overdose.survivors_off_moud_this_step) == (0, 1)
+    assert on.last_overdose_t == 7 and off.last_overdose_t == 7
+    stats = {k: 0 for k in Overdose.stats}
+    on.overdose.set_stats(stats, 7)
+    off.overdose.set_stats(stats, 7)
+    assert stats == {"overdose_events": 2, "overdose_deaths": 0,
+                     "od_survivors_on_moud": 1, "od_survivors_off_moud": 1}
+
+
+@pytest.mark.unit
+def test_fatal_event_is_not_a_survivor():
+    params = make_params(fatal_frac=1.0)
+    a = make_fake_agent(params)
+    a.overdose.init_agent(None, 0)
+    a.on_moud = True
+    model = make_fake_model(params, FakeRandom(0.0), [a])
+    model.time = 3
+    a.overdose.update_agent(model)
+    assert a.overdose.deaths_this_step == 1
+    assert (a.overdose.survivors_on_moud_this_step, a.overdose.survivors_off_moud_this_step) == (0, 0)
+    stats = {k: 0 for k in Overdose.stats}
+    a.overdose.set_stats(stats, 3)
+    assert stats["od_survivors_on_moud"] == 0 and stats["od_survivors_off_moud"] == 0
