@@ -53,10 +53,12 @@ def weighted_rate(block, payer_mix):
     return total
 
 
-def product_rate(block, mix):
+def product_rate(block, mix, payer_mix):
+    """Product-mix-weighted unit value; each product is a number or a payer block."""
     total = 0.0
     for product, share in (mix or {}).items():
         v = (block or {}).get(product)
+        v = weighted_rate(v, payer_mix) if isinstance(v, dict) else v
         if v is None:
             return None
         total += share * float(v)
@@ -65,27 +67,38 @@ def product_rate(block, mix):
 
 def service_table(costs):
     """
-    Per service: the model outcome that induces it, the probability per event,
-    and the clinic revenue / payer cost per unit (payer-mix weighted, or
-    product-mix weighted for PrEP months). Records placeholders.
+    Per service: the model outcome that induces it, the probability per event, the
+    optional non-billable adjustment, and the clinic revenue / payer cost per unit
+    (payer-mix weighted; product-mix weighted for drugs; 340B gross spreads scaled by
+    the net share kept). Records placeholders.
     """
     mix = costs["payer_mix"]
+    net = costs.get("net_share_340b", {})
     out, missing = {}, []
     for name, s in (costs.get("services") or {}).items():
         prob = s.get("probability", 1.0)
         if prob is None:
-            missing.append(f"services.{name}.probability"); prob = 0.0
-        if "product_mix" in s:
-            rev = product_rate(s.get("clinic_revenue"), s["product_mix"])
-            pay = product_rate(s.get("payer_cost"), s["product_mix"])
+            missing.append(f"services.{name}.probability (decision)"); prob = 0.0
+        share = float(net.get(s["net_share"], 1.0)) if s.get("net_share") else 1.0
+        if "clinic_revenue_gross" in s:
+            block, scale = s["clinic_revenue_gross"], share
         else:
-            rev = weighted_rate(s.get("clinic_revenue"), mix)
+            block, scale = s.get("clinic_revenue"), 1.0
+        if "product_mix" in s:
+            rev = product_rate(block, s["product_mix"], mix)
+            pay = product_rate(s.get("payer_cost"), s["product_mix"], mix)
+        else:
+            rev = weighted_rate(block, mix)
             pay = weighted_rate(s.get("payer_cost"), mix)
         if rev is None:
             missing.append(f"services.{name}.clinic_revenue")
+        else:
+            rev *= scale
         if pay is None:
             missing.append(f"services.{name}.payer_cost")
         out[name] = {"induced_by": s["induced_by"], "probability": float(prob),
+                     "nonbillable_from": s.get("nonbillable_from"),
+                     "nonbillable_share": float(s.get("nonbillable_share", 0.0)),
                      "clinic_revenue": rev, "payer_cost": pay}
     return out, missing
 
@@ -128,7 +141,10 @@ def main():
         services, smissing = service_table(costs)
         counts = {}
         for name, s in services.items():
-            counts[name] = diff_statewide(s["induced_by"]) / years * s["probability"]   # per year, statewide
+            n = diff_statewide(s["induced_by"])
+            if s["nonbillable_from"]:
+                n -= s["nonbillable_share"] * diff_statewide(s["nonbillable_from"])
+            counts[name] = n / years * s["probability"]                              # per year, statewide
         reach_visits = diff_statewide("reach_visits") / years
         reached_pm = diff_statewide("reached_person_months") / years
         infections = -diff_statewide("hiv_new_pwid") / years                     # averted per year
@@ -143,7 +159,13 @@ def main():
         ledger["clinic_net_per_year"] = rev - prog * args.sites if prog is not None else None
         # payer
         pay = sum(services[k]["payer_cost"] * counts[k] for k in services if services[k]["payer_cost"] is not None)
-        hiv_cost = _value(costs["health_values"].get("lifetime_hiv_treatment_cost"))
+        hv = costs["health_values"].get("lifetime_hiv_treatment_cost") or {}
+        hiv_cost = _value(hv)
+        if hiv_cost is not None:
+            cpi = costs.get("cpi_medical", {}) or {}
+            base_year, target = hv.get("year"), costs.get("analysis_year")
+            if base_year in cpi and target in cpi:
+                hiv_cost = hiv_cost * float(cpi[target]) / float(cpi[base_year])   # inflate to the analysis year
         ledger["payer_activity_cost_per_year"] = pay
         ledger["hiv_treatment_cost_averted_per_year"] = infections * hiv_cost if hiv_cost is not None else None
         ledger["payer_net_per_year"] = (infections * hiv_cost - pay) if hiv_cost is not None else None
@@ -152,11 +174,15 @@ def main():
         ledger["qalys_gained_per_year"] = infections * qaly if qaly is not None else None
         ledger["cost_per_infection_averted_clinic_and_payer"] = (
             ((prog or 0.0) * args.sites + pay) / infections if infections > 0 else None)
-        # break-even reach: scale the programme's activity linearly with reach
+        # break-even reach: activity (and so revenue and variable cost) scales with
+        # reached person-months; the platform cost is fixed per site
         if prog is not None and reached_pm > 0:
-            net_per_reached_pm = (rev - (prog - _value(costs["program_costs"]["chia_platform_per_site_year"]) * 0)) / reached_pm
             fixed = _value(costs["program_costs"]["chia_platform_per_site_year"]) * args.sites
-            ledger["breakeven_reached_person_months_per_year"] = fixed / net_per_reached_pm if net_per_reached_pm > 0 else None
+            variable = prog * args.sites - fixed
+            net_per_reached_pm = (rev - variable) / reached_pm
+            ledger["breakeven_reached_person_months_per_year"] = (
+                fixed / net_per_reached_pm if net_per_reached_pm > 0 else None)
+            ledger["net_revenue_per_reached_person_month"] = net_per_reached_pm
         rows.append(ledger)
         ledger["missing_unit_costs"] = ";".join(sorted(set(smissing + pmissing)))
         missing = sorted(set(missing + smissing + pmissing))
