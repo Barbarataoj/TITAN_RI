@@ -56,8 +56,13 @@ SCRATCH = Path(f"/oscar/scratch/{os.environ.get('USER', 'jtao9')}/titan_calibrat
 DEFAULT_SUMMARY = SCRATCH / "ensemble_8x40_summary.csv"
 
 
+TRIALS_DIR = None  # set by --trials-dir in main()
+
+
 def member_yaml(name):
     """Where a pass-list member's full scenario lives."""
+    if TRIALS_DIR is not None:
+        return Path(TRIALS_DIR) / f"trial_{name}.yml"
     if name.startswith("282g"):
         return SCRATCH / "val_282_neighbors" / "trials" / f"trial_{name}.yml"
     return SCRATCH / "optuna_multi_runs" / f"trial_{name}.yml"
@@ -75,6 +80,9 @@ def main():
     ap.add_argument("--members", default=None, help="comma-separated member names instead of the summary's pass list")
     ap.add_argument("--steps", type=int, default=240)
     ap.add_argument("--arms", default="all", help="'all' or comma-separated scenario stems, e.g. scenario_1_baseline,scenario_6_combination")
+    ap.add_argument("--trials-dir", default=None,
+                    help="directory holding trial_<member>.yml for every member (e.g. the copy a re-score was run from); "
+                         "default: optuna_multi_runs/, which is overwritten per study (2026-10-02)")
     ap.add_argument("--arms-module", default="make_phase7_scenarios",
                     help="scripts/<name>.py providing build_arms(baseline) -> {filename: (scenario, notes)}; "
                          "make_phase7_pc_arms for the primary-care strategy arms (2026-10-02)")
@@ -86,8 +94,9 @@ def main():
     args = ap.parse_args()
 
     calib = load_yaml(CALIB_YAML)
-    global arms_mod
+    global arms_mod, TRIALS_DIR
     arms_mod = _load(args.arms_module)
+    TRIALS_DIR = args.trials_dir
     members = args.members.split(",") if args.members else members_from_summary(args.summary)
     trials_dir = args.out_dir / "trials"
     trials_dir.mkdir(parents=True, exist_ok=True)

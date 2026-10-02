@@ -107,3 +107,29 @@ def test_variants_are_ordered_low_central_high():
         s, _ = gen.build_arms(baseline(), static=True, variant=v)[f"pc1_training_detailing_{v}_static.yml"]
         vals[v] = s["care_seeking"]["setting"]["primary_care"]["p_willing_hiv_test"]
     assert vals["low"] < vals["central"] < vals["high"] <= 1.0
+
+
+@pytest.mark.unit
+def test_chia_programme_arm_sets_reach_fields_only_in_primary_care():
+    b = baseline()
+    arms = gen.build_arms(b, start_step=133)
+    s, notes = arms["pc4_chia_central.yml"]
+    pc = s["care_seeking"]["setting"]["primary_care"]
+    assert pc["reach_start_time"] == 133
+    assert pc["reach_prob"] == pytest.approx(0.15)
+    assert pc["reach_visit_prob"] == pytest.approx(0.65)
+    assert pc["reach_offer_prob_hiv_test"] == pytest.approx(0.027 + 0.65 * (0.50 - 0.027), abs=1e-3)
+    assert pc["reach_offer_prob_prep"] == pytest.approx(0.35 * 0.35 * 0.78, abs=1e-3)
+    assert pc["reach_intensity_mult_prep"] == pytest.approx((1 + 0.65 * 2.15) / 0.65, abs=1e-3)
+    assert pc["reach_prep_discontinue_mult"] == pytest.approx(1 - 0.65 * 0.5, abs=1e-3)
+    # W, I and acceptance of primary care untouched; other settings untouched; no timeline
+    for k in ("p_willing_hiv_test", "p_willing_prep", "intensity_hiv_test", "intensity_prep"):
+        assert pc[k] == b["care_seeking"]["setting"]["primary_care"][k]
+    for other in ("ED", "sud_treatment", "mental_health"):
+        assert s["care_seeking"]["setting"][other] == b["care_seeking"]["setting"][other]
+    assert "timeline_scaling" not in s
+    assert s["hiv_testing"]["acceptance"] == 0.55 and s["prep"]["acceptance"] == 0.60
+    s_static, _ = gen.build_arms(b, static=True)["pc4_chia_central_static.yml"]
+    assert s_static["care_seeking"]["setting"]["primary_care"]["reach_start_time"] == -9999
+    hi, _ = gen.build_arms(b, variant="high")["pc4_chia_high.yml"]
+    assert hi["care_seeking"]["setting"]["primary_care"]["reach_intensity_mult_prep"] == pytest.approx(3.15 / 0.65, abs=1e-3)

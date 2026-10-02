@@ -426,3 +426,71 @@ def test_get_acquisition_risk_multiplier(make_agent):
 
     a.prep.type = "Inj"
     assert 0 < a.prep.get_acquisition_risk_multiplier(t, "sex") < 1.0
+
+
+@pytest.mark.unit
+def test_reach_multipliers_scale_prep_discontinuation_and_adherence(make_agent, make_model):
+    """
+    care_seeking's reach_* effects (2026-10-02): a reached agent's per-step PrEP
+    discontinuation is multiplied by prep_discontinue_mult and the adherence
+    draw by prep_adherence_mult; a drug-type-level `prep.discontinue` is read in
+    preference to the sex-type level when present.
+    """
+    model = make_model()
+    a = make_agent()
+    sex = a.location.params.demographics[a.race].sex_type[a.sex_type]
+    sex.prep.discontinue = 0.10
+    sex.prep.adherence = 0.50
+    a.prep.active = True
+    a.prep.type = "Oral"
+    a.prep.time = 0
+    a.prep.last_dose_time = 0
+    Prep.counts[a.race] = 1
+
+    # unreached: draw 0.05 < 0.10 -> discontinues
+    a.care_reach = {}
+    model.run_random = FakeRandom(0.05)
+    a.prep.progress(model)
+    assert a.prep.active is False
+
+    # reached with mult 0.3: 0.03 -> draw 0.05 keeps the agent on PrEP
+    a.prep.active = True
+    a.prep.type = "Oral"
+    Prep.counts[a.race] = 1
+    a.care_reach = {"prep_discontinue_mult": 0.3}
+    a.prep.progress(model)
+    assert a.prep.active is True
+
+    # adherence: draw 0.55 is above 0.50 (not adherent) but below 0.50 x 1.2
+    a.prep.active = False
+    Prep.counts[a.race] = 0
+    a.care_reach = {"prep_adherence_mult": 1.2}
+    a.prep.enroll(FakeRandom(0.55), 5)
+    assert a.prep.adherent is True
+    assert a.prep.ever is True
+
+    # drug-type-level discontinuation wins when present
+    sex.drug_type[a.drug_type].prep = {"discontinue": 0.9, "adherence": None}
+    assert a.prep.demographic_value("discontinue") == pytest.approx(0.9)
+    assert a.prep.demographic_value("adherence") == pytest.approx(0.50)
+
+
+@pytest.mark.unit
+def test_reached_agent_restarts_prep_without_an_offer(make_agent, make_model):
+    model = make_model()
+    model.params.features.care_seeking = True
+    a = make_agent()
+    a.location.params.features.care_seeking = True
+    a.prep.ever = True
+    a.prep.active = False
+    a.care_offer = {"prep": False}
+    a.care_reach = {"prep_restart_prob": 0.5}
+    model.run_random = FakeRandom(0.3)
+    a.prep.initiate(model)
+    assert a.prep.active is True
+    # never-enrolled agents do not restart
+    b = make_agent()
+    b.care_offer = {"prep": False}
+    b.care_reach = {"prep_restart_prob": 0.5}
+    b.prep.initiate(model)
+    assert b.prep.active is False

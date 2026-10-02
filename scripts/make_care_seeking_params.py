@@ -175,6 +175,8 @@ TEST_CODES = ["cpt_87389", "cpt_87806", "cpt_86703", "G0475", "G0432", "G0433", 
 INSURANCE_PROXY_SETTING = "primary_care"  # the most inclusive setting (9,663 of 12,774 cohort members in 2022) stands in for the cohort's insurance mix
 ACCEPT_HIV_TEST = 0.55   # RI ED drug-using patients: 64.5% (PMID 25125271) and 45% (PMID 26036465) accepted an offered test
 ACCEPT_PREP = 0.60       # prescribed once discussed, registry 7.6 (primary care PrEP)
+PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
+PREP_MONITORING_ATTENDANCE = 0.60       # unsupported attendance (0.55-0.70; registry/CHIA note 7.4)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
 NONCLINICAL_TESTING_INITIAL = 0.4       # placeholder; the search fits it (smoke run 2026-10-01: 0.4 gives 0.53 tests per PWID-year, inside the 0.43-0.80 band)
 
@@ -410,6 +412,9 @@ SCALARS = [
     ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "FITTED (parameters_to_optimize); placeholder"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
     ("prep", "acceptance", ACCEPT_PREP, "prescribed once discussed, registry 7.6"),
+    ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),
+    ("prep", "monitoring_attendance", PREP_MONITORING_ATTENDANCE, "share of due monitoring visits attended, unsupported: RI PrEP clinic 53-68% retained at 6 months (PMID 27302837), chatbot non-users 54% (41792418)"),
+    ("prep", "monitoring_setting", "primary_care", "where PrEP monitoring happens"),
 ]
 SCALAR_TAG = "# care_seeking layer (scripts/make_care_seeking_params.py)"
 

@@ -30,6 +30,7 @@ class Prep(base_feature.BaseFeature):
         # agent level attributes
         self.active = False
         self.adherent = False
+        self.ever = False  # ever enrolled (for programme-driven restarts)
         self.type = ""
         self.time = None
         self.last_dose_time: Optional[int] = None
@@ -226,8 +227,12 @@ class Prep(base_feature.BaseFeature):
             model: instance of TITAN being run
         """
         if not getattr(self.agent, "care_offer", {}).get("prep", False):
+            # a reached agent who stopped PrEP may restart without a new offer
+            # (post-initiation support: care_seeking reach_prep_restart_prob)
+            restart = getattr(self.agent, "care_reach", {}).get("prep_restart_prob", 0.0)
+            if getattr(self, "ever", False) and restart > 0 and model.run_random.random() < restart:
+                self.enroll(model.run_random, model.time)
             return
-
         acceptance = getattr(self.agent.location.params.prep, "acceptance", 1.0)
         acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
         if model.run_random.random() < acceptance:
@@ -243,15 +248,15 @@ class Prep(base_feature.BaseFeature):
         params = self.agent.location.params
 
         self.active = True
+        self.ever = True
         self.time = time
         self.last_dose_time = time
 
-        self.adherent = (
-            rand_gen.random()
-            < params.demographics[self.agent.race]
-            .sex_type[self.agent.sex_type]
-            .prep.adherence
+        adherence = self.demographic_value("adherence")
+        adherence = min(
+            1.0, adherence * getattr(self.agent, "care_reach", {}).get("prep_adherence_mult", 1.0)
         )
+        self.adherent = rand_gen.random() < adherence
 
         if "Inj" in params.prep.type and "Oral" in params.prep.type:
             if rand_gen.random() < params.prep.lai.prob:
@@ -277,12 +282,9 @@ class Prep(base_feature.BaseFeature):
             return
 
         if self.type == "Oral":
-            if (
-                model.run_random.random()
-                < self.agent.location.params.demographics[self.agent.race]
-                .sex_type[self.agent.sex_type]
-                .prep.discontinue
-            ):
+            discontinue = self.demographic_value("discontinue")
+            discontinue *= getattr(self.agent, "care_reach", {}).get("prep_discontinue_mult", 1.0)
+            if model.run_random.random() < discontinue:
                 self.discontinue()
             else:
                 self.last_dose_time = model.time
@@ -295,6 +297,24 @@ class Prep(base_feature.BaseFeature):
             == model.time
         ):
             self.discontinue()
+
+    def demographic_value(self, field: str) -> float:
+        """
+        The agent's PrEP `discontinue` or `adherence`: the drug-type-level value
+        (demographics.<race>.sex_type.<sex>.drug_type.<drug>.prep.<field>) when
+        the scenario sets one, else the sex-type-level value the engine has
+        always read. Lets a scenario give people who inject their own
+        persistence without changing the others (2026-10-02).
+        """
+        sex = self.agent.location.params.demographics[self.agent.race].sex_type[self.agent.sex_type]
+        try:
+            drug_prep = sex.drug_type[self.agent.drug_type].prep
+            value = drug_prep[field] if isinstance(drug_prep, dict) else getattr(drug_prep, field)
+            if value is not None:
+                return float(value)
+        except (KeyError, AttributeError, TypeError):
+            pass
+        return float(getattr(sex.prep, field))
 
     def discontinue(self):
         """

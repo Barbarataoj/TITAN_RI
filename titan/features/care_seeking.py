@@ -78,6 +78,10 @@ class CareSeeking(base_feature.BaseFeature):
         # rolled, so one event yields at most one extra visit per setting even
         # though the window below spans two steps.
         self.od_visit_rolled: Dict[str, Optional[int]] = {}
+        # patient-facing programme (reach_* fields): reached per setting, and
+        # whether the reach draw has been made
+        self.reached: Dict[str, bool] = {}
+        self.reach_rolled: Dict[str, bool] = {}
 
     # ================= CLASS-LEVEL METHODS =================
 
@@ -99,7 +103,7 @@ class CareSeeking(base_feature.BaseFeature):
         cls.provider_weights = {}
         cls.provider_shares = {}
 
-        cls.stats = ["care_visits"]
+        cls.stats = ["care_visits", "care_reached", "care_reach_visits", "prep_monitoring_visits"]
         for setting_name in params.care_seeking.setting:
             cls.stats.append(f"care_encounters_{setting_name}")
             for service in SERVICES:
@@ -564,6 +568,11 @@ class CareSeeking(base_feature.BaseFeature):
         # settings that offered the service this step (1.0 = the global
         # acceptance scalar unchanged); consumed by hiv_testing, prep and moud
         self.agent.care_offer_mult = {service: 1.0 for service in SERVICES}
+        self.agent.care_reach_visits = 0
+        self.agent.prep_monitoring_visit = False
+        # PrEP-side effects of the programme(s) that reached this agent,
+        # consumed by titan/features/prep.py
+        self.agent.care_reach = self.reach_effects(care_params)
 
         for setting_name, setting in care_params.setting.items():
             provider_idx = self.provider_id.get(setting_name)
@@ -574,6 +583,8 @@ class CareSeeking(base_feature.BaseFeature):
             # scenario that zeroes a setting's routine visits keeps the link
             # between an overdose and an emergency encounter.
             n_visits = self.visit_after_overdose(setting, setting_name, model)
+            monitoring = self.prep_monitoring_visit(setting_name, model)
+            n_visits += monitoring
 
             if setting.visit_rate_annual > 0:
                 rate = self.visit_rate(setting, setting_name, steps_per_year)
@@ -588,9 +599,100 @@ class CareSeeking(base_feature.BaseFeature):
 
             self.agent.care_encounter[setting_name] = n_visits
 
+            # the setting's patient-facing programme: reach draw at the first
+            # visit on/after its start, then an "active" visit roll
+            active = self.roll_reach(setting, setting_name, model)
+            if active:
+                self.agent.care_reach_visits += 1
+
             # each visit is a separate chance to be offered a service
             for _ in range(n_visits):
-                self.resolve_offers(setting_name, provider_idx, model)
+                self.resolve_offers(setting_name, provider_idx, model, active=active)
+
+            if monitoring:
+                # the monitoring visit carries its own HIV test, accepted
+                self.agent.prep_monitoring_visit = True
+                self.agent.care_offer["hiv_test"] = True
+                self.agent.care_offer_by_setting.setdefault(
+                    setting_name, {service: False for service in SERVICES}
+                )["hiv_test"] = True
+                self.agent.care_offer_mult["hiv_test"] = max(
+                    self.agent.care_offer_mult.get("hiv_test", 1.0), 1e6
+                )
+
+    def roll_reach(self, setting: "ObjMap", setting_name: str, model: "model.TITAN") -> bool:
+        """
+        Whether this visit is an active programme visit: draw reach at the first
+        visit on or after reach_start_time (retry at later visits with
+        reach_retry_prob), then roll reach_visit_prob for reached agents.
+
+        returns:
+            True if the programme is active at this visit
+        """
+        p_reach = getattr(setting, "reach_prob", 0.0)
+        if p_reach <= 0 and not self.reached.get(setting_name, False):
+            return False
+        if model.time < getattr(setting, "reach_start_time", -9999):
+            return False
+        if not self.reached.get(setting_name, False):
+            if not self.reach_rolled.get(setting_name, False):
+                self.reach_rolled[setting_name] = True
+                p = p_reach
+            else:
+                p = getattr(setting, "reach_retry_prob", 0.0)
+            if p > 0 and model.run_random.random() < p:
+                self.reached[setting_name] = True
+            else:
+                return False
+        return model.run_random.random() < getattr(setting, "reach_visit_prob", 1.0)
+
+    def reach_effects(self, care_params: "ObjMap") -> Dict[str, float]:
+        """
+        The PrEP-side multipliers of the programmes that reached this agent:
+        the strongest across settings (lowest discontinuation multiplier,
+        highest of the others). Neutral values when the agent is reached nowhere.
+        """
+        eff = {"prep_discontinue_mult": 1.0, "prep_adherence_mult": 1.0,
+               "prep_restart_prob": 0.0, "prep_monitoring_mult": 1.0}
+        for setting_name, is_reached in self.reached.items():
+            if not is_reached:
+                continue
+            setting = care_params.setting.get(setting_name)
+            if setting is None:
+                continue
+            eff["prep_discontinue_mult"] = min(
+                eff["prep_discontinue_mult"], getattr(setting, "reach_prep_discontinue_mult", 1.0))
+            eff["prep_adherence_mult"] = max(
+                eff["prep_adherence_mult"], getattr(setting, "reach_prep_adherence_mult", 1.0))
+            eff["prep_restart_prob"] = max(
+                eff["prep_restart_prob"], getattr(setting, "reach_prep_restart_prob", 0.0))
+            eff["prep_monitoring_mult"] = max(
+                eff["prep_monitoring_mult"], getattr(setting, "reach_prep_monitoring_mult", 1.0))
+        return eff
+
+    def prep_monitoring_visit(self, setting_name: str, model: "model.TITAN") -> int:
+        """
+        One PrEP monitoring visit in prep.monitoring_setting when the agent is
+        on oral PrEP and a monitoring interval has elapsed since initiation,
+        attended with probability prep.monitoring_attendance (scaled by the
+        agent's reach_prep_monitoring_mult). 0 when monitoring is off.
+        """
+        prep_params = getattr(model.params, "prep", None)
+        interval = getattr(prep_params, "monitoring_interval_steps", 0) if prep_params is not None else 0
+        if interval <= 0 or setting_name != getattr(prep_params, "monitoring_setting", "primary_care"):
+            return 0
+        prep = getattr(self.agent, "prep", None)
+        if prep is None or not getattr(prep, "active", False) or getattr(prep, "type", "") != "Oral":
+            return 0
+        started = getattr(prep, "time", None)
+        if started is None:
+            return 0
+        elapsed = model.time - started
+        if elapsed <= 0 or elapsed % interval != 0:
+            return 0
+        attend = getattr(prep_params, "monitoring_attendance", 1.0)
+        attend = min(1.0, attend * getattr(self.agent, "care_reach", {}).get("prep_monitoring_mult", 1.0))
+        return 1 if model.run_random.random() < attend else 0
 
     def visit_after_overdose(
         self, setting: "ObjMap", setting_name: str, model: "model.TITAN"
@@ -684,7 +786,8 @@ class CareSeeking(base_feature.BaseFeature):
 
         return multiplier
 
-    def resolve_offers(self, setting_name: str, provider_idx: int, model: "model.TITAN"):
+    def resolve_offers(self, setting_name: str, provider_idx: int, model: "model.TITAN",
+                       active: bool = False):
         """
         Work out which services the agent's provider in this setting offered
         during a visit, recording both the collapsed (`care_offer`) and
@@ -694,10 +797,19 @@ class CareSeeking(base_feature.BaseFeature):
         service at all, and that they do so at this particular visit. The first
         is the term a provider-directed intervention moves.
 
+        At an active programme visit (`active`, see roll_reach) the setting's
+        reach_* fields apply: an offer floor reach_offer_prob_<service> that
+        applies whatever the provider's willingness (a test order prompted by
+        the summary; a prepared patient's request acted on by a non-prescribing
+        provider), the provider's intensities scaled by
+        reach_intensity_mult_<service>, and the acceptance multiplier scaled by
+        reach_acceptance_mult_<service>.
+
         args:
             setting_name: the setting the visit happened in
             provider_idx: index of the agent's provider in this setting's pool
             model: the instance of TITAN currently being run
+            active: whether the setting's patient-facing programme is active at this visit
         """
         pool = self.providers.get(setting_name, [])
         if provider_idx >= len(pool):
@@ -720,15 +832,29 @@ class CareSeeking(base_feature.BaseFeature):
             except (KeyError, AttributeError, TypeError):
                 setting = None
         for service in SERVICES:
-            if not provider[service]["willing"]:
+            offered = False
+            if provider[service]["willing"]:
+                intensity = provider[service]["intensity"]
+                if active and setting is not None:
+                    intensity = min(1.0, intensity * getattr(setting, f"reach_intensity_mult_{service}", 1.0))
+                offered = model.run_random.random() < intensity
+            if not offered and active and setting is not None:
+                # the programme's floor on the offer whatever the provider's
+                # own willingness: the summary prompts a test order; a prepared
+                # patient's request gets a non-prescribing provider to act
+                floor = getattr(setting, f"reach_offer_prob_{service}", -1.0)
+                if floor >= 0:
+                    offered = model.run_random.random() < floor
+            if not offered:
                 continue
-            if model.run_random.random() < provider[service]["intensity"]:
-                self.agent.care_offer[service] = True
-                setting_offers[service] = True
-                mult = getattr(setting, f"acceptance_mult_{service}", 1.0) if setting is not None else 1.0
-                offer_mult = getattr(self.agent, "care_offer_mult", None)
-                if offer_mult is not None and mult > offer_mult.get(service, 1.0):
-                    offer_mult[service] = mult
+            self.agent.care_offer[service] = True
+            setting_offers[service] = True
+            mult = getattr(setting, f"acceptance_mult_{service}", 1.0) if setting is not None else 1.0
+            if active and setting is not None:
+                mult *= getattr(setting, f"reach_acceptance_mult_{service}", 1.0)
+            offer_mult = getattr(self.agent, "care_offer_mult", None)
+            if offer_mult is not None and mult > offer_mult.get(service, 1.0):
+                offer_mult[service] = mult
 
     # ================= STATS =================
 
@@ -753,6 +879,15 @@ class CareSeeking(base_feature.BaseFeature):
             stats["care_visits"] += sum(encounters.values())
             for setting_name, n_visits in encounters.items():
                 stats[f"care_encounters_{setting_name}"] += n_visits
+        # written only when non-zero, like the counters above, so a stats dict
+        # built without this feature's init_class (tests/output_test.py) is safe
+        if any(self.reached.values()):
+            stats["care_reached"] += 1
+        reach_visits = getattr(self.agent, "care_reach_visits", 0)
+        if reach_visits:
+            stats["care_reach_visits"] += reach_visits
+        if getattr(self.agent, "prep_monitoring_visit", False):
+            stats["prep_monitoring_visits"] += 1
 
         for setting_name, offers in getattr(
             self.agent, "care_offer_by_setting", {}

@@ -82,7 +82,46 @@ TIMELINE_STOP = 10_000        # beyond any horizon (stop_time is exclusive)
 
 # Each strategy: per service {reach, willing_efficacy, intensity_mult}, acceptance
 # levels, and the low/high sensitivity ends. Sources in the effects note.
+# Programme-type strategy (a patient-facing tool offered in the setting, e.g. the
+# CHIA pre-visit chatbot): expressed through the setting's reach_* fields rather
+# than W/I/acceptance. Values: docs/calibration_log/phase_7_chia_workflow_cashflow_2026-10-02.md
+# section 7.5 (reference AHF messenger PMID 41792418 with an OUD discount d on the
+# excess effect: central d = 0.65, low d = 0.5, high d = 1).
+def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78):
+    rr = 1.0 + d * (3.15 - 1.0)              # PrEP initiation among reached, AHF RR 3.15
+    return {
+        "reach_prob": reach_sms,
+        "reach_retry_prob": 0.0,
+        "reach_visit_prob": 0.65,
+        "reach_offer_prob_hiv_test": round(0.027 + d * (0.50 - 0.027), 4),
+        # a prepared patient raises PrEP (share who ask 0.35) and a non-prescribing
+        # provider acts on the request (efficacy 0.35 x OUD factor 0.78); the
+        # AHF initiation effect above covers willing providers, this covers the rest
+        "reach_offer_prob_prep": round(ask * eff_req * oud_req, 4),
+        "reach_acceptance_mult_hiv_test": round((0.55 + d * 0.30) / 0.55, 4),
+        "reach_intensity_mult_prep": round(rr / 0.65, 4),      # per-visit multiplier so the per-patient-year effect is rr
+        "reach_acceptance_mult_prep": 1.0,
+        "reach_prep_discontinue_mult": round(1.0 - d * (1.0 - 0.50), 4),   # AHF refill 57.0 vs 32.4 % -> h 0.50
+        "reach_prep_adherence_mult": round(1.0 + d * 0.10, 4),
+        "reach_prep_restart_prob": 0.015,
+        "reach_prep_monitoring_mult": round(1.0 + d * 0.22, 4),           # AHF attendance 66.1 vs 53.9 %
+    }
+
+
 STRATEGIES = {
+    "pc4_chia": {
+        "label": "CHIA pre-visit chatbot + provider summary (patient-facing programme in primary care)",
+        "program": True,
+        "central": {"program": _chia(0.65, 0.15)},
+        "low": {"program": dict(_chia(0.50, 0.08, ask=0.30, eff_req=0.20, oud_req=0.70), reach_visit_prob=0.50, reach_prep_restart_prob=0.01)},
+        "high": {"program": dict(_chia(1.0, 0.23, ask=0.50, eff_req=0.50, oud_req=0.85), reach_visit_prob=0.80, reach_prep_restart_prob=0.03)},
+        "sources": [
+            "reference: AHF conversational messenger, 155,217 adults (PMID 41792418): engaged 23.4%; PrEP initiation 19.3 vs 6.1% (RR 3.15); refill after initiation 57.0 vs 32.4%; attendance 66.1 vs 53.9%",
+            "OUD discount d on the excess effect (0.65; 0.5-1): phone/portal ceiling 36575145, 41617402; PrEP acceptance in an OUD bridge clinic 36383918; PWID discontinuation aHR 4.8 31436610; null digital support in stimulant users 36659873",
+            "testing links: patient-screen CDS acknowledged 82% / ordered 47% (39572251); computer counseling + rapid test 97% tested (23837807); engagement priors 42081747, 41219954",
+            "PrEP offer floor: 47% of chatbot users initiated the prevention conversation (42712342) -> ask 0.35 (0.30-0.50); patient request converts non-prescribers e 0.35 (0.20-0.50): Kravitz 15855433, patient-initiated CME 31% (33735209), 94% of VA PrEP conversations patient-initiated (31705471); OUD factor 0.78 (27896552, 36964426)",
+        ],
+    },
     "pc1_training_detailing": {
         "label": "Provider training + academic detailing, ongoing programme (W lever)",
         "central": {
@@ -170,6 +209,21 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
         levers = spec[variant]
         scenario = copy.deepcopy(baseline)
         base = _setting(baseline)
+        if spec.get("program"):
+            # programme fields are read per visit from params, so a dated arm
+            # only needs reach_start_time; no timeline entry, no pool refresh
+            fields = dict(levers["program"])
+            fields["reach_start_time"] = -9999 if static else int(start_step)
+            notes = [f"{spec['label']} [{variant}]",
+                     ("static: programme on from the start, burn-in included" if static
+                      else f"dated: programme starts at step {start_step} (reach_start_time)")]
+            for k, v in fields.items():
+                _setting(scenario)[k] = v
+                notes.append(f"  {SETTING}.{k} = {v}")
+            notes.append("  other settings (ED, sud_treatment, mental_health) unchanged; W/I/acceptance of primary care unchanged")
+            notes.extend(f"  source: {s}" for s in spec["sources"])
+            out[f"{key}_{variant}{'_static' if static else ''}.yml"] = (scenario, notes)
+            continue
         notes = [f"{spec['label']} [{variant}]",
                  ("static: values in force from the start, burn-in included" if static
                   else f"dated: timeline_scaling at step {start_step} + provider pool refresh at that step")]

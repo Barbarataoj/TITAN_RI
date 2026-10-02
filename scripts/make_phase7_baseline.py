@@ -117,6 +117,33 @@ def composition(scenario):
     }
 
 
+SCENARIO_SOURCE = REPO / "titan" / "calibration" / "scenario_source.yml"
+
+
+def overlay_care_layer(scenario):
+    """
+    Carry the care layer's non-fitted scalars from today's scenario source
+    into a calibrated pick that predates them (2026-10-02): PrEP monitoring
+    (`prep.monitoring_*`) and any care_seeking setting field the pick lacks
+    (reach_*, acceptance_mult_*, pool_refresh_time, visit_prob_after_overdose).
+    Fitted values and fields the pick already carries are left as they are.
+    """
+    src = load_yaml(SCENARIO_SOURCE).get("scenario", {})
+    prep_src = src.get("prep", {}) or {}
+    prep = scenario.setdefault("prep", {})
+    for k, v in prep_src.items():
+        if k.startswith("monitoring_"):
+            prep[k] = v
+    settings_src = (src.get("care_seeking", {}) or {}).get("setting", {}) or {}
+    settings = scenario.setdefault("care_seeking", {}).setdefault("setting", {})
+    for name, fields in settings_src.items():
+        target = settings.setdefault(name, {})
+        for k, v in fields.items():
+            if k not in target:
+                target[k] = v
+    return scenario
+
+
 def build(calibrated, calib, steps=None):
     """The calibrated model, re-anchored, at the scenario horizon."""
     scenario = copy.deepcopy(calibrated)
@@ -134,6 +161,7 @@ def build(calibrated, calib, steps=None):
     # changed after the pick was written -- moud.post_overdose_rr 1.0 -> 0.42 on
     # 2026-10-01 -- would be inherited by every arm from a stale file.
     set_anchored_parameters(scenario, calib)
+    overlay_care_layer(scenario)
 
     # Derived, not inherited: the input file carries whatever seed the calibration
     # happened to write, and a Phase 7 baseline that disagrees with the

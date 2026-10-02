@@ -688,6 +688,9 @@ scenario:
           adherent: 0.03
           non_adherent: 1.0
   prep:
+    monitoring_setting: primary_care  # care_seeking layer (scripts/make_care_seeking_params.py): where PrEP monitoring happens
+    monitoring_attendance: 0.6  # care_seeking layer (scripts/make_care_seeking_params.py): share of due monitoring visits attended, unsupported: RI PrEP clinic 53-68% retained at 6 months (PMID 27302837), chatbot non-users 54% (41792418)
+    monitoring_interval_steps: 3  # care_seeking layer (scripts/make_care_seeking_params.py): guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)
     acceptance: 0.6  # care_seeking layer (scripts/make_care_seeking_params.py): prescribed once discussed, registry 7.6
     cap: 0.015
     cap_as_prob: false

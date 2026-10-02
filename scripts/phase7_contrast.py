@@ -82,6 +82,17 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
         surv = by_run_all[["od_survivors_on_moud", "od_survivors_off_moud", "moud_start_postod_1step"]].sum()
         denom = (surv["od_survivors_on_moud"] + surv["od_survivors_off_moud"]).replace(0, np.nan)
         out["survivor_any_moud_30d"] = (surv["od_survivors_on_moud"] + surv["moud_start_postod_1step"]) / denom
+    # Activity the cash-flow layer prices (2026-10-02): counts summed over the
+    # window per run; `prep` and `care_reached` are per-step stocks, so their
+    # sums are person-months.
+    for col, name in (("hiv_tests", "hiv_tests"), ("care_encounters_primary_care", "pc_visits"),
+                      ("care_offer_primary_care_hiv_test", "pc_test_offers"),
+                      ("care_offer_primary_care_prep", "pc_prep_offers"),
+                      ("prep_new", "prep_starts"), ("prep", "prep_person_months"),
+                      ("prep_monitoring_visits", "prep_monitoring_visits"),
+                      ("care_reach_visits", "reach_visits"), ("care_reached", "reached_person_months")):
+        if col in df:
+            out[name] = by_run_all[col].sum()
     out["n_steps"] = df.groupby("run_id")["t"].nunique()
     return out
 
@@ -167,6 +178,8 @@ def main():
 
     outcomes = [c for c in ("hiv_new_pwid", "hiv_new_pwid_inj_route", "hiv_dx_new_pwid",
                             "overdose_deaths", "overdose_events", "moud_coverage",
+                            "hiv_tests", "pc_visits", "pc_test_offers", "pc_prep_offers", "prep_starts",
+                            "prep_person_months", "prep_monitoring_visits", "reach_visits", "reached_person_months",
                             "survivor_any_moud_30d") if c in reps]
     if args.split_members:
         return ensemble_contrasts(reps, outcomes, args)

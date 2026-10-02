@@ -80,3 +80,24 @@ prep:
     type: float
     min: 0.0
     max: 1.0
+  monitoring_interval_steps:
+    default: 0
+    description: |
+      Guideline PrEP monitoring: every this many steps after initiation an agent
+      on oral PrEP is due a monitoring visit (HIV test plus the visit itself),
+      made in prep.monitoring_setting with probability monitoring_attendance.
+      The visit counts as a care encounter and carries a guaranteed HIV test
+      offer accepted with probability 1. 0 = off. Only with features.care_seeking.
+      2026-10-02.
+    type: int
+    min: 0
+  monitoring_attendance:
+    default: 1.0
+    description: "Probability a due PrEP monitoring visit is attended (a reached agent's care_seeking reach_prep_monitoring_mult scales it)."
+    type: float
+    min: 0.0
+    max: 1.0
+  monitoring_setting:
+    default: primary_care
+    description: "The care_seeking setting in which PrEP monitoring visits take place."
+    type: str
