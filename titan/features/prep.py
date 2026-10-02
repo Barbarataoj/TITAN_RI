@@ -12,7 +12,8 @@ from .. import exposures
 
 class Prep(base_feature.BaseFeature):
     name = "prep"
-    stats = ["prep", "prep_new", "prep_injectable", "prep_oral"]
+    stats = ["prep", "prep_new", "prep_injectable", "prep_oral", "prep_injections",
+             "prep_injection_visits"]
     """
         PrEP collects the following stats:
 
@@ -34,6 +35,12 @@ class Prep(base_feature.BaseFeature):
         self.type = ""
         self.time = None
         self.last_dose_time: Optional[int] = None
+        # per-product injectable state (prep.use_products)
+        self.product = ""
+        self.injections = 0
+        self.next_due: Optional[int] = None
+        self.overdue = False
+        self.injections_this_step = 0
 
     @classmethod
     def init_class(cls, params: "ObjMap"):
@@ -44,6 +51,13 @@ class Prep(base_feature.BaseFeature):
             params: the population params
         """
         cls.counts = {race: 0 for race in params.classes.races}
+        # per-product stocks and injection counts, when the product table is in use
+        prep_params = getattr(params, "prep", None)
+        if prep_params is not None and getattr(prep_params, "use_products", False):
+            for name in prep_params.products:
+                for stat in (f"prep_{name}", f"prep_injections_{name}"):
+                    if stat not in cls.stats:
+                        cls.stats.append(stat)
 
     def init_agent(self, pop: "population.Population", time: int):
         """
@@ -77,6 +91,8 @@ class Prep(base_feature.BaseFeature):
         args:
             model: the instance of TITAN currently being run
         """
+        self.injections_this_step = 0
+        self.injection_visit_this_step = False
         if (
             not self.agent.hiv.active  # type: ignore[attr-defined]
             and model.time >= self.agent.location.params.prep.start_time
@@ -114,14 +130,20 @@ class Prep(base_feature.BaseFeature):
     def set_stats(self, stats: Dict[str, int], time: int):
         if self.active:
             stats["prep"] += 1
-
             if self.time == time:
                 stats["prep_new"] += 1
-
             if self.type == "Inj":
                 stats["prep_injectable"] += 1
             elif self.type == "Oral":
                 stats["prep_oral"] += 1
+            if self.product:
+                stats[f"prep_{self.product}"] += 1
+        if self.injections_this_step:
+            stats["prep_injections"] += self.injections_this_step
+            if self.product:
+                stats[f"prep_injections_{self.product}"] += self.injections_this_step
+            if getattr(self, "injection_visit_this_step", False):
+                stats["prep_injection_visits"] += 1
 
     def get_acquisition_risk_multiplier(self, time: int, interaction_type: str):
         """
@@ -135,6 +157,14 @@ class Prep(base_feature.BaseFeature):
         """
         if self.active and self.last_dose_time is not None:
             params = self.agent.location.params
+            if self.type == "Inj" and self.product:
+                spec = params.prep.products[self.product]
+                due = self.next_due if self.next_due is not None else time
+                if time <= due:
+                    return 1.0 - spec.efficacy
+                half = spec.tail_half_life_steps
+                decay = 0.0 if half <= 0 else 0.5 ** ((time - due) / half)
+                return 1.0 - spec.efficacy * decay
             if self.type == "Oral":
                 adherence = "adherent" if self.adherent else "non_adherent"
                 return 1.0 - params.prep.efficacy[adherence]
@@ -258,16 +288,72 @@ class Prep(base_feature.BaseFeature):
         )
         self.adherent = rand_gen.random() < adherence
 
-        if "Inj" in params.prep.type and "Oral" in params.prep.type:
+        self.product = ""
+        self.injections = 0
+        self.next_due = None
+        self.overdue = False
+        if getattr(params.prep, "use_products", False):
+            self.product = self.draw_product(params.prep.products, rand_gen)
+            spec = params.prep.products[self.product]
+            self.type = spec.type
+            if self.type == "Inj":
+                # the first injection is given at the enrolment visit
+                self.give_injection(spec, time, visit=False)
+        elif "Inj" in params.prep.type and "Oral" in params.prep.type:
             if rand_gen.random() < params.prep.lai.prob:
                 self.type = "Inj"
             else:
                 self.type = "Oral"
-
         else:
             self.type = params.prep.type[0]
 
         self.add_agent(self.agent)
+
+    @staticmethod
+    def draw_product(products, rand_gen) -> str:
+        """Draw a product name by share_of_starts (renormalised; first product if all shares are 0)."""
+        names = list(products.keys())
+        shares = [max(0.0, float(products[n].share_of_starts)) for n in names]
+        total = sum(shares)
+        if total <= 0:
+            return names[0]
+        draw = rand_gen.random() * total
+        acc = 0.0
+        for n, s in zip(names, shares):
+            acc += s
+            if draw < acc:
+                return n
+        return names[-1]
+
+    def give_injection(self, spec, time: int, visit: bool = True):
+        """
+        Record an injection at `time`: protection restarts from now, the next
+        injection falls due one step later during initiation and interval_steps
+        later after it. A scheduled injection (visit=True) is a care encounter in
+        prep.monitoring_setting with an HIV test accepted with probability 1 when
+        test_at_injection; the enrolment injection rides on the enrolment visit.
+        """
+        self.injections += 1
+        self.injections_this_step += 1
+        self.last_dose_time = time
+        self.overdue = False
+        step = 1 if self.injections < spec.initiation_injections else spec.interval_steps
+        self.next_due = time + step
+        if not visit:
+            return
+        self.injection_visit_this_step = True
+        params = self.agent.location.params
+        setting = getattr(params.prep, "monitoring_setting", "primary_care")
+        enc = getattr(self.agent, "care_encounter", None)
+        if enc is not None:
+            enc[setting] = enc.get(setting, 0) + 1
+        if spec.test_at_injection:
+            offers = getattr(self.agent, "care_offer", None)
+            if offers is not None:
+                offers["hiv_test"] = True
+                mult = getattr(self.agent, "care_offer_mult", None)
+                if mult is not None:
+                    mult["hiv_test"] = max(mult.get("hiv_test", 1.0), 1e6)
 
     def progress(self, model: "model.TITAN", force: bool = False):
         """
@@ -279,6 +365,10 @@ class Prep(base_feature.BaseFeature):
         """
         if force:
             self.discontinue()  # TO_REVIEW should this just remove the agent from counts, or discontinue? does it depend on type?
+            return
+
+        if self.type == "Inj" and self.product:
+            self.progress_injectable(model)
             return
 
         if self.type == "Oral":
@@ -302,6 +392,29 @@ class Prep(base_feature.BaseFeature):
         ):
             self.discontinue()
 
+    def progress_injectable(self, model: "model.TITAN"):
+        """
+        Injection schedule for a product injectable: at the due step the agent
+        attends with probability `attendance` (x a reached agent's
+        reach_prep_monitoring_mult); after a miss it returns with probability
+        `return_prob` per step (x the same multiplier), and stops if more than
+        max_gap_steps late.
+        """
+        spec = self.agent.location.params.prep.products[self.product]
+        if self.next_due is None or model.time < self.next_due:
+            return
+        mult = getattr(self.agent, "care_reach", {}).get("prep_monitoring_mult", 1.0)
+        if not self.overdue:
+            if model.run_random.random() < min(1.0, spec.attendance * mult):
+                self.give_injection(spec, model.time)
+                return
+            self.overdue = True
+        elif model.run_random.random() < min(1.0, spec.return_prob * mult):
+            self.give_injection(spec, model.time)
+            return
+        if model.time - self.next_due >= spec.max_gap_steps:
+            self.discontinue()
+
     def demographic_value(self, field: str) -> float:
         """
         The agent's PrEP `discontinue` or `adherence`: the drug-type-level value
@@ -314,7 +427,7 @@ class Prep(base_feature.BaseFeature):
         try:
             drug_prep = sex.drug_type[self.agent.drug_type].prep
             value = drug_prep[field] if isinstance(drug_prep, dict) else getattr(drug_prep, field)
-            if value is not None:
+            if value is not None and float(value) >= 0:   # -1 (schema default) = not set
                 return float(value)
         except (KeyError, AttributeError, TypeError):
             pass
@@ -328,7 +441,9 @@ class Prep(base_feature.BaseFeature):
         self.type = ""
         self.time = None
         self.last_dose_time = None
-
+        self.product = ""
+        self.next_due = None
+        self.overdue = False
         self.remove_agent(self.agent)
 
     def eligible(self, time) -> bool:

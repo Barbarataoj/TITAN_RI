@@ -205,6 +205,14 @@ demographics:
                 become:      {default: 0.0, type: float}
               discontinue: {default: 0.0, type: float}
 
+            prep:
+              # Drug-type-level PrEP persistence (2026-10-02): when >= 0 these
+              # override the sex-type-level prep.discontinue / prep.adherence for
+              # agents of this drug type (people who inject stop ~2.5x faster).
+              # -1 = not set, use the sex-type level.
+              discontinue: {default: -1.0, type: float}
+              adherence:   {default: -1.0, type: float}
+
             moud:
               # Non-zero defaults so MOUD can initiate even when scenario YAML
               # doesn't override per-demographic values. Calibration targets a

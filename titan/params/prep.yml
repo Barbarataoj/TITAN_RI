@@ -80,6 +80,79 @@ prep:
     type: float
     min: 0.0
     max: 1.0
+  use_products:
+    default: false
+    description: |
+      Use the per-product PrEP table (`prep.products`) instead of `prep.type` /
+      `prep.lai.prob`. Each start draws a product by share_of_starts. Oral keeps
+      the adherence / discontinuation path; injectable products follow an
+      injection schedule whose persistence is attendance at each due injection.
+      2026-10-02.
+    type: boolean
+  products:
+    type: definition
+    description: |
+      PrEP products. type Oral: daily pill (adherence, discontinue,
+      discontinue_late_* as before; product efficacy fields unused). type Inj:
+      initiation_injections injections one step apart, then one every
+      interval_steps; at each due injection the agent attends with probability
+      attendance (scaled by a reached agent's care_seeking
+      reach_prep_monitoring_mult); after a miss it returns with probability
+      return_prob per step, and stops if the injection is more than
+      max_gap_steps late. Protection is `efficacy` while on schedule and decays
+      with half-life tail_half_life_steps once the due date has passed. Each
+      injection is a care encounter in prep.monitoring_setting with an HIV test
+      when test_at_injection. Cabotegravir LA: 2 initiation injections, every
+      2 months; lenacapavir: oral loading within the first step plus one
+      injection, every 6 months.
+    fields:
+      type:
+        type: enum
+        values: [Oral, Inj]
+        default: Oral
+      share_of_starts:
+        type: float
+        default: 0.0
+        min: 0.0
+        max: 1.0
+      initiation_injections:
+        type: int
+        default: 1
+        min: 1
+      interval_steps:
+        type: int
+        default: 1
+        min: 1
+      attendance:
+        type: float
+        default: 1.0
+        min: 0.0
+        max: 1.0
+      return_prob:
+        type: float
+        default: 0.0
+        min: 0.0
+        max: 1.0
+      max_gap_steps:
+        type: int
+        default: 0
+        min: 0
+      efficacy:
+        type: float
+        default: 0.96
+        min: 0.0
+        max: 1.0
+      tail_half_life_steps:
+        type: float
+        default: 1.0
+        min: 0.0
+      test_at_injection:
+        type: boolean
+        default: true
+    default:
+      oral:
+        type: Oral
+        share_of_starts: 1.0
   discontinue_late_after_steps:
     default: 0
     description: |

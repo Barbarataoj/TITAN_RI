@@ -522,3 +522,100 @@ def test_late_phase_discontinuation_multiplier(make_agent, make_model):
     model.time = 6
     a.prep.progress(model)
     assert a.prep.active is True
+
+
+def _use_products(a, products):
+    from titan.parse_params import ObjMap
+    a.location.params.prep.use_products = True
+    a.location.params.prep.products = ObjMap(products)
+    a.location.params.prep.monitoring_setting = "primary_care"
+
+
+CAB = {"type": "Inj", "share_of_starts": 1.0, "initiation_injections": 2, "interval_steps": 2,
+       "attendance": 0.8, "return_prob": 0.5, "max_gap_steps": 2, "efficacy": 0.9,
+       "tail_half_life_steps": 2.0, "test_at_injection": True}
+LEN = {"type": "Inj", "share_of_starts": 1.0, "initiation_injections": 1, "interval_steps": 6,
+       "attendance": 0.9, "return_prob": 0.0, "max_gap_steps": 1, "efficacy": 0.99,
+       "tail_half_life_steps": 3.0, "test_at_injection": True}
+
+
+@pytest.mark.unit
+def test_cabotegravir_initiation_schedule_and_injection_visit(make_agent, make_model):
+    """Two initiation injections one step apart, then every 2 steps; each scheduled injection is a PC visit with an HIV test."""
+    model = make_model()
+    a = make_agent()
+    _use_products(a, {"cab_la": CAB})
+    a.care_reach = {}
+    a.prep.enroll(FakeRandom(0.0), 10)
+    assert a.prep.product == "cab_la" and a.prep.type == "Inj"
+    assert a.prep.injections == 1 and a.prep.next_due == 11
+    a.care_encounter = {}; a.care_offer = {"hiv_test": False}; a.care_offer_mult = {"hiv_test": 1.0}
+    model.time = 11
+    model.run_random = FakeRandom(0.5)                 # 0.5 < attendance 0.8 -> attends
+    a.prep.progress(model)
+    assert a.prep.injections == 2 and a.prep.next_due == 13
+    assert a.care_encounter["primary_care"] == 1
+    assert a.care_offer["hiv_test"] is True and a.care_offer_mult["hiv_test"] >= 1e6
+    # protection: on schedule 1 - 0.9; two steps past the due date with half-life 2 -> half the effect
+    assert a.prep.get_acquisition_risk_multiplier(12, "sex") == pytest.approx(0.1)
+    assert a.prep.get_acquisition_risk_multiplier(15, "sex") == pytest.approx(1 - 0.9 * 0.5)
+
+
+@pytest.mark.unit
+def test_missed_injection_returns_or_stops_after_max_gap(make_agent, make_model):
+    model = make_model()
+    a = make_agent()
+    _use_products(a, {"cab_la": CAB})
+    a.care_reach = {}
+    a.prep.enroll(FakeRandom(0.0), 0)
+    Prep.counts[a.race] = 1
+    model.run_random = FakeRandom(0.95)                # misses (>= 0.8) and does not return (>= 0.5)
+    model.time = 1
+    a.prep.progress(model)
+    assert a.prep.active and a.prep.overdue
+    model.time = 2
+    a.prep.progress(model)
+    assert a.prep.active                              # 1 step late, max gap 2
+    model.time = 3
+    a.prep.progress(model)
+    assert a.prep.active is False                     # 2 steps late -> stopped
+    # a late return resets the schedule
+    a.prep.enroll(FakeRandom(0.0), 20)
+    Prep.counts[a.race] = 1
+    model.run_random = FakeRandom(0.95); model.time = 21
+    a.prep.progress(model)
+    model.run_random = FakeRandom(0.3); model.time = 22        # 0.3 < return_prob 0.5
+    a.prep.progress(model)
+    assert a.prep.active and not a.prep.overdue and a.prep.next_due == 24
+
+
+@pytest.mark.unit
+def test_lenacapavir_six_month_interval_and_reach_attendance_multiplier(make_agent, make_model):
+    model = make_model()
+    a = make_agent()
+    _use_products(a, {"lenacapavir": LEN})
+    a.prep.enroll(FakeRandom(0.0), 0)
+    assert a.prep.next_due == 6
+    model.time = 5
+    model.run_random = FakeRandom(0.0)
+    a.prep.progress(model)
+    assert a.prep.injections == 1                     # not yet due
+    # 0.95 >= attendance 0.9 would miss, but a reached agent's multiplier 1.1 -> 0.99
+    a.care_reach = {"prep_monitoring_mult": 1.1}
+    model.time = 6
+    model.run_random = FakeRandom(0.95)
+    a.prep.progress(model)
+    assert a.prep.injections == 2 and a.prep.next_due == 12
+
+
+@pytest.mark.unit
+def test_product_draw_by_share_and_oral_keeps_legacy_path(make_agent, make_model):
+    model = make_model()
+    a = make_agent()
+    _use_products(a, {"oral": {"type": "Oral", "share_of_starts": 0.6},
+                      "cab_la": dict(CAB, share_of_starts=0.3), "lenacapavir": dict(LEN, share_of_starts=0.1)})
+    assert Prep.draw_product(a.location.params.prep.products, FakeRandom(0.5)) == "oral"
+    assert Prep.draw_product(a.location.params.prep.products, FakeRandom(0.7)) == "cab_la"
+    assert Prep.draw_product(a.location.params.prep.products, FakeRandom(0.95)) == "lenacapavir"
+    a.prep.enroll(FakeRandom(0.5), 3)
+    assert a.prep.type == "Oral" and a.prep.product == "oral" and a.prep.injections == 0

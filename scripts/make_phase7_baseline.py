@@ -133,7 +133,7 @@ def overlay_care_layer(scenario):
     prep_src = src.get("prep", {}) or {}
     prep = scenario.setdefault("prep", {})
     for k, v in prep_src.items():
-        if k.startswith("monitoring_") or k.startswith("discontinue_late_"):
+        if k.startswith("monitoring_") or k.startswith("discontinue_late_") or k in ("use_products", "products"):
             prep[k] = v
     # PrEP adherence (sex-type constants) and discontinuation (sex-type constant
     # with a drug-type override), data decisions of 2026-10-02 that a calibrated

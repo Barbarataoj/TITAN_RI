@@ -705,6 +705,39 @@ scenario:
           adherent: 0.03
           non_adherent: 1.0
   prep:
+    # PrEP products (2026-10-02). Baseline is oral-only (injectable shares 0);
+    # Phase 7 arms / sensitivity set the shares. Schedules from the labels:
+    # cabotegravir LA two initiation injections one month apart then every
+    # 2 months; lenacapavir oral loading within the first step plus an
+    # injection, then every 6 months. Attendance / return / gap / efficacy /
+    # tail values: CHIA note section 8.2 (literature, to be filled).
+    use_products: true
+    products:
+      oral:
+        type: Oral
+        share_of_starts: 1.0
+      cab_la:
+        type: Inj
+        share_of_starts: 0.0
+        initiation_injections: 2
+        interval_steps: 2
+        attendance: 0.8
+        return_prob: 0.3
+        max_gap_steps: 2
+        efficacy: 0.9
+        tail_half_life_steps: 2.0
+        test_at_injection: true
+      lenacapavir:
+        type: Inj
+        share_of_starts: 0.0
+        initiation_injections: 1
+        interval_steps: 6
+        attendance: 0.85
+        return_prob: 0.3
+        max_gap_steps: 2
+        efficacy: 0.96
+        tail_half_life_steps: 3.0
+        test_at_injection: true
     discontinue_late_mult: 0.4  # care_seeking layer (scripts/make_care_seeking_params.py): late-phase hazard as a share of the early one: general 0.08 -> 0.03/month (PMID 33527117), PWID 0.30 -> 0.14 (40222706, 31436610) -> 0.4 (0.3-0.5)
     discontinue_late_after_steps: 6  # care_seeking layer (scripts/make_care_seeking_params.py): months on PrEP after which the discontinuation hazard drops (persistence curves are front-loaded; CHIA note 7.4)
     monitoring_setting: primary_care  # care_seeking layer (scripts/make_care_seeking_params.py): where PrEP monitoring happens

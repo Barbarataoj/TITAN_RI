@@ -93,6 +93,10 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
                       ("care_reach_visits", "reach_visits"), ("care_reached", "reached_person_months")):
         if col in df:
             out[name] = by_run_all[col].sum()
+    # per-product PrEP person-months and injections (prep.use_products)
+    for col in df.columns:
+        if col.startswith("prep_injections") or (col.startswith("prep_") and col[5:] in ("oral", "cab_la", "lenacapavir")):
+            out[col] = by_run_all[col].sum()
     out["n_steps"] = df.groupby("run_id")["t"].nunique()
     return out
 
@@ -180,6 +184,8 @@ def main():
                             "overdose_deaths", "overdose_events", "moud_coverage",
                             "hiv_tests", "pc_visits", "pc_test_offers", "pc_prep_offers", "prep_starts",
                             "prep_person_months", "prep_monitoring_visits", "reach_visits", "reached_person_months",
+                            "prep_injections", "prep_injections_cab_la", "prep_injections_lenacapavir",
+                            "prep_cab_la", "prep_lenacapavir", "prep_oral",
                             "survivor_any_moud_30d") if c in reps]
     if args.split_members:
         return ensemble_contrasts(reps, outcomes, args)
