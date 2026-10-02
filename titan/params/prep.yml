@@ -80,6 +80,21 @@ prep:
     type: float
     min: 0.0
     max: 1.0
+  discontinue_late_after_steps:
+    default: 0
+    description: |
+      Time on PrEP (steps) after which the per-step discontinuation probability
+      is multiplied by discontinue_late_mult: persistence curves are
+      front-loaded (general 3/6/12-month persistence ~0.78/0.60/0.50, PWID
+      ~0.35/0.12/0.05), so the hazard after the first months is lower than the
+      early one. 0 = constant hazard. 2026-10-02.
+    type: int
+    min: 0
+  discontinue_late_mult:
+    default: 1.0
+    description: "Multiplier on the per-step discontinuation probability once time on PrEP reaches discontinue_late_after_steps (0.4 = late hazard 40% of the early one)."
+    type: float
+    min: 0.0
   monitoring_interval_steps:
     default: 0
     description: |

@@ -494,3 +494,31 @@ def test_reached_agent_restarts_prep_without_an_offer(make_agent, make_model):
     b.care_reach = {"prep_restart_prob": 0.5}
     b.prep.initiate(model)
     assert b.prep.active is False
+
+
+@pytest.mark.unit
+def test_late_phase_discontinuation_multiplier(make_agent, make_model):
+    """
+    prep.discontinue_late_after_steps / discontinue_late_mult (2026-10-02):
+    after N steps on PrEP the per-step discontinuation hazard is scaled.
+    """
+    model = make_model()
+    a = make_agent()
+    sex = a.location.params.demographics[a.race].sex_type[a.sex_type]
+    sex.prep.discontinue = 0.10
+    a.location.params.prep.discontinue_late_after_steps = 6
+    a.location.params.prep.discontinue_late_mult = 0.4
+    a.care_reach = {}
+    a.prep.active = True
+    a.prep.type = "Oral"
+    a.prep.time = 0
+    a.prep.last_dose_time = 0
+    Prep.counts[a.race] = 1
+    model.run_random = FakeRandom(0.06)      # 0.06 < 0.10 early -> stops; 0.06 >= 0.04 late -> stays
+    model.time = 5
+    a.prep.progress(model)
+    assert a.prep.active is False
+    a.prep.active = True; a.prep.type = "Oral"; a.prep.time = 0; Prep.counts[a.race] = 1
+    model.time = 6
+    a.prep.progress(model)
+    assert a.prep.active is True

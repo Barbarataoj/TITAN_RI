@@ -96,6 +96,14 @@ demographics:
             2:
               value_type: float
     varying:
+    - by: [drug]
+      # early-phase (first 6 months) PrEP discontinuation per month by drug type
+      # (2026-10-02): people who inject stop ~2.5x faster (aHR 4.8 in primary
+      # care, PMID 31436610; SSP 90-day persistence 0.15-0.30, 40222706) ->
+      # 0.24/month (median ~3 months); non-injecting 0.09 as at the sex-type
+      # level. prep.discontinue_late_mult applies after 6 months.
+      path: prep.discontinue
+      values: {Inj: 0.24, NonInj: 0.09}
     - by:
       - sex
       - drug
@@ -333,9 +341,18 @@ demographics:
         num_acts: 10
         unsafe_prob: 0.38
       prep:
-        adherence: 0.1
+        # adherence 0.5 (Jun 2026-10-02): adequate adherence ~0.5 in general
+        # populations (digital-support meta-analysis control arms, PMID 40471384;
+        # PrEPmate 57% control, 30239620); lower among PWID (sensitivity 0.3-0.5).
+        # Was 0.1, a legacy default with no source.
+        adherence: 0.5
         cap: 0.3
-        discontinue: 0.1
+        # early-phase (first 6 months) discontinuation per month for NON-injecting
+        # patients; the drug_type level overrides it for injecting patients
+        # (0.24) and prep.discontinue_late_mult scales both after 6 months.
+        # 0.09: Medicaid median persistence 6.8 months (PMID 33527117) and
+        # safety-net 0.08-0.10 (CHIA note 7.4). Was 0.10 uniform.
+        discontinue: 0.09
         init: 0.3
       safe_sex:
         Inj:
@@ -688,6 +705,8 @@ scenario:
           adherent: 0.03
           non_adherent: 1.0
   prep:
+    discontinue_late_mult: 0.4  # care_seeking layer (scripts/make_care_seeking_params.py): late-phase hazard as a share of the early one: general 0.08 -> 0.03/month (PMID 33527117), PWID 0.30 -> 0.14 (40222706, 31436610) -> 0.4 (0.3-0.5)
+    discontinue_late_after_steps: 6  # care_seeking layer (scripts/make_care_seeking_params.py): months on PrEP after which the discontinuation hazard drops (persistence curves are front-loaded; CHIA note 7.4)
     monitoring_setting: primary_care  # care_seeking layer (scripts/make_care_seeking_params.py): where PrEP monitoring happens
     monitoring_attendance: 0.6  # care_seeking layer (scripts/make_care_seeking_params.py): share of due monitoring visits attended, unsupported: RI PrEP clinic 53-68% retained at 6 months (PMID 27302837), chatbot non-users 54% (41792418)
     monitoring_interval_steps: 3  # care_seeking layer (scripts/make_care_seeking_params.py): guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)

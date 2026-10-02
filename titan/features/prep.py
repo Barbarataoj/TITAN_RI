@@ -283,6 +283,10 @@ class Prep(base_feature.BaseFeature):
 
         if self.type == "Oral":
             discontinue = self.demographic_value("discontinue")
+            prep_params = self.agent.location.params.prep
+            late_after = getattr(prep_params, "discontinue_late_after_steps", 0)
+            if late_after > 0 and self.time is not None and model.time - self.time >= late_after:
+                discontinue *= getattr(prep_params, "discontinue_late_mult", 1.0)
             discontinue *= getattr(self.agent, "care_reach", {}).get("prep_discontinue_mult", 1.0)
             if model.run_random.random() < discontinue:
                 self.discontinue()

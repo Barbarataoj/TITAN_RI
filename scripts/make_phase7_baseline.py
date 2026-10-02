@@ -128,12 +128,35 @@ def overlay_care_layer(scenario):
     (reach_*, acceptance_mult_*, pool_refresh_time, visit_prob_after_overdose).
     Fitted values and fields the pick already carries are left as they are.
     """
-    src = load_yaml(SCENARIO_SOURCE).get("scenario", {})
+    full = load_yaml(SCENARIO_SOURCE)
+    src = full.get("scenario", {})
     prep_src = src.get("prep", {}) or {}
     prep = scenario.setdefault("prep", {})
     for k, v in prep_src.items():
-        if k.startswith("monitoring_"):
+        if k.startswith("monitoring_") or k.startswith("discontinue_late_"):
             prep[k] = v
+    # PrEP adherence (sex-type constants) and discontinuation (sex-type constant
+    # with a drug-type override), data decisions of 2026-10-02 that a calibrated
+    # pick fitted before them does not carry
+    levels = full.get("demographics", {}) or {}
+    sex_prep = ((levels.get("sex_type", {}) or {}).get("constants", {}) or {}).get("prep", {}) or {}
+    drug_var = [v for v in ((levels.get("drug_type", {}) or {}).get("varying", []) or [])
+                if str(v.get("path", "")).startswith("prep.")]
+    for race_block in (scenario.get("demographics", {}) or {}).values():
+        for sex_block in (race_block.get("sex_type", {}) or {}).values():
+            sp = sex_block.setdefault("prep", {})
+            for k in ("adherence", "discontinue"):
+                if k in sex_prep:
+                    sp[k] = sex_prep[k]
+            for drug, drug_block in (sex_block.get("drug_type", {}) or {}).items():
+                for entry in drug_var:
+                    field = entry["path"].split(".", 1)[1]
+                    node = entry["values"]
+                    for axis in entry["by"]:
+                        node = node.get(drug) if axis == "drug" else node
+                    if node is None or node == "__absent__":
+                        continue
+                    drug_block.setdefault("prep", {})[field] = node
     settings_src = (src.get("care_seeking", {}) or {}).get("setting", {}) or {}
     settings = scenario.setdefault("care_seeking", {}).setdefault("setting", {})
     for name, fields in settings_src.items():
