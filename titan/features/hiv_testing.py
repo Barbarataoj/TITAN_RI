@@ -162,7 +162,8 @@ class HIVTesting(base_feature.BaseFeature):
         """
         offered = getattr(self.agent, "care_offer", {}).get("hiv_test", False)
         if offered:
-            return getattr(testing_params, "acceptance", 1.0)
+            mult = getattr(self.agent, "care_offer_mult", {}).get("hiv_test", 1.0)
+            return min(1.0, getattr(testing_params, "acceptance", 1.0) * mult)
 
         # testing that happens outside any clinical setting, e.g. community or
         # syringe services testing; zero unless the parameter is set

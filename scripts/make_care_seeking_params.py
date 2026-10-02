@@ -41,11 +41,66 @@ Intensity (`intensity_*`, the per-visit offer rate among willing providers):
                    willingness above, the 2022 visit distribution among users
                    (job1_visit_distribution) and the patient acceptance below:
                        P = W * sum_n p(n) * [1 - (1 - I * a)^n]
+                   HIV-test receipt outside the ED is first corrected for the
+                   reference-laboratory undercount (next paragraph).
   moud             ED 0.15 (Rhode Island, registry 7.6); SUD treatment 1.0
                    (MOUD is what the visit is for); primary care and mental
-                   health 0.47 (registry 7.6: about half of waivered physicians
-                   treat anyone; an assumption, varied in sensitivity)
+                   health 0.75 (an assumption inside registry 7.6's 0.47-1.0,
+                   varied in sensitivity; 0.47 capped MOUD coverage at 0.73 in
+                   the 2026-10-01 smoke run)
   counseling       0 everywhere. Nothing in the engine consumes counseling.
+
+HIV-test receipt correction (2026-10-02). job3a counts a test only when it is
+billed on the same claim as the visit. The ED bills its own laboratory work and
+its per-visit rate matches the published figure (0.75% vs 0.8%), but the other
+three settings send specimens to reference laboratories that bill separately,
+so their same-claim shares are a floor (REVIEW_2026-09-29.md section 2; the
+2026-10-01 derivation used the floor as-is and the fitted `nonclinical_annual`
+absorbed the difference, which left every clinical-testing arm acting on a base
+10-100x too small). The correction keeps the ED share and scales the three
+other settings' receipt shares by one factor so that the cohort's expected
+number of people tested equals the whole-extract per-member rate of the
+screening codes job3a counts (job3e: CPT 87389, 87806, 86703 and the G-code
+family, all Rhode Island APCD members of each payer in 2022) weighted by the
+cohort's insurance mix (job1 strata, primary-care users as the cohort proxy),
+minus the ED's same-claim count. Missing tests are allocated across the three
+settings in proportion to their same-claim counts (an assumption; the
+primary-care result, 1.3% per visit, sits near the published 1.09%, a sanity
+bound rather than a validation). The direction of the remaining bias is not
+known: job3e's counting unit (members vs claim lines) is unconfirmed and
+repeat tests would push the factor up, while children and partial-year members
+in the whole extract push it down. Sensitivity: halve and double it. The
+arm-relevant quantity, clinical test events per injecting person-year off
+MOUD, rises from 0.078 (ED alone, in effect) to about 0.19; the fitted
+`nonclinical_annual` still supplies most of the NHBS 0.43-0.80 band.
+
+Visit composition (2026-10-02 fix). `visit_rate_annual` is the REFERENCE
+group's rate (off MOUD, not injecting, HIV-negative): cohort visit-days per
+person divided by E[multiplier] over the cohort's composition. The
+multipliers are cohort-level ratios (registry 7.2), so the expectation must be
+taken over cohort shares (job3b: on MOUD 0.772, injecting 0.254 in 2022), not
+over the setting's users as the 2026-10-01 version did (users are enriched for
+both, which understated the ED and SUD bases by about 10%, roughly half of the
+smoke run's undershoot). Two approximations stay: the three strata are treated
+as independent (no cross-tab exists; the engine stacks the multipliers the same
+way), and `visit_mult_hiv_positive` is a ratio among users applied with a
+cohort share (effect under 2%). The HIV+ cohort share has no cohort-level
+count; the largest single-setting HIV+ user count over the cohort (primary
+care, 0.020) is used as a lower bound.
+
+Emergency visit after a nonfatal overdose (`visit_prob_after_overdose`, 2026-10-02):
+the nonfatal overdose targets are APCD claims (T3), so every modelled nonfatal
+overdose is by construction an ED- or hospital-treated event. The ED setting
+therefore gets one extra visit in the step after each nonfatal overdose with
+probability 1.0 (other settings 0). Before this the engine had no link between
+an overdose and an ED encounter, so post-overdose linkage to MOUD was
+unmodelled with the care layer on.
+
+Mental health = opioid treatment programs. This APCD extract codes methadone
+clinics as mental health (registry 7.2 note 3; REVIEW_2026-09-29.md section 2),
+which is why that setting carries 13.0 reference-group visits per person-year
+(11.6 cohort mean) and a buprenorphine willingness near 1. A "mental health" intervention arm acts on
+OTP dosing encounters unless the setting is split, which the claims cannot do.
 
 Patient acceptance (scalars outside the setting table):
   hiv_testing.acceptance  0.55: Rhode Island ED patients who use drugs accepted
@@ -115,6 +170,9 @@ INTENSITY_MOUD_SOURCE = {"ED": "RI literature (registry 7.6, PMID 38165180)",
                          "sud_treatment": "assumption: MOUD is the purpose of the visit",
                          "primary_care": "assumption 0.75 (range 0.47-1.0; registry 7.6 gives 0.47 of waivered physicians treating anyone; 0.47 caps MOUD coverage at 0.73 in the smoke run)",
                          "mental_health": "assumption, same as primary care"}
+ED_VISIT_AFTER_OD = 1.0            # assumption: APCD-defined nonfatal overdoses are ED/hospital-treated by construction (docstring)
+TEST_CODES = ["cpt_87389", "cpt_87806", "cpt_86703", "G0475", "G0432", "G0433", "G0435"]  # the screening codes job3a's lab_test counts (naive set, docs/apcd_hiv_code_reference_2026-08-17.md) as they appear in job3e; REVIEW_2026-09-29 section 2 quoted 87389 alone (factor 10.8 instead of 11.8)
+INSURANCE_PROXY_SETTING = "primary_care"  # the most inclusive setting (9,663 of 12,774 cohort members in 2022) stands in for the cohort's insurance mix
 ACCEPT_HIV_TEST = 0.55   # RI ED drug-using patients: 64.5% (PMID 25125271) and 45% (PMID 26036465) accepted an offered test
 ACCEPT_PREP = 0.60       # prescribed once discussed, registry 7.6 (primary care PrEP)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
@@ -178,11 +236,62 @@ def derive(verbose=True):
     q1 = read_csv("job4_q1_providers_per_setting_fix.csv")
     q5 = read_csv("job4_q5_provider_service_crosstab_fix.csv")
     j3 = read_csv("job3a_hiv_services_by_setting_fix.csv")
+    j3b = read_csv("job3b_hiv_test_per_person_fix.csv")
+    j3e = read_csv("job3e_payer_code_share.csv")
+
+    # Cohort composition for E[multiplier] (job3b partitions the whole 2022 cohort).
+    b22 = j3b[j3b.year == YEAR]
+
+    n_cohort_3b = int(b22[b22.stratum_type == "overall"].n_cohort.iloc[0])
+    assert n_cohort_3b == COHORT_2022, f"job3b {YEAR} cohort {n_cohort_3b} != COHORT_2022 {COHORT_2022}"
+
+    def cohort_share(stype, value):
+        n = int(b22[(b22.stratum_type == stype) & (b22.stratum_value == value)].n_cohort.iloc[0])
+        return n / n_cohort_3b
+
+    cohort_comp = {
+        "moud_status": cohort_share("moud_status", "on_moud"),
+        "injection_proxy": cohort_share("injection_proxy", "injection"),
+    }
+    hiv_pos_members = max(
+        int(strata[(strata.year == YEAR) & (strata.setting == s) & (strata.stratum_type == "hiv_status")
+                   & (strata.stratum_value == "HIV+")].members.iloc[0])
+        for s in SETTINGS
+    )
+    cohort_comp["hiv_status"] = hiv_pos_members / COHORT_2022
+
+    # Reference-laboratory undercount factor for HIV-test receipt outside the ED.
+    ins = strata[(strata.year == YEAR) & (strata.setting == INSURANCE_PROXY_SETTING) & (strata.stratum_type == "insurance")]
+    mix = {str(r.stratum_value).lower(): float(r.members) for r in ins.itertuples()}
+    mix_total = sum(mix.values())
+    e22 = j3e[j3e.year == YEAR]
+    rate_by_payer = {
+        str(r.payer_type).lower(): sum(float(getattr(r, c)) for c in TEST_CODES) / float(r.n_members)
+        for r in e22.itertuples()
+    }
+    rate_whole_extract = sum(mix[p] / mix_total * rate_by_payer[p] for p in mix)
+    expected_tested = rate_whole_extract * COHORT_2022
+    same_claim_any = int(b22[b22.stratum_type == "overall"].n_with_lab_test_any_setting.iloc[0])
+    j3_22 = j3[j3.year == YEAR]
+    ed_tested = int(j3_22[j3_22.setting == "ED"].lab_test.iloc[0])
+    non_ed_tested = int(j3_22[j3_22.setting != "ED"].lab_test.sum())
+    test_factor = (expected_tested - ed_tested) / non_ed_tested
 
     q5_50 = q5[q5.k_bin == "50+"].groupby(["setting", "service", "ever_delivered"]).n_npi.sum().unstack(fill_value=0)
     q5_50["share"] = q5_50[1] / (q5_50[0] + q5_50[1])
 
     say(f"Care-seeking parameters, APCD {YEAR}, cohort {COHORT_2022}\n")
+    say("cohort composition for E[multiplier] (job3b, whole cohort): on MOUD %.3f, injecting %.3f, HIV+ %.3f (lower bound: largest single-setting HIV+ user count %d / cohort)"
+        % (cohort_comp["moud_status"], cohort_comp["injection_proxy"], cohort_comp["hiv_status"], hiv_pos_members))
+    say("HIV-test receipt correction outside the ED:")
+    say("  whole-extract rate of %s per member, %d: %s" % ("+".join(TEST_CODES), YEAR,
+        ", ".join(f"{p} {r:.4f}" for p, r in sorted(rate_by_payer.items()))))
+    say("  cohort insurance mix (%s users): %s" % (INSURANCE_PROXY_SETTING,
+        ", ".join(f"{p} {v / mix_total:.3f}" for p, v in sorted(mix.items()))))
+    say(f"  weighted rate {rate_whole_extract:.4f} x cohort {COHORT_2022} = {expected_tested:.0f} people expected tested;"
+        f" same-claim any-setting {same_claim_any} (job3b); ED same-claim {ed_tested} kept (bills its own labs)")
+    say(f"  factor on primary_care / sud_treatment / mental_health receipt = ({expected_tested:.0f} - {ed_tested}) / {non_ed_tested} = {test_factor:.2f}"
+        "  [assumption: missing tests allocated in proportion to same-claim counts; job3e counting unit unconfirmed; sensitivity x0.5 / x2]\n")
     for s in SETTINGS:
         say(f"=== {s} ===")
         c = counts[(counts.year == YEAR) & (counts.setting == s)].iloc[0]
@@ -198,20 +307,24 @@ def derive(verbose=True):
         for stype, flag in (("moud_status", "MOUD"), ("injection_proxy", "flagged"), ("hiv_status", "HIV+")):
             st2 = strata[(strata.year == YEAR) & (strata.setting == s) & (strata.stratum_type == stype)]
             comp[stype] = float(st2[st2.stratum_value == flag].members.iloc[0] / st2.members.sum())
-        e_mult = ((comp["moud_status"] * REGISTRY_7_2["visit_mult_moud"][s] + (1 - comp["moud_status"]))
-                  * (comp["injection_proxy"] * REGISTRY_7_2["visit_mult_inj"][s] + (1 - comp["injection_proxy"])))
+        # The multipliers are COHORT-level ratios (registry 7.2), so the
+        # expectation runs over the cohort's shares (job3b), not the users'.
+        # The 2026-10-01 version used the users' shares, which are enriched for
+        # MOUD and injection, and understated the ED and SUD bases by ~10%.
+        e_mult = ((cohort_comp["moud_status"] * REGISTRY_7_2["visit_mult_moud"][s] + (1 - cohort_comp["moud_status"]))
+                  * (cohort_comp["injection_proxy"] * REGISTRY_7_2["visit_mult_inj"][s] + (1 - cohort_comp["injection_proxy"])))
         rate = cohort_rate / e_mult  # the HIV+ term is folded in below once mult_hiv is known
         say(f"cohort visit rate = {int(c.visit_days)} visit-days / {COHORT_2022} = {cohort_rate:.3f}  [APCD job1_visit_counts]")
-        say(f"composition among users: on MOUD {comp['moud_status']:.3f}, injecting {comp['injection_proxy']:.3f}, HIV+ {comp['hiv_status']:.3f}  [APCD job1_strata]")
+        say(f"composition among this setting's users (reported, not used): on MOUD {comp['moud_status']:.3f}, injecting {comp['injection_proxy']:.3f}, HIV+ {comp['hiv_status']:.3f}  [APCD job1_strata]")
 
         st = strata[(strata.year == YEAR) & (strata.setting == s) & (strata.stratum_type == "hiv_status")]
         r_pos = float(st[st.stratum_value == "HIV+"].visit_days.iloc[0] / st[st.stratum_value == "HIV+"].person_months.iloc[0])
         r_neg = float(st[st.stratum_value == "HIV-"].visit_days.iloc[0] / st[st.stratum_value == "HIV-"].person_months.iloc[0])
         mult_hiv = r_pos / r_neg
         say(f"visit_mult_hiv_positive = {r_pos * 12:.2f} / {r_neg * 12:.2f} per user-year = {mult_hiv:.2f}  [APCD job1_strata, among users]")
-        e_mult *= comp["hiv_status"] * mult_hiv + (1 - comp["hiv_status"])
+        e_mult *= cohort_comp["hiv_status"] * mult_hiv + (1 - cohort_comp["hiv_status"])
         rate = cohort_rate / e_mult
-        say(f"visit_rate_annual (reference group) = {cohort_rate:.3f} / E[multiplier] {e_mult:.3f} = {rate:.3f}")
+        say(f"visit_rate_annual (reference group) = {cohort_rate:.3f} / E[multiplier over the cohort] {e_mult:.3f} = {rate:.3f}")
 
         n_prov = int(q1[(q1.year == YEAR) & (q1.setting == s)].n_providers.iloc[0])
         say(f"n_providers_ri = {n_prov}  [APCD job4_q1]")
@@ -230,15 +343,17 @@ def derive(verbose=True):
         d, mean_users, tail = visit_distribution(dist, counts, s)
         say(f"visits among users {YEAR}: mean {mean_users:.2f}, 10+ bucket at {tail:.1f}  [APCD job1_visit_distribution]")
         row = j3[(j3.year == YEAR) & (j3.setting == s)].iloc[0]
-        p_test = row.lab_test / row.n_denominator_hiv_negative
+        p_test_claims = row.lab_test / row.n_denominator_hiv_negative
+        p_test = p_test_claims if s == "ED" else p_test_claims * test_factor
         p_prep = row.prep_or_pep / row.n_denominator_hiv_negative
         i_test, ok_t = solve_intensity(w_test, ACCEPT_HIV_TEST, p_test, d)
         i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep, d)
-        say(f"receipt {YEAR}: HIV test {int(row.lab_test)}/{int(row.n_denominator_hiv_negative)} = {p_test:.4f}, PrEP/PEP {int(row.prep_or_pep)} = {p_prep:.4f}  [APCD job3a]")
+        say(f"receipt {YEAR}: HIV test {int(row.lab_test)}/{int(row.n_denominator_hiv_negative)} = {p_test_claims:.4f} same-claim"
+            + ("" if s == "ED" else f" x {test_factor:.2f} = {p_test:.4f} corrected")
+            + f", PrEP/PEP {int(row.prep_or_pep)} = {p_prep:.4f}  [APCD job3a]")
         say(f"intensity_hiv_test: solve {w_test:.3f} * E[1-(1-I*{ACCEPT_HIV_TEST})^n] = {p_test:.4f} -> I = {i_test:.4f}{'' if ok_t else '  UNREACHABLE, capped at 1'}")
         say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
         say(f"intensity_moud = {INTENSITY_MOUD[s]}  [{INTENSITY_MOUD_SOURCE[s]}]")
-        say("")
 
         out[s] = {
             "visit_rate_annual": round(rate, 4),
@@ -257,7 +372,11 @@ def derive(verbose=True):
             "intensity_prep": round(i_prep, 5),
             "intensity_moud": INTENSITY_MOUD[s],
             "intensity_counseling": 0.0,
+            "visit_prob_after_overdose": ED_VISIT_AFTER_OD if s == "ED" else 0.0,
         }
+        say(f"visit_prob_after_overdose = {out[s]['visit_prob_after_overdose']}  "
+            + ("[assumption: claims-defined nonfatal overdoses are ED-treated by construction]" if s == "ED" else "[none]"))
+        say("")
     return out, log
 
 
@@ -267,7 +386,12 @@ def render_block(settings):
              "  # Derived from docs/apcd_incoming/ABM_2 (Rhode Island APCD 2022), registry",
              "  # sections 7.2 and 7.6, and Rhode Island studies; the derivation prints with",
              "  # `python scripts/make_care_seeking_params.py`. See",
-             "  # docs/calibration_log/phase_7_care_seeking_parameters_2026-10-01.md.",
+             "  # docs/calibration_log/phase_7_care_seeking_parameters_2026-10-01.md",
+             "  # (section 8: the 2026-10-02 corrections). mental_health is the setting",
+             "  # this APCD extract codes opioid treatment programs under, so it is",
+             "  # OTP-dominated; HIV-test intensities outside the ED are corrected for",
+             "  # the reference-laboratory undercount; ED gets one visit after each",
+             "  # nonfatal overdose (visit_prob_after_overdose).",
              "  care_seeking:",
              "    shared_trait_prob: 0.0",
              "    setting:"]

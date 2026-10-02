@@ -50,7 +50,7 @@ def _load(name):
 
 
 baseline_mod = _load("make_phase7_baseline")
-arms_mod = _load("make_phase7_scenarios")
+arms_mod = None  # chosen in main() by --arms-module
 
 SCRATCH = Path(f"/oscar/scratch/{os.environ.get('USER', 'jtao9')}/titan_calibration")
 DEFAULT_SUMMARY = SCRATCH / "ensemble_8x40_summary.csv"
@@ -75,6 +75,9 @@ def main():
     ap.add_argument("--members", default=None, help="comma-separated member names instead of the summary's pass list")
     ap.add_argument("--steps", type=int, default=240)
     ap.add_argument("--arms", default="all", help="'all' or comma-separated scenario stems, e.g. scenario_1_baseline,scenario_6_combination")
+    ap.add_argument("--arms-module", default="make_phase7_scenarios",
+                    help="scripts/<name>.py providing build_arms(baseline) -> {filename: (scenario, notes)}; "
+                         "make_phase7_pc_arms for the primary-care strategy arms (2026-10-02)")
     ap.add_argument("--seeds", type=int, default=8)
     ap.add_argument("--reps", type=int, default=40)
     ap.add_argument("--batches", type=int, default=8)
@@ -83,6 +86,8 @@ def main():
     args = ap.parse_args()
 
     calib = load_yaml(CALIB_YAML)
+    global arms_mod
+    arms_mod = _load(args.arms_module)
     members = args.members.split(",") if args.members else members_from_summary(args.summary)
     trials_dir = args.out_dir / "trials"
     trials_dir.mkdir(parents=True, exist_ok=True)

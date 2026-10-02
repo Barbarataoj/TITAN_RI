@@ -104,10 +104,12 @@ def _reset_care_seeking_pool():
     CareSeeking.providers = {}
     CareSeeking.provider_weights = {}
     CareSeeking.provider_shares = {}
+    CareSeeking.pool_draw_p = {}
     yield
     CareSeeking.providers = {}
     CareSeeking.provider_weights = {}
     CareSeeking.provider_shares = {}
+    CareSeeking.pool_draw_p = {}
 
 
 @pytest.mark.unit
@@ -451,3 +453,200 @@ def test_panel_concentration():
     assert CareSeeking.panel_concentration("primary_care") == pytest.approx(1.0)
 
     assert CareSeeking.panel_concentration("unknown_setting") is None
+
+
+@pytest.mark.unit
+def test_visit_after_overdose_links_one_ed_encounter():
+    """
+    `visit_prob_after_overdose` (2026-10-02): an agent whose nonfatal overdose
+    happened last step gets one extra visit to the setting, with the provider's
+    offers resolved on it, even when the routine Poisson draw gives no visit.
+    The same overdose never yields a second extra visit, and an agent with no
+    overdose gets nothing. This is the only link between an overdose and an
+    emergency encounter while the care layer bypasses moud.post_overdose_rr.
+    """
+    params = make_params(
+        {
+            "ED": make_setting(
+                visit_rate_annual=1.2,  # 0.1 per step -> FakeRandom.poisson rounds to 0
+                n_providers_ri=1,
+                p_willing_moud=1.0,
+                intensity_moud=1.0,
+                visit_prob_after_overdose=1.0,
+            )
+        }
+    )
+    a = make_fake_agent(params)
+    a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
+    model = make_fake_model(params, FakeRandom(0.0), FakeRandom(0.0), [a])
+
+    # no overdose on record: no visit
+    model.time = 5
+    CareSeeking.update_pop(model)
+    assert "ED" not in a.care_encounter
+    assert a.care_offer["moud"] is False
+
+    # overdose last step: exactly one visit, MOUD offered on it
+    a.last_overdose_t = 5
+    model.time = 6
+    CareSeeking.update_pop(model)
+    assert a.care_encounter["ED"] == 1
+    assert a.care_offer["moud"] is True
+    assert a.care_offer_by_setting["ED"]["moud"] is True
+
+    # the same overdose is not rolled again, inside or outside the window
+    model.time = 7
+    CareSeeking.update_pop(model)
+    assert "ED" not in a.care_encounter
+    model.time = 6
+    CareSeeking.update_pop(model)
+    assert "ED" not in a.care_encounter
+
+    # a new overdose links again
+    a.last_overdose_t = 9
+    model.time = 10
+    CareSeeking.update_pop(model)
+    assert a.care_encounter["ED"] == 1
+
+
+@pytest.mark.unit
+def test_visit_after_overdose_off_by_default():
+    params = make_params(
+        {"ED": make_setting(visit_rate_annual=1.2, n_providers_ri=1)}
+    )
+    a = make_fake_agent(params)
+    a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
+    model = make_fake_model(params, FakeRandom(0.0), FakeRandom(0.0), [a])
+    a.last_overdose_t = 5
+    model.time = 6
+    CareSeeking.update_pop(model)
+    assert "ED" not in a.care_encounter
+
+
+@pytest.mark.unit
+def test_visit_after_overdose_survives_zero_routine_rate():
+    """
+    The post-overdose visit is rolled before the routine-rate guard, so a
+    scenario that zeroes a setting's routine visits (a Phase 7 arm, say) keeps
+    the overdose-to-emergency link.
+    """
+    params = make_params(
+        {
+            "ED": make_setting(
+                visit_rate_annual=0.0,
+                n_providers_ri=1,
+                p_willing_moud=1.0,
+                intensity_moud=1.0,
+                visit_prob_after_overdose=1.0,
+            )
+        }
+    )
+    a = make_fake_agent(params)
+    a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
+    model = make_fake_model(params, FakeRandom(0.0), FakeRandom(0.0), [a])
+    model.time = 3
+    CareSeeking.update_pop(model)
+    assert "ED" not in a.care_encounter
+    a.last_overdose_t = 3
+    model.time = 4
+    CareSeeking.update_pop(model)
+    assert a.care_encounter["ED"] == 1
+    assert a.care_offer["moud"] is True
+
+
+@pytest.mark.unit
+def test_pool_refresh_applies_new_willingness_and_intensity_at_the_step():
+    """
+    `pool_refresh_time` (2026-10-02): provider records freeze willing/intensity
+    at draw time, so a dated arm raises the parameters (timeline_scaling) and
+    refreshes the pool at its start step. With p_willing 0 -> 1 every provider
+    becomes willing; intensity follows the current parameter; nothing happens on
+    other steps.
+    """
+    params = make_params(
+        {
+            "primary_care": make_setting(
+                visit_rate_annual=12.0,
+                n_providers_ri=10,
+                p_willing_hiv_test=0.0,
+                intensity_hiv_test=0.1,
+                pool_refresh_time=5,
+            )
+        },
+        n_ri_oud=10,
+        num_pop=10,
+    )
+    a = make_fake_agent(params)
+    a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
+    pool = CareSeeking.providers["primary_care"]
+    assert pool and not any(p["hiv_test"]["willing"] for p in pool)
+    assert CareSeeking.pool_draw_p["primary_care"]["hiv_test"] == 0.0
+
+    # the arm raises the parameters at its start step (what timeline_scaling does)
+    params.care_seeking.setting.primary_care["p_willing_hiv_test"] = 1.0
+    params.care_seeking.setting.primary_care["intensity_hiv_test"] = 0.9
+    model = make_fake_model(params, FakeRandom(0.5), FakeRandom(1.0), [a])
+
+    model.time = 4
+    CareSeeking.update_pop(model)
+    assert not any(p["hiv_test"]["willing"] for p in pool), "refresh must wait for its step"
+
+    model.time = 5
+    CareSeeking.update_pop(model)
+    assert all(p["hiv_test"]["willing"] for p in pool)
+    assert all(p["hiv_test"]["intensity"] == 0.9 for p in pool)
+    assert CareSeeking.pool_draw_p["primary_care"]["hiv_test"] == 1.0
+    # the agent's provider offered on this step's visit (rate 12/yr -> 1 visit)
+    assert a.care_offer["hiv_test"] is True
+
+
+@pytest.mark.unit
+def test_pool_refresh_trims_willingness_when_the_parameter_falls():
+    params = make_params(
+        {"primary_care": make_setting(visit_rate_annual=12.0, n_providers_ri=10,
+                                      p_willing_prep=1.0, intensity_prep=0.5,
+                                      pool_refresh_time=3)},
+        n_ri_oud=10, num_pop=10,
+    )
+    a = make_fake_agent(params)
+    a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
+    pool = CareSeeking.providers["primary_care"]
+    assert all(p["prep"]["willing"] for p in pool)
+    params.care_seeking.setting.primary_care["p_willing_prep"] = 0.0
+    model = make_fake_model(params, FakeRandom(0.5), FakeRandom(1.0), [a])
+    model.time = 3
+    CareSeeking.update_pop(model)
+    assert not any(p["prep"]["willing"] for p in pool)
+
+
+@pytest.mark.unit
+def test_acceptance_multiplier_travels_with_the_offer_and_takes_the_max():
+    """
+    `acceptance_mult_<service>` (2026-10-02): a patient-facing strategy in one
+    setting raises acceptance only for offers made there; when two settings
+    offer the same service in a step the larger multiplier wins; a setting
+    without the field contributes 1.0.
+    """
+    params = make_params(
+        {
+            "primary_care": make_setting(visit_rate_annual=12.0, n_providers_ri=1,
+                                         p_willing_hiv_test=1.0, intensity_hiv_test=1.0,
+                                         acceptance_mult_hiv_test=1.5),
+            "ED": make_setting(visit_rate_annual=12.0, n_providers_ri=1,
+                               p_willing_hiv_test=1.0, intensity_hiv_test=1.0,
+                               acceptance_mult_hiv_test=1.2, acceptance_mult_prep=2.0,
+                               p_willing_prep=1.0, intensity_prep=1.0),
+        }
+    )
+    a = make_fake_agent(params)
+    a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
+    model = make_fake_model(params, FakeRandom(0.0), FakeRandom(1.0), [a])
+    CareSeeking.update_pop(model)
+    assert a.care_offer["hiv_test"] is True and a.care_offer["prep"] is True
+    assert a.care_offer_mult["hiv_test"] == pytest.approx(1.5)   # max(1.5 PC, 1.2 ED)
+    assert a.care_offer_mult["prep"] == pytest.approx(2.0)       # offered only by the ED
+    assert a.care_offer_mult["moud"] == 1.0
+    # a step with no offer resets the multiplier
+    model.run_random = FakeRandom(1.1)
+    CareSeeking.update_pop(model)
+    assert a.care_offer_mult["hiv_test"] == 1.0

@@ -982,11 +982,14 @@ calibration:
   # --------------------------------------------
   # PARAMETERS TO BE CALIBRATED (wide ranges per user direction)
   # --------------------------------------------
-  # NINE SINCE 2026-09-29, from sixteen. The seven that left are listed under
-  # anchored_parameters above (six) and derived_fatal_frac() (one). The nine
-  # that remain: the three OUD transition rates without data (remission,
-  # relapse), moud.reinit_prob (the most identifiable of the sixteen and
-  # scenario 3's lever), moud.injection_scale.active, the two overdose base
+  # TEN SINCE 2026-10-01 (nine on 2026-09-29, from sixteen: moud.reinit_prob
+  # moved to anchored_parameters and moud.acceptance + hiv_testing.nonclinical_annual
+  # joined when features.care_seeking went on). The seven that left on 09-29 are
+  # listed under anchored_parameters above (six) and derived_fatal_frac() (one).
+  # The ten: the two OUD transition rates without data (remission, relapse),
+  # moud.acceptance and hiv_testing.nonclinical_annual (the care-layer levers;
+  # reinit_prob was scenario 3's lever and is inert with the layer on),
+  # moud.injection_scale.active, the two overdose base
   # probabilities (kept fitted rather than converted by hand from the targets,
   # because the conversion runs through the MOUD, high-risk, relapse and SSP
   # multipliers and the scoring window -- exactly what the objective does

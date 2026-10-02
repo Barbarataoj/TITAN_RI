@@ -229,6 +229,7 @@ class Prep(base_feature.BaseFeature):
             return
 
         acceptance = getattr(self.agent.location.params.prep, "acceptance", 1.0)
+        acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
         if model.run_random.random() < acceptance:
             self.enroll(model.run_random, model.time)
 

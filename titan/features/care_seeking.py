@@ -65,6 +65,8 @@ class CareSeeking(base_feature.BaseFeature):
 
     provider_shares: ClassVar[Dict[str, List[float]]] = {}
     """Non-cumulative attachment shares per setting, kept for `panel_concentration`."""
+    pool_draw_p: ClassVar[Dict[str, Dict[str, float]]] = {}
+    """The p_willing each setting's pool was last drawn or refreshed against, per service."""
 
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
@@ -72,6 +74,10 @@ class CareSeeking(base_feature.BaseFeature):
         self.active = False
         self.provider_id: Dict[str, int] = {}
         self.visit_frailty: Dict[str, float] = {}
+        # The overdose step for which the post-overdose visit has already been
+        # rolled, so one event yields at most one extra visit per setting even
+        # though the window below spans two steps.
+        self.od_visit_rolled: Dict[str, Optional[int]] = {}
 
     # ================= CLASS-LEVEL METHODS =================
 
@@ -140,6 +146,9 @@ class CareSeeking(base_feature.BaseFeature):
                 pool.append(cls.draw_provider(setting, rho, rand_gen))
 
             cls.providers[setting_name] = pool
+            cls.pool_draw_p[setting_name] = {
+                service: getattr(setting, f"p_willing_{service}") for service in SERVICES
+            }
             cumulative, shares = cls.draw_weights(
                 len(pool), setting.panel_skew, rand_gen
             )
@@ -290,8 +299,61 @@ class CareSeeking(base_feature.BaseFeature):
         """
         care_params = model.params.care_seeking
         cls.ensure_initialized(model)
+        cls.refresh_pools(care_params, model)
         cls.process_attrition(care_params, model)
         cls.resolve_all_visits(care_params, model)
+
+    @classmethod
+    def refresh_pools(cls, care_params: "ObjMap", model: "model.TITAN"):
+        """
+        Re-draw a setting's provider records against the current parameters at
+        `setting.pool_refresh_time`.
+
+        Provider records freeze `willing` and `intensity` when drawn, so a
+        parameter changed mid-run (timeline_scaling at an arm's start date)
+        would otherwise reach only the replacements attrition draws. Here every
+        provider's intensity is set to the current parameter, and willingness is
+        topped up (or trimmed) to the new share without re-rolling providers who
+        already deliver: a non-willing provider becomes willing with probability
+        (p_new - p_old) / (1 - p_old); when the parameter fell, a willing one
+        stops with probability (p_old - p_new) / p_old. Added 2026-10-02 for the
+        dated Phase 7 arms.
+
+        args:
+            care_params: the care_seeking params
+            model: the instance of TITAN currently being run
+        """
+        for setting_name, setting in care_params.setting.items():
+            if getattr(setting, "pool_refresh_time", -9999) != model.time:
+                continue
+            pool = cls.providers.get(setting_name, [])
+            if not pool:
+                continue
+            drawn = cls.pool_draw_p.setdefault(setting_name, {})
+            for service in SERVICES:
+                p_new = getattr(setting, f"p_willing_{service}")
+                p_old = drawn.get(service, p_new)
+                intensity = getattr(setting, f"intensity_{service}")
+                if p_new > p_old and p_old < 1.0:
+                    p_up = (p_new - p_old) / (1.0 - p_old)
+                    p_down = 0.0
+                elif p_new < p_old and p_old > 0.0:
+                    p_up = 0.0
+                    p_down = (p_old - p_new) / p_old
+                else:
+                    p_up = p_down = 0.0
+                for record in pool:
+                    rec = record[service]
+                    if not rec["willing"] and p_up > 0 and model.run_random.random() < p_up:
+                        rec["willing"] = True
+                    elif rec["willing"] and p_down > 0 and model.run_random.random() < p_down:
+                        rec["willing"] = False
+                    rec["intensity"] = intensity
+                drawn[service] = p_new
+            logging.info(
+                "care_seeking: refreshed %s provider pool (%d providers) at t=%d",
+                setting_name, len(pool), model.time,
+            )
 
     @classmethod
     def ensure_initialized(cls, model: "model.TITAN"):
@@ -438,6 +500,7 @@ class CareSeeking(base_feature.BaseFeature):
         self.agent.care_encounter = {}
         self.agent.care_offer = {service: False for service in SERVICES}
         self.agent.care_offer_by_setting = {}
+        self.agent.care_offer_mult = {service: 1.0 for service in SERVICES}
 
         params = self.agent.location.params
         if not self.providers:
@@ -497,23 +560,29 @@ class CareSeeking(base_feature.BaseFeature):
         self.agent.care_encounter = {}
         self.agent.care_offer = {service: False for service in SERVICES}
         self.agent.care_offer_by_setting = {}
+        # acceptance multiplier carried with the offer: the largest among the
+        # settings that offered the service this step (1.0 = the global
+        # acceptance scalar unchanged); consumed by hiv_testing, prep and moud
+        self.agent.care_offer_mult = {service: 1.0 for service in SERVICES}
 
         for setting_name, setting in care_params.setting.items():
-            if setting.visit_rate_annual <= 0:
-                continue
-
             provider_idx = self.provider_id.get(setting_name)
             if provider_idx is None:
                 continue
 
-            rate = self.visit_rate(setting, setting_name, steps_per_year)
+            # The post-overdose visit does not depend on the routine rate, so a
+            # scenario that zeroes a setting's routine visits keeps the link
+            # between an overdose and an emergency encounter.
+            n_visits = self.visit_after_overdose(setting, setting_name, model)
 
-            # visit_rate_annual is a count of visit-days, not a probability, so
-            # the number of visits in a step is drawn as a Poisson count.
-            # Rolling a single yes/no instead would cap an agent at one visit
-            # per step and undercount the busier settings, where an agent can
-            # plausibly attend more than once a month.
-            n_visits = int(model.np_random.poisson(rate))
+            if setting.visit_rate_annual > 0:
+                rate = self.visit_rate(setting, setting_name, steps_per_year)
+                # visit_rate_annual is a count of visit-days, not a probability,
+                # so the number of visits in a step is drawn as a Poisson count.
+                # Rolling a single yes/no instead would cap an agent at one visit
+                # per step and undercount the busier settings, where an agent
+                # can plausibly attend more than once a month.
+                n_visits += int(model.np_random.poisson(rate))
             if n_visits == 0:
                 continue
 
@@ -522,6 +591,41 @@ class CareSeeking(base_feature.BaseFeature):
             # each visit is a separate chance to be offered a service
             for _ in range(n_visits):
                 self.resolve_offers(setting_name, provider_idx, model)
+
+    def visit_after_overdose(
+        self, setting: "ObjMap", setting_name: str, model: "model.TITAN"
+    ) -> int:
+        """
+        One extra visit to this setting after a nonfatal overdose, with
+        probability `visit_prob_after_overdose`.
+
+        The overdose feature records `agent.last_overdose_t` in its
+        `update_agent`, which runs after this feature's `update_pop` within a
+        step, so the event is first visible here on the following step; the
+        window accepts the event step too in case the ordering ever changes.
+        Each overdose is rolled at most once per setting. Added 2026-10-02:
+        before this nothing linked an overdose to an emergency encounter, so
+        post-overdose MOUD linkage was unmodelled while the care layer bypasses
+        `moud.post_overdose_rr`.
+
+        args:
+            setting: params for the setting
+            setting_name: name of the setting
+            model: the instance of TITAN currently being run
+
+        returns:
+            1 if the extra visit happens this step, else 0
+        """
+        prob = getattr(setting, "visit_prob_after_overdose", 0.0)
+        if prob <= 0:
+            return 0
+        last_od = getattr(self.agent, "last_overdose_t", None)
+        if last_od is None or not (0 <= model.time - last_od <= 1):
+            return 0
+        if self.od_visit_rolled.get(setting_name) == last_od:
+            return 0
+        self.od_visit_rolled[setting_name] = last_od
+        return 1 if model.run_random.random() < prob else 0
 
     def visit_rate(
         self, setting: "ObjMap", setting_name: str, steps_per_year: int
@@ -603,12 +707,28 @@ class CareSeeking(base_feature.BaseFeature):
         setting_offers = self.agent.care_offer_by_setting.setdefault(
             setting_name, {service: False for service in SERVICES}
         )
+        # the setting's acceptance multipliers; fall back to the agent's
+        # location params so a harness without `model.params` still resolves
+        care = getattr(getattr(model, "params", None), "care_seeking", None)
+        if care is None:
+            care = getattr(getattr(self.agent, "location", None), "params", None)
+            care = getattr(care, "care_seeking", None)
+        setting = None
+        if care is not None:
+            try:
+                setting = care.setting[setting_name]
+            except (KeyError, AttributeError, TypeError):
+                setting = None
         for service in SERVICES:
             if not provider[service]["willing"]:
                 continue
             if model.run_random.random() < provider[service]["intensity"]:
                 self.agent.care_offer[service] = True
                 setting_offers[service] = True
+                mult = getattr(setting, f"acceptance_mult_{service}", 1.0) if setting is not None else 1.0
+                offer_mult = getattr(self.agent, "care_offer_mult", None)
+                if offer_mult is not None and mult > offer_mult.get(service, 1.0):
+                    offer_mult[service] = mult
 
     # ================= STATS =================
 

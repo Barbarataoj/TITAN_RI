@@ -110,6 +110,58 @@ care_seeking:
         description: "Multiplier on visit_rate_annual for agents with active HIV in this setting. Part of the APCD-requested stratification by HIV status; 1.0 (default) means no adjustment."
         default: 1.0
         min: 0.0
+      acceptance_mult_hiv_test:
+        type: float
+        description: |
+          Multiplier on the patient's acceptance probability for an HIV test
+          offered in THIS setting (hiv_testing.acceptance x this, capped at 1).
+          Lets a patient-facing strategy (navigation, same-day rapid testing)
+          act in one setting while the others keep the calibrated acceptance.
+          When more than one setting offers the same service in a step, the
+          largest multiplier applies. Default 1.0. 2026-10-02.
+        default: 1.0
+        min: 0.0
+      acceptance_mult_prep:
+        type: float
+        description: "Multiplier on prep.acceptance for a PrEP offer made in this setting (see acceptance_mult_hiv_test). Default 1.0."
+        default: 1.0
+        min: 0.0
+      acceptance_mult_moud:
+        type: float
+        description: "Multiplier on moud.acceptance for a MOUD offer made in this setting (see acceptance_mult_hiv_test). Default 1.0."
+        default: 1.0
+        min: 0.0
+      pool_refresh_time:
+        type: int
+        description: |
+          Time step at which this setting's provider pool is re-drawn against
+          the CURRENT willingness and intensity parameters. Provider records
+          freeze `willing` and `intensity` when they are drawn (at init and on
+          attrition), so a parameter changed mid-run by timeline_scaling would
+          otherwise reach only replacement providers. At this step every
+          provider's intensity is set to the current parameter and, for each
+          service, non-willing providers become willing with probability
+          (p_new - p_old) / (1 - p_old) (or willing providers stop with
+          probability (p_old - p_new) / p_old when the parameter fell), which
+          reproduces the new share without re-rolling providers who already
+          deliver. Used by the Phase 7 arms that start on a date
+          (scripts/make_phase7_pc_arms.py). Default -9999 = never. 2026-10-02.
+        default: -9999
+      visit_prob_after_overdose:
+        type: float
+        description: |
+          Probability of one extra visit to this setting in the time step after
+          an agent's nonfatal overdose, on top of the Poisson visits. Links an
+          overdose to an emergency encounter so that post-overdose MOUD
+          linkage runs through the same willingness x intensity x acceptance
+          roll as any other ED visit (the care layer bypasses
+          moud.post_overdose_rr). Set to 1.0 for the ED when the overdose
+          targets are claims-defined (every modelled nonfatal overdose is then
+          an ED- or hospital-treated event by construction); 0 (default)
+          leaves the setting unlinked. Added 2026-10-02.
+        default: 0.0
+        min: 0.0
+        max: 1.0
     default:
       primary_care:
         visit_rate_annual: 0.0
@@ -128,3 +180,8 @@ care_seeking:
         visit_mult_moud: 1.0
         visit_mult_inj: 1.0
         visit_mult_hiv_positive: 1.0
+        visit_prob_after_overdose: 0.0
+        pool_refresh_time: -9999
+        acceptance_mult_hiv_test: 1.0
+        acceptance_mult_prep: 1.0
+        acceptance_mult_moud: 1.0

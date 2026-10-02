@@ -144,3 +144,59 @@ def test_equilibrium_coverage_falls_back_when_not_derivable(moud_global):
     """Returns None so init_agent drops through to init_coverage / demographic
     moud.init, rather than silently placing nobody or everybody."""
     assert MOUD._equilibrium_coverage(moud_global) is None
+
+
+def _make_care_model(acceptance, draw, time=0):
+    return SimpleNamespace(
+        time=time,
+        params=SimpleNamespace(
+            moud=SimpleNamespace(start_time=0, use_reinit=True, acceptance=acceptance),
+            features=SimpleNamespace(care_seeking=True),
+        ),
+        run_random=FakeRandom(draw),
+    )
+
+
+@pytest.mark.unit
+def test_care_path_starts_on_offer_and_flags_postod_restart():
+    """
+    STEP 2a (care_seeking on): a start happens only on an offer the agent
+    accepts, and a start within one step of `last_overdose_t` sets
+    `started_postod_1step` exactly as STEP 4 does on the care-off path. Until
+    2026-10-02 the care path never set the flag, so the survivor 30-day
+    linkage diagnostic read the on-MOUD-at-event share instead.
+    """
+    agent = _make_agent()
+    agent.care_offer = {"moud": True}
+    agent.last_overdose_t = 6
+    model = _make_care_model(acceptance=0.5, draw=0.4, time=7)
+    agent.moud.update_agent(model)
+    assert agent.moud.active is True
+    assert agent.moud.started_postod_1step is True
+
+
+@pytest.mark.unit
+def test_care_path_no_flag_without_recent_overdose_and_no_start_without_offer():
+    agent = _make_agent()
+    agent.care_offer = {"moud": True}
+    agent.last_overdose_t = 2
+    model = _make_care_model(acceptance=0.5, draw=0.4, time=7)
+    agent.moud.update_agent(model)
+    assert agent.moud.active is True
+    assert not getattr(agent.moud, "started_postod_1step", False)
+
+    agent2 = _make_agent()
+    agent2.care_offer = {"moud": False}
+    agent2.last_overdose_t = 6
+    model = _make_care_model(acceptance=1.0, draw=0.0, time=7)
+    agent2.moud.update_agent(model)
+    assert agent2.moud.active is False
+
+
+@pytest.mark.unit
+def test_care_path_rejects_offer_above_acceptance():
+    agent = _make_agent()
+    agent.care_offer = {"moud": True}
+    model = _make_care_model(acceptance=0.5, draw=0.6, time=7)
+    agent.moud.update_agent(model)
+    assert agent.moud.active is False

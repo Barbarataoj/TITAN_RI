@@ -399,12 +399,17 @@ scenario:
   # Derived from docs/apcd_incoming/ABM_2 (Rhode Island APCD 2022), registry
   # sections 7.2 and 7.6, and Rhode Island studies; the derivation prints with
   # `python scripts/make_care_seeking_params.py`. See
-  # docs/calibration_log/phase_7_care_seeking_parameters_2026-10-01.md.
+  # docs/calibration_log/phase_7_care_seeking_parameters_2026-10-01.md
+  # (section 8: the 2026-10-02 corrections). mental_health is the setting
+  # this APCD extract codes opioid treatment programs under, so it is
+  # OTP-dominated; HIV-test intensities outside the ED are corrected for
+  # the reference-laboratory undercount; ED gets one visit after each
+  # nonfatal overdose (visit_prob_after_overdose).
   care_seeking:
     shared_trait_prob: 0.0
     setting:
       ED:
-        visit_rate_annual: 1.8154
+        visit_rate_annual: 2.0398
         visit_heterogeneity_shape: 0.33
         visit_mult_inj: 2.33
         visit_mult_moud: 0.55
@@ -420,8 +425,9 @@ scenario:
         intensity_prep: 0.00687
         intensity_moud: 0.15
         intensity_counseling: 0.0
+        visit_prob_after_overdose: 1.0
       primary_care:
-        visit_rate_annual: 5.7668
+        visit_rate_annual: 5.8131
         visit_heterogeneity_shape: 0.62
         visit_mult_inj: 1.23
         visit_mult_moud: 0.9
@@ -433,12 +439,13 @@ scenario:
         p_willing_prep: 0.0794
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.00695
+        intensity_hiv_test: 0.1078
         intensity_prep: 0.00516
         intensity_moud: 0.75
         intensity_counseling: 0.0
+        visit_prob_after_overdose: 0.0
       sud_treatment:
-        visit_rate_annual: 2.1437
+        visit_rate_annual: 2.3562
         visit_heterogeneity_shape: 0.045
         visit_mult_inj: 1.85
         visit_mult_moud: 1.81
@@ -450,12 +457,13 @@ scenario:
         p_willing_prep: 0.125
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.00312
+        intensity_hiv_test: 0.06355
         intensity_prep: 0.00046
         intensity_moud: 1.0
         intensity_counseling: 0.0
+        visit_prob_after_overdose: 0.0
       mental_health:
-        visit_rate_annual: 12.5596
+        visit_rate_annual: 12.9759
         visit_heterogeneity_shape: 0.2
         visit_mult_inj: 1.7
         visit_mult_moud: 0.68
@@ -467,10 +475,11 @@ scenario:
         p_willing_prep: 0.109
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.00241
+        intensity_hiv_test: 0.03862
         intensity_prep: 0.00162
         intensity_moud: 0.75
         intensity_counseling: 0.0
+        visit_prob_after_overdose: 0.0
   # <<< care_seeking <<<
   classes:
     sex_types:
@@ -589,7 +598,11 @@ scenario:
     overdose_scale:
       active: 0.3182197431535646
       inactive: 1.0
-    start_time: 0
+    # 2026-10-02: was 0, which froze MOUD coverage at the init_at_equilibrium
+    # placement (0.825) for the 120-step burn-in and let it relax inside the
+    # scored window; with care_seeking on the placement is not the model's own
+    # level. -999 precedes any burn-in, like hiv_testing.start_time.
+    start_time: -999
     use_reinit: true
   oud_state:
     init_active: 0.55

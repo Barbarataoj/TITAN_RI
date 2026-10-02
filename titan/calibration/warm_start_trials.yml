@@ -92,8 +92,8 @@ warm_start:
       - "overdose.base_prob_inj 0.14107456 -> 0.268, _noninj 0.06081623 -> 0.1155
          (x1.9 for overdose_scale.active 0.608 -> 0.30 and coverage 0.50 -> 0.82)"
     dropped:
-      hiv_testing.base_prob_annual: 0.2            # clipped from 0.486567; now fixed 0.155
-      moud.post_overdose_rr: 2.23271398            # now fixed 1.0
+      hiv_testing.base_prob_annual: 0.2            # clipped from 0.486567; fixed 0.155 (09-29), 0.08 (09-30); inert with care_seeking on
+      moud.post_overdose_rr: 2.23271398            # fixed 1.0 (09-29), 0.42 (10-01, APCD job 2b); inert with care_seeking on
       moud.discontinue_per_month: 0.14479567       # now fixed 0.078
       moud.overdose_scale.active: 0.60844793       # now fixed 0.30
       overdose.high_risk_mult: 1.67477959          # now fixed 1.6

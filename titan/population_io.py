@@ -23,8 +23,15 @@ agent_exposure_attrs = [
 ]
 
 # these are functionally saved in the relationships or other files and complicate the agent file
+# `last_overdose_t` is a time stamp on the saving run's clock; a loaded
+# population starts a new clock, so carrying it over would fire a ghost
+# post-overdose ED visit (care_seeking.visit_after_overdose) and a ghost
+# 30-day-linkage flag (moud STEP 2a/4) when the new clock passed the old value
+# (2026-10-02).
 agent_exclude_attrs = (
-    {"partners", "relationships"}.union(agent_feature_attrs).union(agent_exposure_attrs)
+    {"partners", "relationships", "last_overdose_t"}
+    .union(agent_feature_attrs)
+    .union(agent_exposure_attrs)
 )
 
 

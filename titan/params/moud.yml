@@ -1,9 +1,15 @@
 moud:
   start_time:
     default: 0
-    description: Time step when MOUD becomes available in the model
+    description: |
+      Time step when MOUD becomes available in the model. Burn-in runs at
+      negative time, so a value at or below -burn_steps lets MOUD starts and
+      stops run through burn-in; at 0 (the old floor) coverage stays frozen at
+      the init_at_equilibrium placement for the whole burn-in and relaxes to
+      the model's own level inside the scored window. The calibration scenario
+      sets -999 (2026-10-02).
     type: int
-    min: 0
+    min: -9999
 
   # =========================
   # Initiation & Re-initiation

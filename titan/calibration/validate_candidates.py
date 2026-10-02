@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from titan.calibration.optuna_calibration import (
+    concat_reports,
     CALIB_YAML,
     COMPOSITE_CLIP_QUANTILE,
     OBJECTIVE_GATES,
@@ -396,12 +397,14 @@ def main():
     print(f"Outputs to:           {OUT_DIR}\n", flush=True)
 
     rows = []
+    pooled_rows = []
     for trial in trials:
         src = TRIAL_DIR / f"trial_{trial}.yml"
         if not src.exists():
             print(f"SKIP trial {trial}: {src} not found")
             continue
         base = load_yaml(src)
+        report_paths = []
 
         for seed in seeds:
             scenario = copy.deepcopy(base)
@@ -420,6 +423,7 @@ def main():
 
             row = build_row(trial, seed, stats, targets, errs)
             rows.append(row)
+            report_paths.append(outdir / "basicReport.txt")
             print(
                 "    "
                 + "  ".join(
@@ -427,6 +431,40 @@ def main():
                     for (name, tgt), e in zip(OBJECTIVES, errs)
                 )
                 + f"  hiv_new_pooled={row['hiv_new_pooled']}",
+                flush=True,
+            )
+
+        # THE GATE STATISTIC IS THE POOLED SCORE (2026-10-02). The search scores
+        # a trial on the report pooled over its populations x replicates
+        # (optuna_calibration.objective, "scored on the pooled report"); until
+        # today this script scored each population separately and averaged the
+        # eight scores, which carries the full between-population variance into
+        # every squared objective and takes the mean of eight square roots, so
+        # the same vector read ~0.15 in-search and ~1.0 here against the same
+        # 1.1 gate (trial 282, 2026-09-30). The per-seed rows stay as the spread
+        # diagnostic; pass/fail and the ranking use this row.
+        if report_paths:
+            pooled_path = OUT_DIR / f"trial{trial}_pooled_basicReport.txt"
+            pooled = concat_reports(report_paths, pooled_path)
+            errs_pooled = tuple(float(e) for e in multi_error(pooled, targets))
+            raw_pooled = tuple(
+                float(e) for e in multi_error(pooled, targets, bias_correct=False)
+            )
+            prow = build_row(trial, "pooled", pooled, targets, errs_pooled)
+            for i, e in enumerate(raw_pooled):
+                prow[f"raw_{i}"] = e
+            for i, (name, tgt) in enumerate(OBJECTIVES):
+                prow[f"pass_{i}"] = bool(errs_pooled[i] <= tgt)
+            prow["pass4"] = all(prow[f"pass_{i}"] for i in range(len(OBJECTIVES)))
+            prow["n_seeds"] = len(report_paths)
+            pooled_rows.append(prow)
+            print(
+                "    POOLED "
+                + "  ".join(
+                    f"{name}={e:.4f}({e / tgt:.2f}x)"
+                    for (name, tgt), e in zip(OBJECTIVES, errs_pooled)
+                )
+                + f"  pass {sum(prow[f'pass_{i}'] for i in range(len(OBJECTIVES)))}/{len(OBJECTIVES)}",
                 flush=True,
             )
 
@@ -444,9 +482,17 @@ def main():
     if job_id:
         df.to_csv(OUT_DIR / f"validation_summary_{job_id}.csv", index=False)
     print(f"\nPer-seed results: {csv}\n")
+    pdf = pd.DataFrame(pooled_rows) if pooled_rows else None
+    if pdf is not None:
+        pcsv = OUT_DIR / "validation_pooled.csv"
+        pdf.to_csv(pcsv, index=False)
+        if job_id:
+            pdf.to_csv(OUT_DIR / f"validation_pooled_{job_id}.csv", index=False)
+        print(f"Pooled (gate) results: {pcsv}\n")
+    pooled_by_trial = {r["trial"]: r for r in pooled_rows}
 
     print("=" * 78)
-    print("SUMMARY (mean +/- sd over population seeds; pass = mean below target)")
+    print("SUMMARY (per-seed mean +/- sd = spread diagnostic; GATE = pooled score)")
     print("=" * 78)
     for trial in df["trial"].unique():
         sub = df[df["trial"] == trial]
@@ -463,7 +509,21 @@ def main():
                 f"({mean / tgt:.2f}x)  seeds passing: {seed_pass}/{len(vals)}  "
                 f"{'PASS' if ok else 'MISS'}"
             )
-        print(f"  --> {n_pass}/{len(OBJECTIVES)} objectives pass on the seed mean")
+        print(f"  --> {n_pass}/{len(OBJECTIVES)} objectives pass on the seed mean (spread, not the gate)")
+        prow = pooled_by_trial.get(trial)
+        if prow is not None:
+            n_pool = sum(prow[f"pass_{i}"] for i in range(len(OBJECTIVES)))
+            print(
+                "  POOLED gate statistic (same estimator as the search): "
+                + "  ".join(
+                    f"{name}={prow[f'err_{i}']:.4f}({prow[f'err_{i}'] / tgt:.2f}x; raw {prow[f'raw_{i}']:.4f})"
+                    for i, (name, tgt) in enumerate(OBJECTIVES)
+                )
+            )
+            print(
+                f"  --> {n_pool}/{len(OBJECTIVES)} objectives pass on the pooled score  "
+                f"{'PASS' if prow['pass4'] else 'MISS'}"
+            )
         _report_noninj_seed(trial)
         _report_overdose(sub, targets)
         _report_validation(sub)
@@ -480,12 +540,16 @@ def main():
         "10-rep value was a noise miss; one that misses on every seed is structural."
     )
 
-    _rank_candidates(df)
+    # Rank on the pooled scores when they exist (one row per trial), else on
+    # the per-seed rows as before.
+    _rank_candidates(pdf if pdf is not None else df)
 
 
 def _rank_candidates(df):
     """
-    Rank the validated trials by composite error on their seed-mean objectives.
+    Rank the validated trials by composite error on their objectives: the
+    pooled score per trial since 2026-10-02 (the gate statistic), or the
+    seed-mean when only per-seed rows are available.
 
     Without this the script only reports pass/fail per objective, which does not
     decide anything once more than one candidate passes all six -- the gap that
@@ -543,8 +607,8 @@ def _rank_candidates(df):
     if top["objectives_passed"] < len(OBJECTIVES):
         print(
             f"\nNO CLEAN WINNER: best trial {top['trial']} passes only "
-            f"{int(top['objectives_passed'])}/{len(OBJECTIVES)} objectives on the seed "
-            "mean. Ranking it first is a least-bad ordering, not a canonical pick."
+            f"{int(top['objectives_passed'])}/{len(OBJECTIVES)} objectives on the ranked "
+            "score. Ranking it first is a least-bad ordering, not a canonical pick."
         )
     else:
         ties = rank[(rank["objectives_passed"] == len(OBJECTIVES))]

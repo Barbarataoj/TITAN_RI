@@ -207,8 +207,12 @@ class MOUD(base_feature.BaseFeature):
             # When care settings are modelled, MOUD starts because a provider
             # offered it at a visit and the agent accepted. The post-relapse and
             # post-overdose multipliers below are skipped in that case: they
-            # stood in for the emergency department pathway, which encounters in
-            # that setting now represent directly.
+            # stood in for the emergency department pathway. That pathway is an
+            # ED encounter here only because the care layer rolls one extra ED
+            # visit in the step after a nonfatal overdose
+            # (care_seeking.visit_prob_after_overdose, 2026-10-02); before that
+            # nothing linked an overdose to a visit and post-overdose linkage
+            # was unmodelled with this layer on.
             if model.params.features.care_seeking:
                 if getattr(self.agent, "care_offer", {}).get("moud", False):
                     acceptance = (
@@ -216,7 +220,18 @@ class MOUD(base_feature.BaseFeature):
                         if moud_global is not None
                         else 1.0
                     )
+                    acceptance = min(
+                        1.0,
+                        acceptance * getattr(self.agent, "care_offer_mult", {}).get("moud", 1.0),
+                    )
                     if model.run_random.random() < acceptance:
+                        # Same 30-day linkage diagnostic as STEP 4 below; until
+                        # 2026-10-02 only the care-off path set it, so
+                        # survivor_any_moud_30d_share was undercounted to the
+                        # on-MOUD-at-event share whenever the layer was on.
+                        last_od = getattr(self.agent, "last_overdose_t", None)
+                        if last_od is not None and 0 <= model.time - last_od <= 1:
+                            self.started_postod_1step = True
                         self.initiate(model.run_random, moud_params, "prob")
                 return
 
