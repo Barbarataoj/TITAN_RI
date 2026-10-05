@@ -110,6 +110,8 @@ warm_start:
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 1.0
       high_risk.partner_scale: 8
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
 
   # The same overdose corner at trial 290's own injection transmission level.
   #
@@ -147,6 +149,8 @@ warm_start:
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.177663
       high_risk.partner_scale: 8
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
 
   # trial 301 -- the only shortlist member that passes the MOUD trajectory gate
   # (moud_traj_rmse 0.0854 against 0.10, measured at 8 seeds by job 5053123).
@@ -181,6 +185,8 @@ warm_start:
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 7
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
 
   # trial 561 -- the nearest uniform miss on job 4874631, all five of the
   # then-live objectives within 1.8x of their gates. Named in D4 of the
@@ -213,6 +219,8 @@ warm_start:
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 13
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
 
   # ---------------------------------------------------------------------
   # The pilot refit's best trials (job 6832656, 200 trials, 2026-09-30),
@@ -234,6 +242,8 @@ warm_start:
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_137
     source: trial 137 of pilot job 6832656 (violation 0.0249, gates passed 2/4; oud 0.0566 hiv 1.007 od 0.0037 moud 0.1183)
     params:
@@ -247,6 +257,8 @@ warm_start:
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_9
     source: trial 9 of pilot job 6832656 (violation 0.0383, gates passed 2/4; oud 0.0027 hiv 0.167 od 0.0377 moud 0.1105)
     params:
@@ -260,6 +272,8 @@ warm_start:
       calibration.background.msm_inj_mult: 8.289783
       calibration.injection.act: 0.32514255
       high_risk.partner_scale: 5
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_192
     source: trial 192 of pilot job 6832656 (violation 0.0710, gates passed 2/4; oud 0.0881 hiv 1.092 od 0.0429 moud 0.0585)
     params:
@@ -273,6 +287,8 @@ warm_start:
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.72646301
       high_risk.partner_scale: 8
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_157
     source: trial 157 of pilot job 6832656 (violation 0.1045, gates passed 3/4; oud 0.0043 hiv 0.788 od 0.1145 moud 0.0681)
     params:
@@ -286,6 +302,8 @@ warm_start:
       calibration.background.msm_inj_mult: 8.289783
       calibration.injection.act: 0.17037256
       high_risk.partner_scale: 5
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_3
     source: trial 3 of pilot job 6832656 (violation 0.1094, gates passed 2/4; oud 0.0858 hiv 0.361 od 0.0836 moud 0.0843)
     params:
@@ -299,6 +317,8 @@ warm_start:
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 13
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_154
     source: trial 154 of pilot job 6832656 (violation 0.1193, gates passed 2/4; oud 0.0976 hiv 0.531 od 0.0816 moud 0.0696)
     params:
@@ -312,6 +332,8 @@ warm_start:
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_78
     source: trial 78 of pilot job 6832656 (violation 0.1228, gates passed 2/4; oud 0.0821 hiv 1.094 od 0.1006 moud 0.0714)
     params:
@@ -325,6 +347,8 @@ warm_start:
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_114
     source: trial 114 of pilot job 6832656 (violation 0.1271, gates passed 2/4; oud 0.0199 hiv 1.133 od 0.1043 moud 0.0581)
     params:
@@ -338,6 +362,8 @@ warm_start:
       calibration.background.msm_inj_mult: 1.89312663
       calibration.injection.act: 0.38377811
       high_risk.partner_scale: 12
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: pilot_152
     source: trial 152 of pilot job 6832656 (violation 0.1342, gates passed 3/4; oud 0.1842 hiv 0.845 od 0.0039 moud 0.0428)
     params:
@@ -351,6 +377,8 @@ warm_start:
       calibration.background.msm_inj_mult: 14.95049801
       calibration.injection.act: 0.29282121
       high_risk.partner_scale: 14
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
   - label: care_pilot_137
     source: >-
       trial 137 of the care_seeking pilot job 6937997 (2026-10-02; gates passed
@@ -371,3 +399,385 @@ warm_start:
       calibration.background.msm_inj_mult: 3.651606170486115
       calibration.injection.act: 0.5091117014206475
       high_risk.partner_scale: 7
+      trend.moud_acceptance_ratio: 1.6     # 2026-10-05: MOUD trend added to the search; probe values
+      trend.moud_discontinue_ratio: 0.75
+  - label: care_refit2_622
+    source: >-
+      trial 622 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_684
+    source: >-
+      trial 684 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3959551182942853
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      hiv_testing.nonclinical_annual: 0.06815789774412463
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.6651133598214968
+      high_risk.partner_scale: 1
+      trend.moud_acceptance_ratio: 1.747966
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_781
+    source: >-
+      trial 781 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.39557084865699355
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.029114105015091773
+      calibration.background.msm_inj_mult: 4.048151064803502
+      calibration.injection.act: 0.3144805488106394
+      high_risk.partner_scale: 17
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_782
+    source: >-
+      trial 782 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.2797658290956996
+      oud_state.transitions.relapse_rate_per_year: 0.37094243881639843
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.096354   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.6533580472037825
+      moud.acceptance: 0.546125136056422
+      hiv_testing.nonclinical_annual: 0.3099113331569147
+      calibration.background.msm_inj_mult: 4.727601775324846
+      calibration.injection.act: 0.3700229040529555
+      high_risk.partner_scale: 7
+      trend.moud_acceptance_ratio: 1.831082
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_794
+    source: >-
+      trial 794 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3513527194315872
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      hiv_testing.nonclinical_annual: 0.08097096528609
+      calibration.background.msm_inj_mult: 6.176483517295874
+      calibration.injection.act: 0.482948750229849
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.747966
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_818
+    source: >-
+      trial 818 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3959551182942853
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.35366650215533585
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_834
+    source: >-
+      trial 834 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3015343595292205
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.237162   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7274219691816987
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.35366650215533585
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_865
+    source: >-
+      trial 865 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.251612   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.6989114860845488
+      hiv_testing.nonclinical_annual: 0.3993066241675599
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.7155883941566196
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.430796
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_872
+    source: >-
+      trial 872 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.6608369873823849
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.482948750229849
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.513232
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_900
+    source: >-
+      trial 900 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.20010777657070847
+      oud_state.transitions.relapse_rate_per_year: 0.2346648621996858
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.546125136056422
+      hiv_testing.nonclinical_annual: 0.35366650215533585
+      calibration.background.msm_inj_mult: 4.727601775324846
+      calibration.injection.act: 0.559415962562248
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.831082
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_921
+    source: >-
+      trial 921 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5334825533604036
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_931
+    source: >-
+      trial 931 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.237162   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.3587700074572199
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_954
+    source: >-
+      trial 954 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.088345   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.34604758300876853
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.38952039485655554
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_958
+    source: >-
+      trial 958 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.088345   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5870914190170253
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.20961507979471322
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.38952039485655554
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_966
+    source: >-
+      trial 966 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.5720934147140171
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.482948750229849
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.747966
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_981
+    source: >-
+      trial 981 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.556122945721319
+      moud.acceptance: 0.5322189122750579
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.482948750229849
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.878926
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_982
+    source: >-
+      trial 982 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.237162   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.3700229040529555
+      high_risk.partner_scale: 1
+      trend.moud_acceptance_ratio: 1.747966
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_990
+    source: >-
+      trial 990 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.237162   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.546125136056422
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.831082
+      trend.moud_discontinue_ratio: 0.705128
+  - label: care_refit2_999
+    source: >-
+      trial 999 of the care-seeking refit (job 6950540), one of the 19 members passing
+      all four gates at 8 x 40 pooled; MOUD trend ratios added 2026-10-05 so that
+      acceptance reaches 1.0 and discontinuation 0.055 by 2022 (probe job 7025851
+      reached coverage 0.81 on trial 931 with these; the overdose base rates will
+      need to rise: both base rates start x1.17 here)
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29648476505751487
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.21027   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      overdose.base_prob_noninj: 0.088345   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
+      moud.injection_scale.active: 0.5870914190170253
+      moud.acceptance: 0.546125136056422
+      hiv_testing.nonclinical_annual: 0.1988158151584545
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.38952039485655554
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.831082
+      trend.moud_discontinue_ratio: 0.705128

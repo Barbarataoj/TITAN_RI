@@ -130,8 +130,12 @@ OBJECTIVE_NAMES = ("oud_rmse", "ridoh_hiv_err", "od_err", "moud_traj_rmse")
 #                         proposed relaxing it to 0.08. The fatal component left
 #                         the objective 2026-09-29 when overdose.fatal_frac was
 #                         derived from the targets -- see od_error().
-#   moud_traj_rmse 0.10   MOUD uptake trajectory
-OBJECTIVE_GATES = (0.05, 1.1, 0.01, 0.10)
+#   moud_traj_rmse 0.05   MOUD uptake trajectory, 2021-2022 weighted x3. Was 0.10
+#                         until 2026-10-05: a flat line at 0.67 scored 0.080 and
+#                         passed while Rhode Island rose to 0.81 (close-out of the
+#                         care-seeking refit, section 3.2); the best flat line now
+#                         scores ~0.06 and fails.
+OBJECTIVE_GATES = (0.05, 1.1, 0.01, 0.05)
 
 # Model years the overdose rates are measured over, counted back from the end of
 # the run. The three overdose targets are APCD period-3 (2021-2022) averages, so
@@ -1443,7 +1447,7 @@ def hiv_null_value(calib):
         targets,
     )
 
-def _traj_rmse(model_series, target_series):
+def _traj_rmse(model_series, target_series, weights=None):
     """RMSE between two annual trajectories that both start in the same calendar year.
 
     Both series begin at the first post-burn year (2012 for the APCD MOUD
@@ -1460,7 +1464,12 @@ def _traj_rmse(model_series, target_series):
         return float(np.sqrt(np.mean(target ** 2)))  # max-penalty
     n = min(len(target), len(model_series))
     diff = np.asarray(model_series)[:n] - target[:n]
-    return float(np.sqrt(np.mean(diff ** 2)))
+    if weights is None:
+        return float(np.sqrt(np.mean(diff ** 2)))
+    # weighted (2026-10-05): the MOUD series weights 2021-2022 x3 so the end-of-
+    # calibration level, which every Phase 7 projection starts from, is scored
+    w = np.asarray(weights, dtype=float)[:n]
+    return float(np.sqrt(np.sum(w * diff ** 2) / np.sum(w)))
 
 def null_traj_rmse(target_series):
     """RMSE hiv_traj_rmse takes when a trial's simulated series is flat zero --
@@ -1757,6 +1766,7 @@ def build_targets(calib):
         "od_nonfatal_inj": calib["overdose"]["nonfatal_rate_inj_annual"],
         "od_nonfatal_noninj": calib["overdose"]["nonfatal_rate_noninj_annual"],
         "moud_series": calib["moud"]["uptake_series_per_yr"],
+        "moud_weights": calib["moud"].get("uptake_series_weights"),
         "inj_share": calib["injecting"]["injecting_pct"],
         "ridoh_windows": ridoh["windows"],
         "ridoh_pwid_windows": all_route_windows(hiv["ridoh_pwid_dx_all_routes"]),
@@ -1880,6 +1890,7 @@ def multi_error(stats, targets, bias_correct=True):
     moud_traj_rmse = _traj_rmse(
         stats.get("moud_uptake_series"),
         targets["moud_series"],
+        targets.get("moud_weights"),
     )
 
     return (
@@ -1892,6 +1903,47 @@ def multi_error(stats, targets, bias_correct=True):
 # =====================================================
 # Optuna objective
 # =====================================================
+# ---------------------------------------------------------------------------
+# Time trends fitted as ratios (2026-10-05). Rhode Island's MOUD coverage among
+# people with active OUD rose 0.69 -> 0.81 over 2012-2022, and nothing in the
+# model changed MOUD access over time, so every member of the 2026-10-02 refit
+# was flat at ~0.68 while still passing the old 0.10 trajectory gate. A probe
+# on trial 931 (job 7025851) found that acceptance alone caps coverage at
+# ~0.77 and that reaching 0.81 needs retention to improve as well. Each
+# `trend.<name>_ratio` searched parameter is the value at the end of the ramp
+# divided by the value before it; the ramp is applied as one timeline_scaling
+# entry per year from Jan 2016 to Jan 2022 (geometric steps), then held, so a
+# Phase 7 run carries the 2022 level forward.
+# ---------------------------------------------------------------------------
+TREND_TARGETS = {
+    "trend.moud_acceptance_ratio": "moud|acceptance",
+    "trend.moud_discontinue_ratio": "moud|discontinue_per_month",
+}
+TREND_STEPS = (49, 61, 73, 85, 97, 109, 121)   # Jan 2016 ... Jan 2022 (t = 1 is Jan 2012)
+
+
+def apply_trends(scenario, trends):
+    """
+    Write the timeline_scaling entries for fitted trend ratios into a scenario.
+
+    args:
+        scenario: the scenario dict (modified in place and returned)
+        trends: {"trend.<name>_ratio": ratio}; a ratio of 1 adds nothing
+    """
+    for path, ratio in trends.items():
+        target = TREND_TARGETS[path]
+        if abs(float(ratio) - 1.0) < 1e-12:
+            continue
+        step = float(ratio) ** (1.0 / len(TREND_STEPS))
+        tl = scenario.setdefault("timeline_scaling", {}).setdefault("timeline", {})
+        name = path.split(".", 1)[1]
+        for i, t in enumerate(TREND_STEPS):
+            tl[f"{name}_{i}"] = {"parameter": target, "start_time": int(t),
+                                 "stop_time": 10000, "scalar": round(step, 8)}
+        scenario.setdefault("features", {})["timeline_scaling"] = True
+    return scenario
+
+
 def objective(trial):
 
     calib = load_yaml(CALIB_YAML)
@@ -1907,6 +1959,7 @@ def objective(trial):
     # them into `scenario` at this point would work and then be silently thrown
     # away by that rebuild. See the block below.
     calib_block_params = {}
+    trend_params = {}  # trend.* ratios -> timeline entries via apply_trends()
     for p in calib["calibration"]["parameters_to_optimize"]:
         is_int = p.get("type") == "int"
         if is_int:
@@ -1915,6 +1968,9 @@ def objective(trial):
             val = trial.suggest_float(p["path"], p["lower"], p["upper"])
         if p["path"].startswith("calibration."):
             calib_block_params[p["path"]] = (int(val) if is_int else float(val))
+            continue
+        if p["path"] in TREND_TARGETS:
+            trend_params[p["path"]] = float(val)
             continue
         try:
             set_yaml_value(scenario, p["path"], val, is_int=is_int)
@@ -2015,6 +2071,7 @@ def objective(trial):
     # acquisition is no longer overridden here -- it stays at the base scenario's
     # 1.0. See the block above for why it left the search.
     scenario["calibration"] = calib_block
+    apply_trends(scenario, trend_params)
 
     # NonInj HIV seed. Added 2026-08-03.
     #
@@ -2756,6 +2813,7 @@ def main():
 
     calibrated = load_yaml(BASE_SCENARIO)
     calib_block_best = {}
+    trends_best = {}
     for k, v in best.params.items():
         if k.startswith("calibration."):
             # Collected, not dropped. This used to `continue` outright and then
@@ -2772,6 +2830,9 @@ def main():
             if not k.startswith("calibration.noninj_hiv_init"):
                 calib_block_best[k] = v
             continue
+        if k in TREND_TARGETS:
+            trends_best[k] = float(v)
+            continue
         is_int = k in int_params
         try:
             set_yaml_value(calibrated, k, v, is_int=is_int)
@@ -2786,6 +2847,7 @@ def main():
     # so best.params has no such key and the base scenario's 1.0 stands. Reading
     # it here would KeyError on every run of a post-2026-08-06 study.
     calibrated["calibration"] = calib_block
+    apply_trends(calibrated, trends_best)
 
     # The NonInj HIV seed lives in `demographics`, not in a suggest path, so it
     # has to be re-applied here the same way objective() applied it. Without

@@ -71,7 +71,7 @@ def test_live_config_has_nine_free_and_no_overlap(calib):
     assert not fitted & set(anchored_parameters(calib))
     # 9 until 2026-10-01; moud.reinit_prob left (anchored) and moud.acceptance +
     # hiv_testing.nonclinical_annual joined when features.care_seeking went on.
-    assert len(fitted) == 10
+    assert len(fitted) == 12   # 10 + the two MOUD trend ratios (2026-10-05)
 
 
 @pytest.mark.unit
@@ -116,3 +116,32 @@ def test_warm_starts_carry_no_anchored_coordinate(calib):
     assert entries, "the warm-start file should still enqueue something"
     for label, params in entries:
         assert not set(params) & anchored, label
+
+
+@pytest.mark.unit
+def test_apply_trends_writes_geometric_yearly_steps_reaching_the_ratio():
+    from titan.calibration.optuna_calibration import apply_trends, TREND_STEPS
+    s = {"features": {}, "moud": {"acceptance": 0.5, "discontinue_per_month": 0.078}}
+    apply_trends(s, {"trend.moud_acceptance_ratio": 2.0, "trend.moud_discontinue_ratio": 1.0})
+    tl = s["timeline_scaling"]["timeline"]
+    acc = [v for k, v in tl.items() if k.startswith("moud_acceptance_ratio")]
+    assert len(acc) == len(TREND_STEPS) and s["features"]["timeline_scaling"] is True
+    prod = 1.0
+    for e in acc:
+        assert e["parameter"] == "moud|acceptance" and e["stop_time"] == 10000
+        prod *= e["scalar"]
+    assert prod == pytest.approx(2.0, rel=1e-6)
+    assert [e["start_time"] for e in acc] == list(TREND_STEPS)
+    assert not any(k.startswith("moud_discontinue_ratio") for k in tl)   # ratio 1 adds nothing
+
+
+@pytest.mark.unit
+def test_weighted_traj_rmse_and_flat_line_fails_the_moud_gate():
+    import yaml
+    from titan.calibration.optuna_calibration import _traj_rmse, OBJECTIVE_GATES, CALIB_YAML
+    m = yaml.safe_load(open(CALIB_YAML))["calibration"]["moud"]
+    tgt, w = m["uptake_series_per_yr"], m["uptake_series_weights"]
+    assert _traj_rmse(tgt, tgt, w) == pytest.approx(0.0)
+    best_flat = min(_traj_rmse([x / 1000] * len(tgt), tgt, w) for x in range(600, 850))
+    assert best_flat > OBJECTIVE_GATES[3]            # a flat line cannot pass any more
+    assert _traj_rmse([0.68] * len(tgt), tgt) < 0.10  # ... though it passed the old gate unweighted

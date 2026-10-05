@@ -438,6 +438,12 @@ calibration:
     # = F11-dx OUD in year Y, matched to model oud_active. Used directly by the objective.
     uptake_series_years: [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]
     uptake_series_per_yr: [0.692, 0.655, 0.690, 0.692, 0.673, 0.710, 0.753, 0.751, 0.776, 0.820, 0.810]
+    # 2021-2022 weighted x3 (2026-10-05): the Phase 7 projections start from
+    # the end-of-calibration level, which the unweighted RMSE did not protect
+    # (every member of the 2026-10-02 refit sat flat at ~0.68 against 0.81 and
+    # passed the old 0.10 gate). With these weights and the 0.05 gate a flat
+    # line fails; the two fitted trend ratios below let the model follow the rise.
+    uptake_series_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3]
 
   # --------------------------------------------
   # HIV outcomes (OPTIMIZED — trajectory fit 2012–2022)
@@ -982,7 +988,7 @@ calibration:
   # --------------------------------------------
   # PARAMETERS TO BE CALIBRATED (wide ranges per user direction)
   # --------------------------------------------
-  # TEN SINCE 2026-10-01 (nine on 2026-09-29, from sixteen: moud.reinit_prob
+  # TWELVE SINCE 2026-10-05 (the two trend.moud_* ratios, below); TEN SINCE 2026-10-01 (nine on 2026-09-29, from sixteen: moud.reinit_prob
   # moved to anchored_parameters and moud.acceptance + hiv_testing.nonclinical_annual
   # joined when features.care_seeking went on). The seven that left on 09-29 are
   # listed under anchored_parameters above (six) and derived_fatal_frac() (one).
@@ -1444,6 +1450,23 @@ calibration:
       lower: 1
       upper: 17   # refit box 2026-08-11; prior bound 20 NEW
       type: int
+
+    # MOUD access trend, Jan 2016 -> Jan 2022 (2026-10-05). Each ratio is the
+    # parameter at the end of the ramp over its value before it, applied as one
+    # timeline_scaling entry per year (optuna_calibration.apply_trends) and held
+    # after 2022, so Phase 7 projections start from the 2022 level. Probe on
+    # trial 931 (job 7025851): acceptance 0.53 -> 1.0 alone reaches coverage 0.77
+    # (the encounter ceiling); adding discontinuation 0.078 -> 0.055 reaches 0.81,
+    # Rhode Island's 2022 level. Rhode Island's 2016-2022 expansion (Centers of
+    # Excellence, RIDOC MOUD, telehealth from 2020) moved both starts and
+    # retention, which is why both are free. Boxes: acceptance may at most reach
+    # 2.5x its base (capped at 1 in use); discontinuation may fall to half.
+    - path: "trend.moud_acceptance_ratio"
+      lower: 1.0
+      upper: 2.5
+    - path: "trend.moud_discontinue_ratio"
+      lower: 0.5
+      upper: 1.0
 
   # --------------------------------------------
   # Stopping criteria (Optuna-level)
