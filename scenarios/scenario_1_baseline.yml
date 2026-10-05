@@ -1,13 +1,88 @@
 calibration:
   acquisition: 1.0
   background:
-    msm_inj_mult: 1.7757641247835776
+    msm_inj_mult: 2.408188615965464
   injection:
-    act: 0.3636223577305477
+    act: 0.5977638443319259
   sex:
     act: 1.0
     act_msm: 0.47
   test_frequency: 0.651830758384625
+care_seeking:
+  setting:
+    ED:
+      attrition_annual: 0.5
+      intensity_counseling: 0.0
+      intensity_hiv_test: 0.53766
+      intensity_moud: 0.15
+      intensity_prep: 0.00687
+      n_providers_ri: 2145
+      p_willing_counseling: 0.0
+      p_willing_hiv_test: 0.0558
+      p_willing_moud: 0.07
+      p_willing_prep: 0.1432
+      panel_skew: 0.16
+      visit_heterogeneity_shape: 0.33
+      visit_mult_hiv_positive: 1.784
+      visit_mult_inj: 2.33
+      visit_mult_moud: 0.55
+      visit_prob_after_overdose: 1.0
+      visit_rate_annual: 2.0398
+    mental_health:
+      attrition_annual: 0.39
+      intensity_counseling: 0.0
+      intensity_hiv_test: 0.03862
+      intensity_moud: 0.75
+      intensity_prep: 0.00162
+      n_providers_ri: 1928
+      p_willing_counseling: 0.0
+      p_willing_hiv_test: 0.0268
+      p_willing_moud: 0.9981
+      p_willing_prep: 0.109
+      panel_skew: 0.19
+      visit_heterogeneity_shape: 0.2
+      visit_mult_hiv_positive: 1.306
+      visit_mult_inj: 1.7
+      visit_mult_moud: 0.68
+      visit_prob_after_overdose: 0.0
+      visit_rate_annual: 12.9759
+    primary_care:
+      attrition_annual: 0.3
+      intensity_counseling: 0.0
+      intensity_hiv_test: 0.1078
+      intensity_moud: 0.75
+      intensity_prep: 0.00516
+      n_providers_ri: 1833
+      p_willing_counseling: 0.0
+      p_willing_hiv_test: 0.2456
+      p_willing_moud: 1.0
+      p_willing_prep: 0.0794
+      panel_skew: 0.47
+      visit_heterogeneity_shape: 0.62
+      visit_mult_hiv_positive: 1.09
+      visit_mult_inj: 1.23
+      visit_mult_moud: 0.9
+      visit_prob_after_overdose: 0.0
+      visit_rate_annual: 5.8131
+    sud_treatment:
+      attrition_annual: 0.6
+      intensity_counseling: 0.0
+      intensity_hiv_test: 0.06355
+      intensity_moud: 1.0
+      intensity_prep: 0.00046
+      n_providers_ri: 253
+      p_willing_counseling: 0.0
+      p_willing_hiv_test: 0.0938
+      p_willing_moud: 0.9688
+      p_willing_prep: 0.125
+      panel_skew: 0.15
+      visit_heterogeneity_shape: 0.045
+      visit_mult_hiv_positive: 0.672
+      visit_mult_inj: 1.85
+      visit_mult_moud: 1.81
+      visit_prob_after_overdose: 0.0
+      visit_rate_annual: 2.3562
+  shared_trait_prob: 0.0
 classes:
   sex_types:
     HF:
@@ -94,6 +169,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -130,6 +207,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -191,9 +270,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.31
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -269,6 +348,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -305,6 +386,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -366,9 +449,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.64
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -444,6 +527,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -480,6 +565,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -541,9 +628,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.03
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -619,6 +706,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -655,6 +744,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -716,9 +807,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.02
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -797,6 +888,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -833,6 +926,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -894,9 +989,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.31
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -972,6 +1067,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -1008,6 +1105,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -1069,9 +1168,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.64
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -1147,6 +1246,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -1183,6 +1284,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -1244,9 +1347,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.03
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -1322,6 +1425,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -1358,6 +1463,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -1419,9 +1526,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.02
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -1500,6 +1607,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -1536,6 +1645,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -1597,9 +1708,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.31
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -1675,6 +1786,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -1711,6 +1824,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -1772,9 +1887,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.64
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -1850,6 +1965,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -1886,6 +2003,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -1947,9 +2066,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.03
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -2025,6 +2144,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -2061,6 +2182,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -2122,9 +2245,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.02
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -2203,6 +2326,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -2239,6 +2364,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -2300,9 +2427,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.31
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -2378,6 +2505,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -2414,6 +2543,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -2475,9 +2606,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.64
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -2553,6 +2684,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -2589,6 +2722,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -2650,9 +2785,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.03
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -2728,6 +2863,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -2764,6 +2901,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -2825,9 +2964,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.02
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -2906,6 +3045,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -2942,6 +3083,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -3003,9 +3146,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.31
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -3081,6 +3224,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -3117,6 +3262,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -3178,9 +3325,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.64
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -3256,6 +3403,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -3292,6 +3441,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -3353,9 +3504,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.03
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -3431,6 +3582,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -3467,6 +3620,8 @@ demographics:
                     value: 0.5
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -3528,9 +3683,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.02
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -3609,6 +3764,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -3645,6 +3802,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -3706,9 +3865,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.31
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -3784,6 +3943,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -3820,6 +3981,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -3881,9 +4044,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.64
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -3959,6 +4122,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -3995,6 +4160,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -4056,9 +4223,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.03
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -4134,6 +4301,8 @@ demographics:
                     value: 0.6771
                     value_type: float
             ppl: 0.17600000000000002
+            prep:
+              discontinue: 0.24
           NonInj:
             haart:
               adherence:
@@ -4170,6 +4339,8 @@ demographics:
                     value: 0.4
                     value_type: float
             ppl: 0.824
+            prep:
+              discontinue: 0.09
         high_risk:
           init: 0.2
         incar:
@@ -4231,9 +4402,9 @@ demographics:
           unsafe_prob: 0.38
         ppl: 0.02
         prep:
-          adherence: 0.1
+          adherence: 0.5
           cap: 0.3
-          discontinue: 0.1
+          discontinue: 0.09
           init: 0.3
         safe_sex:
           Inj:
@@ -4255,6 +4426,7 @@ demographics:
           prob: 0.1
 features:
   agent_zero: false
+  care_seeking: true
   exit_enter: true
   haart: true
   high_risk: true
@@ -4269,7 +4441,7 @@ haart:
   use_cap: false
   use_reinit: false
 high_risk:
-  partner_scale: 7
+  partner_scale: 3
 hiv:
   acute:
     duration: 6
@@ -4293,11 +4465,13 @@ hiv:
       sex: 0.5
   start_time: -999
 hiv_testing:
+  acceptance: 0.55
   base_prob_annual: 0.08
   high_risk_mult: 2.0
   moud_early_mult: 3.0
   moud_early_window_months: 3.0
   moud_stable_mult: 1.5
+  nonclinical_annual: 0.3587700074572199
   oud_mult: 1.5
   post_overdose_mult: 4.0
   post_relapse_mult: 2.5
@@ -4329,17 +4503,18 @@ model:
     num_steps: 240
     steps_per_year: 12
 moud:
+  acceptance: 0.5322189122750579
   discontinue_per_month: 0.078
   init_at_equilibrium: true
   injection_scale:
-    active: 0.6694729770937733
+    active: 0.7058697726026063
     inactive: 1.0
   overdose_scale:
     active: 0.3
     inactive: 1.0
   post_overdose_rr: 0.42
-  reinit_prob: 0.36665938189252334
-  start_time: 0
+  reinit_prob: 0.3667
+  start_time: -999
   use_reinit: true
 oud_state:
   init_active: 0.55
@@ -4352,13 +4527,13 @@ oud_state:
     inject_start_rate_per_year: 0.039
     inject_stop_rate_per_year: 0.1
     moud_remission_rr: 1.5
-    relapse_rate_per_year: 0.24606638317634028
+    relapse_rate_per_year: 0.3561455244799637
     relapse_risk_window_months: 2.0
     relapse_to_inj_prob: 0.5
-    remission_rate_per_year: 0.15419939197391205
+    remission_rate_per_year: 0.29003763226349855
 overdose:
-  base_prob_inj: 0.22615264390251277
-  base_prob_noninj: 0.08959350234338101
+  base_prob_inj: 0.20270214541073345
+  base_prob_noninj: 0.07262542269373873
   fatal_frac: 0.20074946466809424
   high_risk_mult: 1.6
   post_moud_stop_rr: 2.8
@@ -4419,10 +4594,55 @@ partnership:
         adherent: 0.03
         non_adherent: 1.0
 prep:
+  acceptance: 0.6
   cap: 0.015
   cap_as_prob: false
+  discontinue_late_after_steps: 6
+  discontinue_late_mult: 0.4
   init: 0.0
+  monitoring_attendance: 0.6
+  monitoring_interval_steps: 3
+  monitoring_setting: primary_care
+  products:
+    cab_la:
+      attendance: 0.88
+      available_from_step: 121
+      efficacy: 0.93
+      efficacy_injection: -1.0
+      initiation_injections: 2
+      interval_steps: 2
+      max_gap_steps: 1
+      return_prob: 0.4
+      share_end: 0.0625
+      share_of_starts: 0.04
+      share_ramp_end_step: 229
+      share_ramp_start_step: 145
+      tail_full_steps: 1
+      tail_half_life_steps: 3.0
+      test_at_injection: true
+      type: Inj
+    lenacapavir:
+      attendance: 0.55
+      available_from_step: 162
+      efficacy: 0.96
+      efficacy_injection: -1.0
+      initiation_injections: 1
+      interval_steps: 6
+      max_gap_steps: 2
+      return_prob: 0.25
+      share_end: 0.1875
+      share_of_starts: 0.02
+      share_ramp_end_step: 229
+      share_ramp_start_step: 162
+      tail_full_steps: 2
+      tail_half_life_steps: 3.5
+      test_at_injection: true
+      type: Inj
+    oral:
+      share_of_starts: -1.0
+      type: Oral
   start_time: 6
+  use_products: true
 syringe_services:
   timeline:
     ssp_open:
