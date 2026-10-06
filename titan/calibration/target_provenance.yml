@@ -1,0 +1,81 @@
+# Where every scored target and key scaler comes from, and when it was last
+# checked. Read by tests/guards_test.py: a target without a source, or one that
+# rests on superseded data with no independent confirmation, fails the suite.
+# Rule 3 of docs/WORKING_RULES.md. Update the entry in the same commit that
+# changes the value in calibration_targets.yml.
+#
+# kind:          data | derived | assumption
+# data_vintage:  what the number was computed on. Entries in `superseded_vintages`
+#                must carry `confirmed_by` (an independent source that reproduces
+#                the value) or be re-derived.
+
+current_apcd_extract: "validated September 2026 (docs/apcd_incoming/ABM_2, mg.cohort_post6)"
+
+superseded_vintages:
+  - apcd_old_extract        # R01 parameter.xlsx and the worksheet rows computed from it
+  - apcd_august_draft       # RI_parameter_verification_APCD.md rows filled before validation
+
+# Files that must never be read by code (docs/apcd_incoming/README.md section 3).
+stale_files:
+  - "R01 parameter.xlsx"
+
+targets:
+  oud_baseline:
+    kind: assumption
+    source: "docs/calibration_log/phase_4_oud_addendum_2026-07-20.md: literature ~40 % active (38-50 %), set 0.55 / 0.45 for a persistent-OUD cohort"
+    data_vintage: literature
+    checked: 2026-07-20
+  overdose.nonfatal_rate_inj_annual:
+    kind: data
+    source: "RI_parameter_verification_APCD.md row 17, T3 average"
+    data_vintage: apcd_old_extract
+    confirmed_by: "1,555 ED-treated opioid overdoses a year statewide (RIDOH 48-hour system; Samuels 2021) x 0.68 seen by the APCD x 0.60-0.76 with an OUD diagnosis (Burke 2021, Boston Fed WP 21-3) = 0.046-0.059 weighted, against 0.0597; docs/literature/2026-10/target_vintage_external_checks_2026-10-06.md"
+    checked: 2026-10-06
+  overdose.nonfatal_rate_noninj_annual:
+    kind: data
+    source: "RI_parameter_verification_APCD.md row 18, T3 average"
+    data_vintage: apcd_old_extract
+    confirmed_by: "same triangulation as the injection rate (weighted rate); the 2:1 split itself rests on the old extract only"
+    checked: 2026-10-06
+  overdose.fatal_rate_annual:
+    kind: derived
+    source: "RIDOH: 256 opioid-involved deaths in 2019 / 13,704 x ~0.8 in-cohort share; the ~2019 level"
+    data_vintage: ridoh
+    checked: 2026-10-06
+  overdose.fatal_rate_annual_t3:
+    kind: derived
+    source: "fatal_rate_annual x RIDOH opioid-involved deaths (375 + 359) / 2 / 256"
+    data_vintage: ridoh
+    checked: 2026-10-06
+  overdose.lethality_index:
+    kind: data
+    source: "RIDOH / OSME opioid-involved overdose deaths 2019-2024 (Overdose Task Force decks 2023-06-14, 2025-06-11); titan/calibration/lethality.py"
+    data_vintage: ridoh
+    checked: 2026-10-06
+  moud.uptake_series_per_yr:
+    kind: data
+    source: "RI_parameter_verification_APCD.md row 16 (any MOUD fill among F11-diagnosed members, 2012-2022)"
+    data_vintage: apcd_august_draft
+    confirmed_by: "CMS T-MSIS SUD Data Books: 93.8 / 93.4 / 92.7 % of RI Medicaid beneficiaries treated for OUD on medication in 2019-2021; HHS OIG 89 % in 2021; Medicaid is 72 % of the cohort, payer-weighted 0.75-0.82; docs/literature/2026-10/target_vintage_external_checks_2026-10-06.md"
+    checked: 2026-10-06
+  injecting.injecting_pct:
+    kind: data
+    source: "RIHRSS 2021-22, 125 / 393 currently injecting"
+    data_vintage: survey
+    checked: 2026-08-13
+  hiv.ridoh_idu_dx:
+    kind: data
+    source: "RIDOH HIV surveillance, injection-attributed diagnoses by window"
+    data_vintage: ridoh
+    checked: 2026-09-29
+  hiv.ridoh_pwid_dx_all_routes:
+    kind: derived
+    source: "RIDOH IDU + (1 - 0.34) x MSM/IDU diagnoses; 0.34 from NHBS-PWID (PMID 30055426)"
+    data_vintage: ridoh
+    checked: 2026-09-29
+  hiv.population_scale.ri_active_oud:
+    kind: data
+    source: "RI_parameter_verification_APCD.md row 39, T3 average 13,704"
+    data_vintage: apcd_august_draft
+    confirmed_by: "validated cohort (job3b n_cohort) 2021-2022 mean 13,553, 1.1 % apart"
+    checked: 2026-10-06
