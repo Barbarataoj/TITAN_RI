@@ -417,6 +417,17 @@ calibration:
     nonfatal_rate_annual: 0.066        # APCD T3 weighted at the old 0.45 share (record only; 0.0597 at 0.32)
     nonfatal_rate_inj_annual: 0.091    # APCD T3 (#17)
     nonfatal_rate_noninj_annual: 0.045 # APCD T3 (#18)
+    # PROVENANCE CHECK, 2026-10-06. Rows 17-18 of the verification worksheet were
+    # computed on the APCD extract that was later superseded (2022 total 824).
+    # The weighted rate, 0.0597 (818 events a year on 13,704), is nevertheless
+    # reproduced from published Rhode Island sources: 1,555 ED-treated opioid
+    # overdoses a year statewide (RIDOH 48-hour system, 2017-2018; Samuels 2021)
+    # x 0.68 seen by the APCD (Burke et al. 2021, Boston Fed WP 21-3) x 0.60-0.76
+    # with an OUD diagnosis (same paper) = 0.046-0.059; wide range 0.03-0.09.
+    # The target stands; sensitivity x0.7 to x1.5. The validated extract's larger
+    # overdose counts (1,217 in 2022; job2b) are a wider definition than
+    # ED-treated opioid overdose. docs/literature/2026-10/
+    # target_vintage_external_checks_2026-10-06.md.
     # DRUG-SUPPLY LETHALITY INDEX, 2026-10-06 (titan/calibration/lethality.py).
     # The fatal fraction above is derived from a ~2019-level fatal rate and held
     # constant, so the model's deaths fell with MOUD through 2022 while RIDOH's
