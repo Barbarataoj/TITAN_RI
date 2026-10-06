@@ -4654,6 +4654,81 @@ syringe_services:
       stop_time: 999
 timeline_scaling:
   timeline:
+    lethality_2020_bpi:
+      parameter: overdose|base_prob_inj
+      scalar: 1.05420236
+      start_time: 97
+      stop_time: 109
+    lethality_2020_bpn:
+      parameter: overdose|base_prob_noninj
+      scalar: 1.05420236
+      start_time: 97
+      stop_time: 109
+    lethality_2020_ff:
+      parameter: overdose|fatal_frac
+      scalar: 1.2047023
+      start_time: 97
+      stop_time: 109
+    lethality_2021_bpi:
+      parameter: overdose|base_prob_inj
+      scalar: 1.10840471
+      start_time: 109
+      stop_time: 121
+    lethality_2021_bpn:
+      parameter: overdose|base_prob_noninj
+      scalar: 1.10840471
+      start_time: 109
+      stop_time: 121
+    lethality_2021_ff:
+      parameter: overdose|fatal_frac
+      scalar: 1.38938421
+      start_time: 109
+      stop_time: 121
+    lethality_2022_bpi:
+      parameter: overdose|base_prob_inj
+      scalar: 1.10238223
+      start_time: 121
+      stop_time: 133
+    lethality_2022_bpn:
+      parameter: overdose|base_prob_noninj
+      scalar: 1.10238223
+      start_time: 121
+      stop_time: 133
+    lethality_2022_ff:
+      parameter: overdose|fatal_frac
+      scalar: 1.36976084
+      start_time: 121
+      stop_time: 133
+    lethality_2023_bpi:
+      parameter: overdose|base_prob_inj
+      scalar: 1.09033726
+      start_time: 133
+      stop_time: 145
+    lethality_2023_bpn:
+      parameter: overdose|base_prob_noninj
+      scalar: 1.09033726
+      start_time: 133
+      stop_time: 145
+    lethality_2023_ff:
+      parameter: overdose|fatal_frac
+      scalar: 1.32986375
+      start_time: 133
+      stop_time: 145
+    lethality_2024_bpi:
+      parameter: overdose|base_prob_inj
+      scalar: 0.99197002
+      start_time: 145
+      stop_time: 10000
+    lethality_2024_bpn:
+      parameter: overdose|base_prob_noninj
+      scalar: 0.99197002
+      start_time: 145
+      stop_time: 10000
+    lethality_2024_ff:
+      parameter: overdose|fatal_frac
+      scalar: 0.96777118
+      start_time: 145
+      stop_time: 10000
     moud_acceptance_ratio_0:
       parameter: moud|acceptance
       scalar: 1.09428376

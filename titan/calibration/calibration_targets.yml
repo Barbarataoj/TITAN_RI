@@ -417,6 +417,23 @@ calibration:
     nonfatal_rate_annual: 0.066        # APCD T3 weighted at the old 0.45 share (record only; 0.0597 at 0.32)
     nonfatal_rate_inj_annual: 0.091    # APCD T3 (#17)
     nonfatal_rate_noninj_annual: 0.045 # APCD T3 (#18)
+    # DRUG-SUPPLY LETHALITY INDEX, 2026-10-06 (titan/calibration/lethality.py).
+    # The fatal fraction above is derived from a ~2019-level fatal rate and held
+    # constant, so the model's deaths fell with MOUD through 2022 while RIDOH's
+    # opioid-involved deaths rose 26-46 % over 2019 in 2020-2022 with claims
+    # nonfatal overdoses flat. The index raises the fatal fraction (and the event
+    # rate, so nonfatal overdoses stay put) by RIDOH's death-count ratio in
+    # 2020-2024, then holds the projection named here: hold2024 (default),
+    # hold2024_all, peak, pre2020, or none. Checked on the 11 care_refit3 members
+    # at 8 x 40 (jobs 7061213/7061215): deaths 1.28 / 1.45 / 1.38 of 2019 against
+    # RIDOH 1.26 / 1.46 / 1.40, nonfatal within 1 %, no systematic shift in any
+    # objective. Applied after the anchors in objective() and the canonical
+    # writer, and in make_phase7_baseline.build().
+    lethality_index: hold2024
+    # The fatal check is read over the scoring window. With the index on it is
+    # fatal_rate_annual times RIDOH's 2021-2022 death count over 2019's:
+    # 0.015 x (375 + 359) / 2 / 256 = 0.0215, tolerance 0.003 x 1.434 = 0.0043.
+    fatal_rate_annual_t3: 0.0215
 
   # --------------------------------------------
   # MOUD engagement (TIME-AVERAGED)
@@ -842,8 +859,10 @@ calibration:
       # The fatal rate left od_err on 2026-09-29 (see the overdose block above);
       # it is checked here instead. With overdose.fatal_frac derived from the
       # targets a miss means the nonfatal rates missed, not the fraction.
-      fatal_rate_annual: 0.015
-      tolerance: 0.003
+      # Year-specific since 2026-10-06 (lethality index): the check reads the
+      # scoring window 2021-2022, where RIDOH's deaths are 1.43 x 2019's.
+      fatal_rate_annual: 0.0215         # 2021-2022 (0.015 is the ~2019 level)
+      tolerance: 0.0043
 
     noninj_msm_hiv:
       # Added 2026-09-29. The HIV grid (jobs 6812107, 6817937) showed the model

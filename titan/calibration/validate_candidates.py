@@ -235,7 +235,11 @@ VALIDATION = [
     # The fatal overdose rate left od_err the same day, when overdose.fatal_frac
     # became a derived quantity. Checked here so a miss on the nonfatal rates
     # still shows up on the fatal side, which is the Phase 7 headline outcome.
-    ("fatal_od_rate", "fatal OD rate (unscored)", 0.015, 0.003),
+    # Year-specific since 2026-10-06: the rate is read over 2021-2022, and with
+    # the drug-supply lethality index (titan/calibration/lethality.py) the
+    # model's deaths there follow RIDOH's, 1.43 x the ~2019 level 0.015.
+    # calibration_targets.yml validation_targets.overdose_fatal.
+    ("fatal_od_rate", "fatal OD rate 2021-22 (unscored)", 0.0215, 0.0043),
     # Added 2026-09-29 after the HIV grid (job 6817937) found the model reaching
     # RIDOH's all-route PWID level with 0.4-0.8 HIV prevalence among non-injecting
     # MSM. RI GBMSM overall are ~0.07 (RIDOH 2022); MSM with OUD plausibly

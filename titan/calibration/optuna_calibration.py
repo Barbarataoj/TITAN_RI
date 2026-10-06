@@ -36,6 +36,8 @@ import os
 import sys
 from pathlib import Path
 
+from titan.calibration.lethality import apply_lethality, projection_from_calib
+
 # =====================================================
 # Paths (absolute, Slurm-safe)
 # =====================================================
@@ -1762,7 +1764,12 @@ def build_targets(calib):
 
     return {
         "oud": calib["oud_baseline"],
-        "od_fatal": calib["overdose"]["fatal_rate_annual"],
+        # The fatal check is read over the scoring window (2021-2022). With the
+        # lethality index on, the model's deaths there sit at RIDOH's 2021-2022
+        # level, not at the ~2019 level fatal_rate_annual states (2026-10-06).
+        "od_fatal": (calib["overdose"]["fatal_rate_annual_t3"]
+                     if str(calib["overdose"].get("lethality_index", "none")) != "none"
+                     else calib["overdose"]["fatal_rate_annual"]),
         "od_nonfatal_inj": calib["overdose"]["nonfatal_rate_inj_annual"],
         "od_nonfatal_noninj": calib["overdose"]["nonfatal_rate_noninj_annual"],
         "moud_series": calib["moud"]["uptake_series_per_yr"],
@@ -2221,6 +2228,11 @@ def objective(trial):
     # Parameters fixed from data (2026-09-29): stated in the targets file, not
     # suggested. After the suggest loop for the same reason the OUD anchors are.
     set_anchored_parameters(scenario, calib)
+    # Drug-supply lethality index (2026-10-06, titan/calibration/lethality.py):
+    # RIDOH's 2020-2022 rise in deaths without a rise in nonfatal overdoses.
+    # After the anchors, because its scalars are computed from the anchored
+    # (derived) fatal fraction.
+    apply_lethality(scenario, projection_from_calib(calib))
 
     # Run TITAN once per population seed, and score the trial on the mean.
     #
@@ -2866,6 +2878,7 @@ def main():
     set_per_act_transmission(calibrated)
     set_population_window(calibrated, calib)
     set_anchored_parameters(calibrated, calib)
+    apply_lethality(calibrated, projection_from_calib(calib))
 
     # Write the canonical pick to a SEPARATE file so the base scenario stays intact
     outpath = BEST_SCENARIO_OUT

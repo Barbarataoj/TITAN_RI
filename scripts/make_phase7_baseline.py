@@ -78,6 +78,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from titan.calibration.lethality import apply_lethality, projection_from_calib  # noqa: E402
 from titan.calibration.optuna_calibration import (  # noqa: E402
     CALIB_YAML,
     load_yaml,
@@ -167,8 +168,12 @@ def overlay_care_layer(scenario):
     return scenario
 
 
-def build(calibrated, calib, steps=None):
-    """The calibrated model, re-anchored, at the scenario horizon."""
+def build(calibrated, calib, steps=None, lethality_projection=None):
+    """The calibrated model, re-anchored, at the scenario horizon.
+
+    lethality_projection overrides calibration_targets.yml's
+    overdose.lethality_index (sensitivity runs).
+    """
     scenario = copy.deepcopy(calibrated)
 
     # Re-apply every anchor rather than trusting the input file. The canonical
@@ -184,6 +189,11 @@ def build(calibrated, calib, steps=None):
     # changed after the pick was written -- moud.post_overdose_rr 1.0 -> 0.42 on
     # 2026-10-01 -- would be inherited by every arm from a stale file.
     set_anchored_parameters(scenario, calib)
+    # Drug-supply lethality index (titan/calibration/lethality.py): 2020-2024 from
+    # RIDOH deaths, then the projection calibration_targets.yml names. Replaces
+    # any index the input carries, so a sensitivity can swap the projection by
+    # editing one key (2026-10-06).
+    apply_lethality(scenario, lethality_projection or projection_from_calib(calib))
     overlay_care_layer(scenario)
 
     # Derived, not inherited: the input file carries whatever seed the calibration
@@ -204,6 +214,9 @@ def main():
     ap.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--lethality", default=None,
+                    help="lethality projection (hold2024, hold2024_all, peak, pre2020, none); "
+                         "default: overdose.lethality_index in calibration_targets.yml")
     ap.add_argument("--output", type=Path, default=None,
                     help="write the baseline here instead of scenarios/scenario_1_baseline.yml "
                          "(ensemble members, 2026-10-01); --check still compares the default path")
@@ -211,7 +224,7 @@ def main():
 
     calib = load_yaml(CALIB_YAML)
     calibrated = load_yaml(args.input)
-    scenario = build(calibrated, calib, steps=args.steps)
+    scenario = build(calibrated, calib, steps=args.steps, lethality_projection=args.lethality)
 
     # Reference is the calibration base WITH the anchors applied in memory, not
     # the file as it sits on disk. The file lags whenever a target changes -- it
