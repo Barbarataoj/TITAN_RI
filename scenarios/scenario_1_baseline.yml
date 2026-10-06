@@ -1,9 +1,9 @@
 calibration:
   acquisition: 1.0
   background:
-    msm_inj_mult: 2.408188615965464
+    msm_inj_mult: 7.36575907379331
   injection:
-    act: 0.5977638443319259
+    act: 0.38952039485655554
   sex:
     act: 1.0
     act_msm: 0.47
@@ -4437,6 +4437,7 @@ features:
   overdose: true
   prep: true
   syringe_services: true
+  timeline_scaling: true
 haart:
   use_cap: false
   use_reinit: false
@@ -4471,7 +4472,7 @@ hiv_testing:
   moud_early_mult: 3.0
   moud_early_window_months: 3.0
   moud_stable_mult: 1.5
-  nonclinical_annual: 0.3587700074572199
+  nonclinical_annual: 0.34604758300876853
   oud_mult: 1.5
   post_overdose_mult: 4.0
   post_relapse_mult: 2.5
@@ -4527,13 +4528,13 @@ oud_state:
     inject_start_rate_per_year: 0.039
     inject_stop_rate_per_year: 0.1
     moud_remission_rr: 1.5
-    relapse_rate_per_year: 0.3561455244799637
+    relapse_rate_per_year: 0.44471407282059977
     relapse_risk_window_months: 2.0
     relapse_to_inj_prob: 0.5
-    remission_rate_per_year: 0.29003763226349855
+    remission_rate_per_year: 0.3375048178029313
 overdose:
-  base_prob_inj: 0.20270214541073345
-  base_prob_noninj: 0.07262542269373873
+  base_prob_inj: 0.21027
+  base_prob_noninj: 0.088345
   fatal_frac: 0.20074946466809424
   high_risk_mult: 1.6
   post_moud_stop_rr: 2.8
@@ -4651,3 +4652,75 @@ syringe_services:
       risk: 0.16
       start_time: -999
       stop_time: 999
+timeline_scaling:
+  timeline:
+    moud_acceptance_ratio_0:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 49
+      stop_time: 10000
+    moud_acceptance_ratio_1:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 61
+      stop_time: 10000
+    moud_acceptance_ratio_2:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 73
+      stop_time: 10000
+    moud_acceptance_ratio_3:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 85
+      stop_time: 10000
+    moud_acceptance_ratio_4:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 97
+      stop_time: 10000
+    moud_acceptance_ratio_5:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 109
+      stop_time: 10000
+    moud_acceptance_ratio_6:
+      parameter: moud|acceptance
+      scalar: 1.09428376
+      start_time: 121
+      stop_time: 10000
+    moud_discontinue_ratio_0:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 49
+      stop_time: 10000
+    moud_discontinue_ratio_1:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 61
+      stop_time: 10000
+    moud_discontinue_ratio_2:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 73
+      stop_time: 10000
+    moud_discontinue_ratio_3:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 85
+      stop_time: 10000
+    moud_discontinue_ratio_4:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 97
+      stop_time: 10000
+    moud_discontinue_ratio_5:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 109
+      stop_time: 10000
+    moud_discontinue_ratio_6:
+      parameter: moud|discontinue_per_month
+      scalar: 0.95131423
+      start_time: 121
+      stop_time: 10000

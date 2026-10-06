@@ -3,7 +3,7 @@
 List an Optuna JournalStorage study's trials with their objective values and
 parameters, and the feasible ones (all gates), without importing optuna.
 
-    python scripts/journal_feasible.py <study.journal> [--csv out.csv] [--gates 0.05,1.1,0.01,0.10]
+    python scripts/journal_feasible.py <study.journal> [--csv out.csv] [--gates 0.05,1.1,0.01,0.05]
 
 Prints a summary and the feasible trial numbers (comma-separated on the last
 line, for the re-score wrapper). Trial numbers are the order of creation in the
@@ -14,7 +14,10 @@ import json
 import statistics as st
 import sys
 
-GATES = (0.05, 1.1, 0.01, 0.10)
+# Must match OBJECTIVE_GATES in titan/calibration/optuna_calibration.py (kept as a
+# literal so this script runs without importing optuna). MOUD gate 0.10 -> 0.05 on
+# 2026-10-05 with the weighted MOUD trajectory.
+GATES = (0.05, 1.1, 0.01, 0.05)
 NAMES = ("oud_rmse", "ridoh_hiv_err", "od_err", "moud_traj_rmse")
 
 
