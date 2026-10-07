@@ -26,6 +26,7 @@ import pandas as pd
 
 from titan.calibration.optuna_calibration import (
     concat_reports,
+    scoring_t_max,
     CALIB_YAML,
     COMPOSITE_CLIP_QUANTILE,
     OBJECTIVE_GATES,
@@ -257,6 +258,55 @@ VALIDATION = [
 ]
 
 
+def _unscored_window_checks():
+    """Validation rows for the RIDOH windows the objective no longer scores.
+
+    Since 2026-10-07 only the 2018-2022 windows are scored (calibration_targets.yml
+    hiv.ridoh_scored_window_starts); the 2015-2019 windows are reported here so
+    the model's distance from them stays visible. Tolerance is the Poisson
+    standard deviation of the window's 5-year count, per year: sqrt(cases x
+    years) / years, i.e. about 0.6/yr on 9 IDU cases and 0.9/yr on 21
+    opioid-adjusted all-route cases. Keys match the columns build_row writes.
+    """
+    targets = load_targets()
+    rows = []
+    for tag, label, key in (
+        ("idu", "IDU dx", "ridoh_windows_unscored"),
+        ("pwid", "all-route PWID dx", "ridoh_pwid_windows_unscored"),
+    ):
+        for w in targets.get(key, []):
+            lo, hi = (int(y) for y in w["years"])
+            cases, years = float(w["cases_per_year"]), hi - lo + 1
+            tol = float(np.sqrt(cases * years) / years)
+            rows.append((f"{tag}_dx_{lo}_{hi}_ri", f"{label} {lo}-{hi}/yr (unscored window)", cases, tol))
+    return rows
+
+
+VALIDATION += _unscored_window_checks()
+
+
+def unscored_window_means(stats, targets):
+    """Model window means, statewide cases/yr, for every unscored RIDOH window."""
+    out = {}
+    first_year, scale = targets["first_year"], targets["pop_scale"]
+    for tag, skey, wkey in (
+        ("idu", "idu_dx_counts_per_year", "ridoh_windows_unscored"),
+        ("pwid", "pwid_dx_counts_per_year", "ridoh_pwid_windows_unscored"),
+    ):
+        series = stats.get(skey)
+        for w in targets.get(wkey, []):
+            lo, hi = (int(y) for y in w["years"])
+            key = f"{tag}_dx_{lo}_{hi}_ri"
+            if series is None or not len(series):
+                out[key] = float("nan")
+                continue
+            arr = np.asarray(series, dtype=float) * scale
+            years = first_year + np.arange(len(arr))
+            sel = (years >= lo) & (years <= hi)
+            out[key] = float(arr[sel].mean()) if sel.any() else float("nan")
+    return out
+
+
 def _report_overdose(sub, targets):
     """
     Decompose od_err into the three rates it averages over.
@@ -368,6 +418,9 @@ def build_row(trial, seed, stats, targets, errs=None):
             if series is not None and len(series)
             else float("nan")
         )
+    # The RIDOH windows the objective does not score (2015-2019 since
+    # 2026-10-07), as model window means on the statewide footing.
+    row.update(unscored_window_means(stats, targets))
     # Validation quantities -- carried through but NOT scored, see
     # calibration_targets.yml `validation_targets`.
     # Every band in VALIDATION, so _report_validation() can print each one.
@@ -395,6 +448,9 @@ def main():
     seeds = POP_SEEDS[:n_seeds]
 
     targets = load_targets()
+    # Score every report over the calibration window only (steps <= 132), so a
+    # 240-step Phase 7 run's gates read 2012-2022 and not its last two years.
+    t_max = scoring_t_max(load_yaml(CALIB_YAML))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Validating trials {trials} over {len(seeds)} population seeds x {n_reps} reps")
     print(f"Trial scenarios from: {TRIAL_DIR}")
@@ -422,7 +478,7 @@ def main():
             write_yaml(yml, scenario)
 
             print(f"--- {tag}", flush=True)
-            stats = run_titan(yml, outdir, n_reps=n_reps)
+            stats = run_titan(yml, outdir, n_reps=n_reps, score_t_max=t_max)
             errs = multi_error(stats, targets)
 
             row = build_row(trial, seed, stats, targets, errs)
@@ -449,7 +505,7 @@ def main():
         # diagnostic; pass/fail and the ranking use this row.
         if report_paths:
             pooled_path = OUT_DIR / f"trial{trial}_pooled_basicReport.txt"
-            pooled = concat_reports(report_paths, pooled_path)
+            pooled = concat_reports(report_paths, pooled_path, score_t_max=t_max)
             errs_pooled = tuple(float(e) for e in multi_error(pooled, targets))
             raw_pooled = tuple(
                 float(e) for e in multi_error(pooled, targets, bias_correct=False)

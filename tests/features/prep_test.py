@@ -649,3 +649,27 @@ def test_full_protection_window_and_injection_exposure_efficacy(make_agent):
     assert a.prep.get_acquisition_risk_multiplier(2, "sex") == pytest.approx(0.07)        # 1 step late: still full
     assert a.prep.get_acquisition_risk_multiplier(5, "sex") == pytest.approx(1 - 0.93 * 0.5)  # 3 steps beyond the window
     assert a.prep.get_acquisition_risk_multiplier(1, "injection") == pytest.approx(0.5)
+
+
+@pytest.mark.unit
+def test_set_stats_counts_oral_product_once(make_agent):
+    """prep_oral was incremented by the Oral type and again by the product named
+    oral (2026-10-06); the cash-flow layer prices oral PrEP from it."""
+    from collections import defaultdict
+    a = make_agent()
+    a.prep.active = True
+    a.prep.type = "Oral"
+    a.prep.product = "oral"
+    a.prep.time = 5
+    stats = defaultdict(int)
+    a.prep.set_stats(stats, 5)
+    assert stats["prep"] == 1 and stats["prep_new"] == 1
+    assert stats["prep_oral"] == 1
+    assert stats["prep_injectable"] == 0
+
+    a.prep.type = "Inj"
+    a.prep.product = "cab_la"
+    stats = defaultdict(int)
+    a.prep.set_stats(stats, 6)
+    assert stats["prep_injectable"] == 1 and stats["prep_cab_la"] == 1
+    assert stats["prep_oral"] == 0

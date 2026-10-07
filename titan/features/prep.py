@@ -136,7 +136,11 @@ class Prep(base_feature.BaseFeature):
                 stats["prep_injectable"] += 1
             elif self.type == "Oral":
                 stats["prep_oral"] += 1
-            if self.product:
+            # The product named "oral" IS the Oral type counted above; counting
+            # it again under prep_<product> doubled prep_oral and, through the
+            # cash-flow layer that prices oral PrEP from it, doubled oral drug
+            # cost and 340B revenue (found 2026-10-06, fixed 2026-10-07).
+            if self.product and f"prep_{self.product}" != "prep_oral":
                 stats[f"prep_{self.product}"] += 1
         if self.injections_this_step:
             stats["prep_injections"] += self.injections_this_step

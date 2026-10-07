@@ -95,3 +95,34 @@ def test_no_code_reads_a_stale_data_file():
                     if stale in line and reads.search(line) and not line.lstrip().startswith("#"):
                         offenders.append(f"{path.relative_to(REPO)}:{n}")
     assert not offenders, f"code reads a file marked stale: {offenders}"
+
+
+@pytest.mark.unit
+def test_hiv_scored_windows_are_the_2022_vintage_window():
+    """2026-10-07: only the 2018-2022 RIDOH windows are scored (one owner: the
+    YAML key); the 2015-2019 windows are carried as unscored validation rows.
+    Scoring both pulled every trial to one floor and made the gate a coin flip
+    (docs/calibration_log/hiv_objective_window_decision_2026-10-07.md)."""
+    from titan.calibration.optuna_calibration import build_targets
+    calib = load_yaml(CALIB_YAML)["calibration"]
+    assert calib["hiv"]["ridoh_scored_window_starts"] == [2018]
+    t = build_targets(calib)
+    assert [w["years"] for w in t["ridoh_windows"]] == [[2018, 2022]]
+    assert [w["years"] for w in t["ridoh_pwid_windows"]] == [[2018, 2022]]
+    assert [w["years"] for w in t["ridoh_windows_unscored"]] == [[2015, 2019]]
+    assert [w["years"] for w in t["ridoh_pwid_windows_unscored"]] == [[2015, 2019]]
+    assert t["ridoh_windows"][0]["cases_per_year"] == pytest.approx(2.5)
+    assert t["ridoh_pwid_windows"][0]["cases_per_year"] == pytest.approx(6.592, abs=0.01)
+
+
+@pytest.mark.unit
+def test_nonclinical_testing_is_anchored_not_fitted():
+    """2026-10-07: hiv_testing.nonclinical_annual is unidentified by the objective
+    (the diagnosed share saturates) and is pinned from NHBS-PWID, not searched."""
+    from titan.calibration.optuna_calibration import anchored_parameters, assert_not_fitted
+    calib = load_yaml(CALIB_YAML)
+    pinned = anchored_parameters(calib)
+    assert 0.3 <= pinned["hiv_testing.nonclinical_annual"] <= 0.5
+    fitted = {p["path"] for p in calib["calibration"]["parameters_to_optimize"]}
+    assert "hiv_testing.nonclinical_annual" not in fitted
+    assert_not_fitted(calib)

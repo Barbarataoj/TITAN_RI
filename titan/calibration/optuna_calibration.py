@@ -522,6 +522,10 @@ ANCHORED_PATHS = (
     # `anchored_parameters` and are written by set_anchored_parameters(); the
     # fatal fraction is derived there from the overdose targets.
     "hiv_testing.base_prob_annual",
+    # Non-clinical testing, pinned 2026-10-07: unidentified by the objective
+    # (the diagnosed share saturates), so it left the search. See the
+    # anchored_parameters entry in calibration_targets.yml.
+    "hiv_testing.nonclinical_annual",
     "moud.post_overdose_rr",
     "moud.discontinue_per_month",
     "moud.overdose_scale.active",
@@ -859,7 +863,7 @@ def set_oud_initial_conditions(scenario, calib):
             n += 1
     return n, inj_ppl
 
-def run_titan(params_file, output_dir, n_reps=None):
+def run_titan(params_file, output_dir, n_reps=None, score_t_max=None):
     # Monte-Carlo reps are driven ONLY by the -n/--nMC CLI flag; params.model.num_reps
     # is dead config (nothing in the engine reads it). Default 10 per CALIBRATION_PLAN;
     # override with TITAN_CALIB_REPS for smoke tests. Reps append to one basicReport.txt
@@ -883,12 +887,12 @@ def run_titan(params_file, output_dir, n_reps=None):
     if not report.exists():
         raise RuntimeError(f"TITAN failed – missing basicReport.txt in {output_dir}")
 
-    return parse_basic_report(report)
+    return parse_basic_report(report, score_t_max=score_t_max)
 
 # =====================================================
 # basicReport.txt parser (TSV, per-timestep × stratum)
 # =====================================================
-def concat_reports(paths, dest):
+def concat_reports(paths, dest, score_t_max=None):
     """Join several basicReport.txt files into one, keeping the replicates distinct.
 
     `run_id` is what parse_basic_report counts replicates with
@@ -916,13 +920,30 @@ def concat_reports(paths, dest):
 
     joined = pd.concat(frames, ignore_index=True)
     joined.to_csv(dest, sep="\t", index=False)
-    return parse_basic_report(dest)
+    return parse_basic_report(dest, score_t_max=score_t_max)
 
 
-def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
+def scoring_t_max(calib):
+    """Last model step the calibration scores: `population.steps` (132 = 2022-12).
+
+    The OUD shares are read at the final step and the overdose rates over the
+    last OD_SCORING_YEARS, both anchored to the END of the report. On a
+    calibration run that end is 2022; on a 240-step Phase 7 run it is 2031, so
+    the gates were silently read over 2030-2031 (found 2026-10-07 on the
+    OUD-split sensitivity, jobs 7067373-75). Callers that score a report longer
+    than the calibration pass this as parse_basic_report's `score_t_max`.
+    """
+    return int(calib["calibration"]["population"]["steps"])
+
+
+def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     """
     Parse basicReport.txt (TSV, one row per timestep × demographic stratum) into
     an aggregated stats dict.
+
+    `score_t_max` drops every row after that model step before anything is
+    computed, so a report from a longer run scores exactly as the calibration
+    run it extends would (see scoring_t_max). None keeps the whole report.
 
     Returns (subset):
       oud_active, oud_remission, oud_none        final-timestep fractions
@@ -940,6 +961,8 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR):
                                                    events rather than real transmission
     """
     df = pd.read_csv(path, sep="\t")
+    if score_t_max is not None:
+        df = df[df["t"] <= int(score_t_max)]
     grp = df.groupby("t").sum(numeric_only=True)
     last_t = grp.index.max()
     last = grp.loc[last_t]
@@ -1614,6 +1637,36 @@ def all_route_windows(block):
     ]
 
 
+def split_scored_windows(windows, scored_starts):
+    """(scored, unscored) RIDOH windows by first year.
+
+    SINCE 2026-10-07 only the 2018-2022 windows are scored
+    (calibration_targets.yml hiv.ridoh_scored_window_starts). Every fixed input
+    is of 2022 vintage -- the injecting share (RIHRSS), the care-setting table
+    (2022 APCD receipt), testing -- and the model has no time-varying HIV
+    driver, so its diagnosis series is flat (slope -0.11 to +0.21 cases/yr on
+    all 20 care_refit3 trials) while RIDOH rises 4.18 -> 6.59. Scored
+    together, the two windows pull every trial to the same floor (mean 0.85 of
+    the gate, true between-trial SD 0.08 against a draw SD 0.23), so pass/fail
+    was Monte Carlo noise. Scored on the window the Phase 7 projections start
+    from, trials differ (true SD 0.38). The 2015-2019 windows are reported by
+    validate_candidates as validation rows; the model's failure to reproduce
+    the rise is a stated limitation. Decision record:
+    docs/calibration_log/hiv_objective_window_decision_2026-10-07.md.
+
+    `scored_starts` None or empty means every window is scored (the pre-2026-10-07
+    objective, and what a minimal calib without the key gets).
+    """
+    if not scored_starts:
+        return list(windows), []
+    starts = {int(s) for s in scored_starts}
+    scored = [w for w in windows if int(w["years"][0]) in starts]
+    unscored = [w for w in windows if int(w["years"][0]) not in starts]
+    if not scored:
+        raise ValueError(f"ridoh_scored_window_starts {sorted(starts)} matches no window")
+    return scored, unscored
+
+
 def ridoh_hiv_rmse(idu_counts_per_year, pwid_counts_per_year, first_year, targets,
                    idu_by_run=None, pwid_by_run=None):
     """
@@ -1762,6 +1815,11 @@ def build_targets(calib):
     pop_size = calib["population"]["size"]
     pop_scale = hiv["population_scale"]["ri_active_oud"] / (active_frac * pop_size)
 
+    scored_starts = hiv.get("ridoh_scored_window_starts")
+    idu_scored, idu_unscored = split_scored_windows(ridoh["windows"], scored_starts)
+    pwid_scored, pwid_unscored = split_scored_windows(
+        all_route_windows(hiv["ridoh_pwid_dx_all_routes"]), scored_starts)
+
     return {
         "oud": calib["oud_baseline"],
         # The fatal check is read over the scoring window (2021-2022). With the
@@ -1775,8 +1833,13 @@ def build_targets(calib):
         "moud_series": calib["moud"]["uptake_series_per_yr"],
         "moud_weights": calib["moud"].get("uptake_series_weights"),
         "inj_share": calib["injecting"]["injecting_pct"],
-        "ridoh_windows": ridoh["windows"],
-        "ridoh_pwid_windows": all_route_windows(hiv["ridoh_pwid_dx_all_routes"]),
+        # Scored and unscored RIDOH windows, split by first year (2026-10-07):
+        # see split_scored_windows. The unscored ones are carried so
+        # validate_candidates can report them as validation rows.
+        "ridoh_windows": idu_scored,
+        "ridoh_pwid_windows": pwid_scored,
+        "ridoh_windows_unscored": idu_unscored,
+        "ridoh_pwid_windows_unscored": pwid_unscored,
         "ridoh_upper_bound": ridoh.get("upper_bound_pre_2015"),
         "pop_scale": pop_scale,
         # First calendar year of the scored window. Still taken from the APCD

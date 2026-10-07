@@ -110,17 +110,38 @@ def _one(args):
     return rep.reset_index()
 
 
+def member_scales(spec, default):
+    """`--member-scale 40=68.5,45=60.9`: a statewide scale per member label.
+
+    The ensemble's members share one population scale, but a sensitivity set
+    that varies the OUD split (scripts/make_oud_split_sensitivity.py) does not:
+    the statewide pool is 13,704 / split, so each member needs its own. Members
+    not listed get the calibration's scale.
+    """
+    out = {}
+    for item in (spec or "").split(","):
+        if item.strip():
+            label, value = item.split("=")
+            out[label.strip()] = float(value)
+    return lambda member: out.get(str(member), default)
+
+
 def ensemble_contrasts(reps, outcomes, args):
     """Within-(member, seed) differences against each member's own baseline, pooled over members.
 
     Pooled mean = mean over (member, seed) of the difference; its standard error treats
     members as the sampling unit (sd of member means / sqrt(members)), which carries the
     parameter-uncertainty spread the ensemble exists to measure. The per-member table is
-    written beside the pooled one.
+    written beside the pooled one; since 2026-10-07 it carries each member's baseline
+    mean, the Monte Carlo standard error of its difference over population seeds, the
+    percentage change and the statewide difference on the member's own scale
+    (--member-scale), so a set whose "members" are deliberate variants (a sensitivity
+    axis) can be read member by member rather than only pooled.
     """
     parts = reps["arm"].str.split("__", n=1, expand=True)
     reps = reps.assign(member=parts[0], arm=parts[1])
     scale = pop_scale()
+    scale_of = member_scales(getattr(args, "member_scale", None), scale)
     years = reps.groupby(["arm"])["n_steps"].mean().div(args.steps_per_year)
     seed_mean = reps.groupby(["member", "arm", "seed"])[outcomes].mean()
     base = seed_mean.xs(args.baseline, level="arm")
@@ -130,10 +151,21 @@ def ensemble_contrasts(reps, outcomes, args):
         common = a.index.intersection(base.index)
         diff = (a.loc[common] - base.loc[common]).reset_index()
         by_member = diff.groupby("member")[outcomes].mean()
+        by_member_se = diff.groupby("member")[outcomes].agg(
+            lambda s: s.std(ddof=1) / np.sqrt(len(s)) if len(s) > 1 else np.nan)
+        base_member = base.loc[common].reset_index().groupby("member")[outcomes].mean()
         for oc in outcomes:
             is_count = oc not in ("moud_coverage", "survivor_any_moud_30d")
             for member, row in by_member.iterrows():
-                per_member.append({"arm": arm, "member": member, "outcome": oc, "diff_mean": row[oc]})
+                bm = float(base_member.loc[member, oc])
+                se = float(by_member_se.loc[member, oc])
+                per_member.append({
+                    "arm": arm, "member": member, "outcome": oc,
+                    "baseline_mean": bm, "diff_mean": row[oc], "diff_se": se,
+                    "pct": 100.0 * row[oc] / bm if bm else np.nan,
+                    "pct_se": 100.0 * se / bm if bm else np.nan,
+                    "diff_statewide": row[oc] * scale_of(member) if is_count else np.nan,
+                })
             mm = by_member[oc]
             pooled.append({
                 "arm": arm, "outcome": oc, "n_members": len(mm), "n_member_seed": len(diff),
@@ -171,6 +203,9 @@ def main():
     ap.add_argument("--split-members", action="store_true",
                     help="arm names are '<member>__<arm>' (make_phase7_ensemble.py): contrast within (member, seed) "
                          "against that member's baseline, then pool over members")
+    ap.add_argument("--member-scale", default=None,
+                    help="per-member statewide scale for the per-member table, e.g. '40=68.5,45=60.9' "
+                         "(OUD-split sensitivity: 13,704 / split / 500); unlisted members use the calibration scale")
     args = ap.parse_args()
 
     dirs = sorted(p for p in args.run_dir.iterdir() if p.is_dir() and (p / "basicReport.txt").exists())

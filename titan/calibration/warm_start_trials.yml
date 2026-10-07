@@ -65,8 +65,12 @@
 #      search (anchored at 0.3667, read only by init_at_equilibrium) and two
 #      coordinates joined it: `moud.acceptance` and
 #      `hiv_testing.nonclinical_annual`. No earlier trial measured either, so
-#      every entry starts them at 0.75 and 0.4 (the 2026-10-01 smoke run's feasible corner); the vectors below are
+#      every entry started them at 0.75 and 0.4 (the 2026-10-01 smoke run's feasible corner); the vectors below are
 #      starting points for the other eight coordinates, not full measured points.
+#
+#   4. 2026-10-07: `hiv_testing.nonclinical_annual` left the search for
+#      anchored_parameters (0.38, NHBS-PWID): nothing scored identified it, so
+#      its warm-start coordinate was removed from every entry below.
 
 warm_start:
 
@@ -106,7 +110,6 @@ warm_start:
       overdose.base_prob_noninj: 0.1155
       moud.injection_scale.active: 0.55057546
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 1.0
       high_risk.partner_scale: 8
@@ -145,7 +148,6 @@ warm_start:
       overdose.base_prob_noninj: 0.1155
       moud.injection_scale.active: 0.55057546
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.177663
       high_risk.partner_scale: 8
@@ -181,7 +183,6 @@ warm_start:
       overdose.base_prob_noninj: 0.0907
       moud.injection_scale.active: 0.65583763
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 7
@@ -215,7 +216,6 @@ warm_start:
       overdose.base_prob_noninj: 0.1115
       moud.injection_scale.active: 0.59381148
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 13
@@ -238,7 +238,6 @@ warm_start:
       overdose.base_prob_noninj: 0.07851458
       moud.injection_scale.active: 0.76417479
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.39160029) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -253,7 +252,6 @@ warm_start:
       overdose.base_prob_noninj: 0.08232191
       moud.injection_scale.active: 0.43228155
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.46411315) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -268,7 +266,6 @@ warm_start:
       overdose.base_prob_noninj: 0.06973176
       moud.injection_scale.active: 0.72005128
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.43386034) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 8.289783
       calibration.injection.act: 0.32514255
       high_risk.partner_scale: 5
@@ -283,7 +280,6 @@ warm_start:
       overdose.base_prob_noninj: 0.06570561
       moud.injection_scale.active: 0.43228155
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.29696466) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.72646301
       high_risk.partner_scale: 8
@@ -298,7 +294,6 @@ warm_start:
       overdose.base_prob_noninj: 0.06190545
       moud.injection_scale.active: 0.72005128
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.31697705) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 8.289783
       calibration.injection.act: 0.17037256
       high_risk.partner_scale: 5
@@ -313,7 +308,6 @@ warm_start:
       overdose.base_prob_noninj: 0.1115
       moud.injection_scale.active: 0.59381148
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.36) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 6.0
       calibration.injection.act: 0.387937
       high_risk.partner_scale: 13
@@ -328,7 +322,6 @@ warm_start:
       overdose.base_prob_noninj: 0.05255589
       moud.injection_scale.active: 0.76417479
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.32741304) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -343,7 +336,6 @@ warm_start:
       overdose.base_prob_noninj: 0.05255589
       moud.injection_scale.active: 0.76417479
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.33270103) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 12.07977777
       calibration.injection.act: 0.26246694
       high_risk.partner_scale: 10
@@ -358,7 +350,6 @@ warm_start:
       overdose.base_prob_noninj: 0.06860636
       moud.injection_scale.active: 0.69803485
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.2946694) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 1.89312663
       calibration.injection.act: 0.38377811
       high_risk.partner_scale: 12
@@ -373,7 +364,6 @@ warm_start:
       overdose.base_prob_noninj: 0.07321412
       moud.injection_scale.active: 0.75265159
       moud.acceptance: 0.75                # 2026-10-01: care_seeking on; reinit_prob (was 0.24004154) anchored, acceptance is the MOUD lever
-      hiv_testing.nonclinical_annual: 0.4  # 2026-10-01: new lever; smoke run puts the testing band at ~0.4
       calibration.background.msm_inj_mult: 14.95049801
       calibration.injection.act: 0.29282121
       high_risk.partner_scale: 14
@@ -395,7 +385,6 @@ warm_start:
       overdose.base_prob_noninj: 0.09815019902425111
       moud.injection_scale.active: 0.5416232040865556
       moud.acceptance: 0.9980383222254678
-      hiv_testing.nonclinical_annual: 0.1700223624030517
       calibration.background.msm_inj_mult: 3.651606170486115
       calibration.injection.act: 0.5091117014206475
       high_risk.partner_scale: 7
@@ -415,7 +404,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5420254915863287
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.5977638443319259
       high_risk.partner_scale: 3
@@ -435,7 +423,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.5720934147140171
-      hiv_testing.nonclinical_annual: 0.06815789774412463
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.6651133598214968
       high_risk.partner_scale: 1
@@ -455,7 +442,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5420254915863287
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.029114105015091773
       calibration.background.msm_inj_mult: 4.048151064803502
       calibration.injection.act: 0.3144805488106394
       high_risk.partner_scale: 17
@@ -475,7 +461,6 @@ warm_start:
       overdose.base_prob_noninj: 0.096354   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.6533580472037825
       moud.acceptance: 0.546125136056422
-      hiv_testing.nonclinical_annual: 0.3099113331569147
       calibration.background.msm_inj_mult: 4.727601775324846
       calibration.injection.act: 0.3700229040529555
       high_risk.partner_scale: 7
@@ -495,7 +480,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.5720934147140171
-      hiv_testing.nonclinical_annual: 0.08097096528609
       calibration.background.msm_inj_mult: 6.176483517295874
       calibration.injection.act: 0.482948750229849
       high_risk.partner_scale: 3
@@ -515,7 +499,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.35366650215533585
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.5977638443319259
       high_risk.partner_scale: 3
@@ -535,7 +518,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7274219691816987
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.35366650215533585
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.5977638443319259
       high_risk.partner_scale: 3
@@ -555,7 +537,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5420254915863287
       moud.acceptance: 0.6989114860845488
-      hiv_testing.nonclinical_annual: 0.3993066241675599
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.7155883941566196
       high_risk.partner_scale: 3
@@ -575,7 +556,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5420254915863287
       moud.acceptance: 0.6608369873823849
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.482948750229849
       high_risk.partner_scale: 2
@@ -595,7 +575,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5420254915863287
       moud.acceptance: 0.546125136056422
-      hiv_testing.nonclinical_annual: 0.35366650215533585
       calibration.background.msm_inj_mult: 4.727601775324846
       calibration.injection.act: 0.559415962562248
       high_risk.partner_scale: 2
@@ -615,7 +594,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5334825533604036
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.5977638443319259
       high_risk.partner_scale: 2
@@ -635,7 +613,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.3587700074572199
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.5977638443319259
       high_risk.partner_scale: 3
@@ -655,7 +632,6 @@ warm_start:
       overdose.base_prob_noninj: 0.088345   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.34604758300876853
       calibration.background.msm_inj_mult: 7.36575907379331
       calibration.injection.act: 0.38952039485655554
       high_risk.partner_scale: 3
@@ -675,7 +651,6 @@ warm_start:
       overdose.base_prob_noninj: 0.088345   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5870914190170253
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.20961507979471322
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.38952039485655554
       high_risk.partner_scale: 3
@@ -695,7 +670,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5420254915863287
       moud.acceptance: 0.5720934147140171
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 7.36575907379331
       calibration.injection.act: 0.482948750229849
       high_risk.partner_scale: 2
@@ -715,7 +689,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.556122945721319
       moud.acceptance: 0.5322189122750579
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.482948750229849
       high_risk.partner_scale: 3
@@ -735,7 +708,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.5720934147140171
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 7.36575907379331
       calibration.injection.act: 0.3700229040529555
       high_risk.partner_scale: 1
@@ -755,7 +727,6 @@ warm_start:
       overdose.base_prob_noninj: 0.084972   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.7058697726026063
       moud.acceptance: 0.546125136056422
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 2.408188615965464
       calibration.injection.act: 0.5977638443319259
       high_risk.partner_scale: 3
@@ -775,7 +746,6 @@ warm_start:
       overdose.base_prob_noninj: 0.088345   # x1.17: probe 7025851 had overdoses ~15% low once MOUD rose
       moud.injection_scale.active: 0.5870914190170253
       moud.acceptance: 0.546125136056422
-      hiv_testing.nonclinical_annual: 0.1988158151584545
       calibration.background.msm_inj_mult: 7.36575907379331
       calibration.injection.act: 0.38952039485655554
       high_risk.partner_scale: 2

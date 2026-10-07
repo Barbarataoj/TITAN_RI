@@ -39,8 +39,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from titan.calibration.optuna_calibration import multi_error, parse_basic_report  # noqa: E402
+from titan.calibration.optuna_calibration import (  # noqa: E402
+    CALIB_YAML, load_yaml, multi_error, parse_basic_report, scoring_t_max,
+)
 from titan.calibration.validate_candidates import OBJECTIVES, build_row, load_targets  # noqa: E402
+
+# Gates read the calibration window only (steps <= 132), whatever the run length.
+SCORE_T_MAX = scoring_t_max(load_yaml(CALIB_YAML))
 
 DIR_RE = re.compile(r"^trial(?P<trial>.+)_seed(?P<seed>\d+)$")
 
@@ -57,7 +62,7 @@ def _score(args):
     path, trial, seed, min_reps = args
     t0 = time.time()
     try:
-        stats = parse_basic_report(path / "basicReport.txt")
+        stats = parse_basic_report(path / "basicReport.txt", score_t_max=SCORE_T_MAX)
     except Exception as exc:  # unreadable or truncated report
         return {"trial": trial, "pop_seed": seed, "_skip": f"parse error: {exc}"}
     n_reps = int(stats.get("n_reps", 0))

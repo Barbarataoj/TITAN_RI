@@ -180,7 +180,7 @@ PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / ea
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
 PREP_MONITORING_ATTENDANCE = 0.60       # unsupported attendance (0.55-0.70; registry/CHIA note 7.4)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
-NONCLINICAL_TESTING_INITIAL = 0.4       # placeholder; the search fits it (smoke run 2026-10-01: 0.4 gives 0.53 tests per PWID-year, inside the 0.43-0.80 band)
+NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): NHBS-PWID 0.60 tests/PWID-yr minus ~0.22 from clinic encounters. Was a fitted placeholder 0.4 from 2026-10-01
 
 
 def read_csv(name):
@@ -411,7 +411,7 @@ SCALARS = [
     # (top-level key under scenario:, field, value, comment)
     ("features", "care_seeking", "true", "the care-setting layer is on; MOUD, testing and PrEP run through encounters"),
     ("hiv_testing", "acceptance", ACCEPT_HIV_TEST, "RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)"),
-    ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "FITTED (parameters_to_optimize); placeholder"),
+    ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): NHBS-PWID 0.60 tests/PWID-yr minus clinic ~0.22; unidentified by the objective, was fitted 2026-10-01 to 10-07"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
     ("prep", "acceptance", ACCEPT_PREP, "prescribed once discussed, registry 7.6"),
     ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),

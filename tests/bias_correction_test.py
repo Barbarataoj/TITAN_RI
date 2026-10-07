@@ -229,13 +229,16 @@ def test_hiv_correction_removes_the_bias_in_expectation(targets):
     # exactly: level a through 2017, b from 2018, so the 2018-2022 window is b
     # and the 2015-2019 window is (3a + 2b) / 5. Read from the targets rather
     # than hard-coded, because the all-route windows are derived (2026-09-29).
+    # Since 2026-10-07 only the 2018-2022 windows are scored; the 2015-2019
+    # windows ride along as `*_unscored`, and the simulated series still hits
+    # both so the test is indifferent to which are scored.
     def levels(windows):
         early = next(w["cases_per_year"] for w in windows if w["years"][0] == 2015)
         late = next(w["cases_per_year"] for w in windows if w["years"][0] == 2018)
         a = (5 * early - 2 * late) / 3
         return np.where(years <= 2017, a, late)
-    idu = levels(targets["ridoh_windows"])
-    pwid = levels(targets["ridoh_pwid_windows"])
+    idu = levels(targets["ridoh_windows"] + targets.get("ridoh_windows_unscored", []))
+    pwid = levels(targets["ridoh_pwid_windows"] + targets.get("ridoh_pwid_windows_unscored", []))
     assert np.all(pwid >= idu) and np.all(idu >= 0)
     R = 40
     raw, corrected = [], []
@@ -261,9 +264,14 @@ def test_hiv_correction_removes_the_bias_in_expectation(targets):
 @pytest.mark.unit
 def test_null_value_and_uncorrected_paths_are_unchanged(targets):
     calib = load_yaml(CALIB_YAML)
-    # 4.782 against the unadjusted RIDOH windows; 3.752 since the all-route
-    # windows became opioid-adjusted (2026-09-29).
-    assert hiv_null_value(calib) == pytest.approx(3.752, abs=0.01)
+    # 4.782 against the unadjusted RIDOH windows; 3.752 once the all-route
+    # windows became opioid-adjusted (2026-09-29); since 2026-10-07 only the
+    # 2018-2022 windows are scored, so the null is the RMS of their two levels
+    # and the (unpenalised) pre-2015 bound: sqrt((2.5^2 + 6.59^2 + 0) / 3) = 4.07.
+    scored = [w["cases_per_year"] for w in targets["ridoh_windows"] + targets["ridoh_pwid_windows"]]
+    expected = float(np.sqrt(np.mean([c ** 2 for c in scored] + [0.0])))
+    assert expected == pytest.approx(4.07, abs=0.01)
+    assert hiv_null_value(calib) == pytest.approx(expected, abs=1e-6)
     zeros = np.zeros(11)
     assert ridoh_hiv_rmse(zeros, zeros, targets["first_year"], targets,
                           idu_by_run=np.zeros((5, 11)), pwid_by_run=np.zeros((5, 11))) \
@@ -305,3 +313,45 @@ def test_all_route_windows_are_derived_from_their_parts():
     block["stimulant_share_of_msm_idu"] = 1.5
     with pytest.raises(ValueError):
         all_route_windows(block)
+
+
+# ------------------------------------------------- scoring window (2026-10-07)
+
+@pytest.mark.unit
+def test_score_t_max_makes_a_long_run_score_like_the_calibration_run(tmp_path):
+    """A 240-step Phase 7 report scored with score_t_max=132 must give the same
+    overdose rates, OUD shares and series lengths as the 132-step run it
+    extends; without it the end-anchored OD window reads the last two years."""
+    from titan.calibration.optuna_calibration import scoring_t_max
+    assert scoring_t_max(load_yaml(CALIB_YAML)) == 132
+    short, long_ = tmp_path / "short.txt", tmp_path / "long.txt"
+    replicate_report(short, n_runs=3, n_steps=132, events_inj_per_step=1)
+    replicate_report(long_, n_runs=3, n_steps=240,
+                     events_inj_per_step=lambda r, t: 1 if t <= 132 else 5)
+    s = parse_basic_report(short)
+    l_cut = parse_basic_report(long_, score_t_max=132)
+    l_full = parse_basic_report(long_)
+    for key in ("nonfatal_od_rate_inj", "nonfatal_od_rate_noninj", "oud_active"):
+        assert l_cut[key] == pytest.approx(s[key])
+    assert len(l_cut["idu_dx_counts_per_year"]) == len(s["idu_dx_counts_per_year"]) == 11
+    assert l_full["nonfatal_od_rate_inj"] > 3 * s["nonfatal_od_rate_inj"]
+    assert len(l_full["idu_dx_counts_per_year"]) == 20
+
+
+@pytest.mark.unit
+def test_only_scored_windows_enter_the_hiv_objective(targets):
+    """With the 2018-2022 windows alone scored, a stationary model at their
+    levels scores zero: the two-window floor is gone. None/empty scores all."""
+    from titan.calibration.optuna_calibration import split_scored_windows
+    windows = [{"years": [2015, 2019], "cases_per_year": 1.8},
+               {"years": [2018, 2022], "cases_per_year": 2.5}]
+    assert split_scored_windows(windows, None) == (windows, [])
+    scored, unscored = split_scored_windows(windows, [2018])
+    assert [w["years"] for w in scored] == [[2018, 2022]]
+    assert [w["years"] for w in unscored] == [[2015, 2019]]
+    with pytest.raises(ValueError):
+        split_scored_windows(windows, [1999])
+    scale = targets["pop_scale"]
+    idu = np.full(11, 2.5 / scale)
+    pwid = np.full(11, targets["ridoh_pwid_windows"][0]["cases_per_year"] / scale)
+    assert ridoh_hiv_rmse(idu, pwid, targets["first_year"], targets) == pytest.approx(0.0, abs=1e-9)

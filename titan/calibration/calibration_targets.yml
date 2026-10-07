@@ -653,6 +653,22 @@ calibration:
     # the sexual and background routes that went live in P1-P8. The comparable
     # model quantity is `hiv_dx_new_inj` -- diagnoses, injection-acquired --
     # added to titan/exposures/hiv.py the same day.
+    # WHICH WINDOWS ARE SCORED (2026-10-07, Jun; option (c) first put on the
+    # table 2026-09-30). Windows whose first year is listed here are scored by
+    # ridoh_hiv_rmse, for both the IDU series and the all-route series; the
+    # rest are carried as validation rows. Only 2018-2022: every fixed input
+    # is of 2022 vintage (injecting share from RIHRSS, care-setting table from
+    # 2022 APCD receipt, testing level) and the model has no time-varying HIV
+    # driver, so its diagnosis series is flat while RIDOH's rises 4.18 -> 6.59.
+    # Scored together the two windows pulled every trial to one floor (mean
+    # 0.85 of the gate, true between-trial SD 0.08 vs draw SD 0.23: pass/fail
+    # was noise). The Phase 7 projections start from the 2022 state, which is
+    # what this window measures. The model's failure to reproduce the
+    # 2015 -> 2022 rise is a stated limitation and a Phase 7 sensitivity axis.
+    # Decision record: docs/calibration_log/hiv_objective_window_decision_2026-10-07.md.
+    # Both scorings are reported for the pick and every member.
+    ridoh_scored_window_starts: [2018]
+
     ridoh_idu_dx:
       # Cases per year, statewide, attributed strictly to IDU. GBMSM/IDU
       # dual-risk is a SEPARATE RIDOH category (6%/10%/9% over the three windows)
@@ -930,6 +946,28 @@ calibration:
     - path: "hiv_testing.base_prob_annual"
       value: 0.08
       source: "NHBS-PWID 45% tested/yr = 0.60 tests/PWID-yr, / measured composite multiplier 7.35 (pilot job 6832656); citations row #28"
+
+    # HIV testing outside clinical settings (syringe services, community
+    # testing), the care-seeking layer's counterpart of base_prob_annual above
+    # (inert with the layer on). PINNED 2026-10-07, was fitted in [0, 0.6]
+    # since 2026-10-01. The search box's rationale -- that the RIDOH diagnosis
+    # objective and the testing band identify it -- was wrong on both counts:
+    # the band is validation-only, and the diagnosed share saturates at
+    # 0.88-0.97, so diagnosis counts do not depend on the testing level
+    # (across the 20 care_refit3 trials, tests per PWID-year correlate 1.00
+    # with this parameter and -0.05 with the HIV score). Unidentified, the
+    # sampler fixed it at 0.199 in 13 of 20 trials, which puts PWID testing at
+    # 0.37 tests/yr, below the NHBS band 0.42-0.80. Pinned so total testing
+    # meets NHBS-PWID 2022 (45% tested in the past year = 0.60 tests/PWID-yr):
+    # clinic encounters supply ~0.22 (trial 26: 0.565 at 0.346), so 0.38 is
+    # the provisional value; confirmed or adjusted by the lever run (B1).
+    # Regression over 40 draws: moving 0.199 -> 0.38 shifts the 2018-2022 HIV
+    # score by -0.07 +/- 0.13 of its gate (neutral within noise).
+    # TO REPLACE with RI data: Mofan's any-claim HIV-testing table (request of
+    # 2026-10-06, stratified by injection_proxy) gives the RI level directly.
+    - path: "hiv_testing.nonclinical_annual"
+      value: 0.38
+      source: "NHBS-PWID 2022 45% tested in the past year = 0.60 tests/PWID-yr, minus ~0.22 from clinic encounters (validation_targets.hiv_testing); provisional, see B1 lever run; RI any-claim table pending"
 
     # Overdose survivors re-engage with MOUD LESS than other members, not more.
     # RI APCD job 2b (docs/apcd_incoming/ABM_2/job2b_medication_after_overdose.csv):
@@ -1213,16 +1251,12 @@ calibration:
       lower: 0.05
       upper: 1.0
 
-    # Annual probability of an HIV test outside any clinical setting (syringe
-    # services, community testing). With care-seeking on, clinical testing is
-    # fixed by the setting table at the claims-visible level (about 3% of ED
-    # users a year), while NHBS-PWID reports 45% of PWID tested in a year, so
-    # this carries most PWID testing and is the lever the RIDOH diagnosis
-    # objective and the testing validation band (0.43-0.80 tests per PWID-year)
-    # identify. Upper bound 0.6: 1 - exp(-0.9) tests/yr, above the band's top.
-    - path: "hiv_testing.nonclinical_annual"
-      lower: 0.0
-      upper: 0.6
+    # hiv_testing.nonclinical_annual LEFT THE SEARCH 2026-10-07 (fitted in
+    # [0, 0.6] from 2026-10-01). It carries most PWID testing with the care
+    # layer on, but nothing scored identifies it: the testing band is
+    # validation-only and the diagnosed share saturates, so the RIDOH objective
+    # is blind to it. Pinned under anchored_parameters from NHBS-PWID; see the
+    # entry there. Search dimension 12 -> 11.
 
     # NOTE: moud.init_coverage is deliberately NOT optimized (removed 2026-07-29).
     # It sets only the t=0 placement probability, and with use_reinit true coverage
