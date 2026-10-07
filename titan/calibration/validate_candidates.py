@@ -418,9 +418,6 @@ def build_row(trial, seed, stats, targets, errs=None):
             if series is not None and len(series)
             else float("nan")
         )
-    # The RIDOH windows the objective does not score (2015-2019 since
-    # 2026-10-07), as model window means on the statewide footing.
-    row.update(unscored_window_means(stats, targets))
     # Validation quantities -- carried through but NOT scored, see
     # calibration_targets.yml `validation_targets`.
     # Every band in VALIDATION, so _report_validation() can print each one.
@@ -429,6 +426,11 @@ def build_row(trial, seed, stats, targets, errs=None):
     # shown; adhoc item2_checks.py recovered them from the saved reports.
     for k in [v[0] for v in VALIDATION] + ["dx_among_hiv"]:
         row[k] = stats.get(k, float("nan"))
+    # The RIDOH windows the objective does not score (2015-2019 since
+    # 2026-10-07), as model window means on the statewide footing. Written
+    # AFTER the loop above: their keys are in VALIDATION too, and the loop
+    # would overwrite them with NaN (stats carries series, not window means).
+    row.update(unscored_window_means(stats, targets))
     # The three rates od_err is the mean squared proportional error OF.
     # Added 2026-08-12: od_err is a scalar mean over three components, so
     # a 2x miss on the aggregate does not say whether one component is

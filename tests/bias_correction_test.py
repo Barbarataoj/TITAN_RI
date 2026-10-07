@@ -355,3 +355,17 @@ def test_only_scored_windows_enter_the_hiv_objective(targets):
     idu = np.full(11, 2.5 / scale)
     pwid = np.full(11, targets["ridoh_pwid_windows"][0]["cases_per_year"] / scale)
     assert ridoh_hiv_rmse(idu, pwid, targets["first_year"], targets) == pytest.approx(0.0, abs=1e-9)
+
+
+@pytest.mark.unit
+def test_build_row_carries_the_unscored_window_means(tmp_path, targets):
+    """The 2015-2019 window means must survive build_row's validation loop,
+    which once overwrote them with NaN (2026-10-07)."""
+    from titan.calibration.validate_candidates import build_row
+    path = tmp_path / "r.txt"
+    replicate_report(path, n_runs=4, dx_inj_per_step=1)
+    stats = parse_basic_report(path)
+    row = build_row("x", "pooled", stats, targets, (0.0, 0.0, 0.0, 0.0))
+    assert np.isfinite(row["idu_dx_2015_2019_ri"]) and row["idu_dx_2015_2019_ri"] > 0
+    assert np.isfinite(row["pwid_dx_2015_2019_ri"])
+    assert row["pwid_dx_2015_2019_ri"] == pytest.approx(row["idu_dx_2015_2019_ri"])
