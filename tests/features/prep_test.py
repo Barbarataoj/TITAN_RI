@@ -673,3 +673,108 @@ def test_set_stats_counts_oral_product_once(make_agent):
     a.prep.set_stats(stats, 6)
     assert stats["prep_injectable"] == 1 and stats["prep_cab_la"] == 1
     assert stats["prep_oral"] == 0
+
+
+# ---------------------------------------------- 2026-10-07 clinical review changes
+
+@pytest.mark.unit
+def test_indicated_pwid_sharing_and_oud_active(make_agent):
+    """pwid_sharing: currently injecting with a partnership that allows injection
+    acts; oud_active: agent.has_oud. Neither is met by a sexual partnership or by
+    remission."""
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid_sharing"]
+    assert not a.prep.indicated()                       # no partners
+    sex = make_agent(DU="NonInj")
+    Relationship(a, sex, 10, bond_type="Sex")
+    assert not a.prep.indicated()                       # a sexual partner is not sharing
+    inj = make_agent(DU="Inj")
+    Relationship(a, inj, 10, bond_type="Inj")
+    assert a.prep.indicated()
+    b = make_agent(DU="NonInj")
+    Relationship(b, inj, 10, bond_type="Inj")
+    assert not b.prep.indicated()                       # not currently injecting
+
+    c = make_agent()
+    c.location.params.prep.target_model = ["oud_active"]
+    c.has_oud = True
+    assert c.prep.indicated()
+    c.has_oud = False                                   # remission
+    assert not c.prep.indicated()
+
+
+@pytest.mark.unit
+def test_eligible_needs_indication_and_hiv_negative(make_agent):
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid"]
+    a.location.params.prep.start_time = 0
+    assert a.prep.eligible(5)
+    a.hiv.active = True
+    assert a.prep.indicated() and not a.prep.eligible(5)
+    b = make_agent(DU="NonInj")
+    b.location.params.prep.target_model = ["pwid"]
+    assert not b.prep.eligible(5)
+
+
+@pytest.mark.unit
+def test_prep_indicated_stat_counts_hiv_negative_indicated_agents(make_agent):
+    from collections import defaultdict
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid"]
+    stats = defaultdict(int)
+    a.prep.set_stats(stats, 3)
+    assert stats["prep_indicated"] == 1
+    a.prep.active = True; a.prep.type = "Oral"; a.prep.time = 1
+    stats = defaultdict(int)
+    a.prep.set_stats(stats, 3)
+    assert stats["prep_indicated"] == 1 and stats["prep"] == 1   # on PrEP still counts
+    a.hiv.active = True
+    stats = defaultdict(int)
+    a.prep.set_stats(stats, 3)
+    assert stats["prep_indicated"] == 0
+    b = make_agent(DU="NonInj")
+    b.location.params.prep.target_model = ["pwid"]
+    stats = defaultdict(int)
+    b.prep.set_stats(stats, 3)
+    assert stats["prep_indicated"] == 0
+
+
+@pytest.mark.unit
+def test_oral_prep_injection_route_efficacy(make_agent):
+    """efficacy_injection applies to injection exposure only; -1 means the
+    sexual value (the engine default, so earlier scenarios are unchanged)."""
+    a = make_agent()
+    a.prep.active = True; a.prep.type = "Oral"; a.prep.last_dose_time = 0
+    prep = a.location.params.prep
+    prep.efficacy["adherent"] = 0.99
+    prep.efficacy["non_adherent"] = 0.0
+    a.prep.adherent = True
+    assert a.prep.get_acquisition_risk_multiplier(1, "injection") == pytest.approx(0.01)
+    prep.efficacy_injection["adherent"] = 0.70
+    prep.efficacy_injection["non_adherent"] = 0.0
+    assert a.prep.get_acquisition_risk_multiplier(1, "injection") == pytest.approx(0.30)
+    assert a.prep.get_acquisition_risk_multiplier(1, "sex") == pytest.approx(0.01)
+    a.prep.adherent = False
+    assert a.prep.get_acquisition_risk_multiplier(1, "injection") == pytest.approx(1.0)
+    assert a.prep.get_acquisition_risk_multiplier(1, "sex") == pytest.approx(1.0)
+
+
+@pytest.mark.unit
+def test_reengagement_raises_return_after_a_missed_injection_from_its_start(make_agent, make_model):
+    """return_prob 0.5 x mult 1.6 = 0.8: a draw of 0.7 returns only once the
+    programme has started; off (start -1) behaves exactly as before."""
+    model = make_model()
+    for start, expect_return in ((-1, False), (50, False), (2, True)):
+        a = make_agent()
+        _use_products(a, {"cab_la": CAB})
+        a.care_reach = {}
+        a.location.params.prep.reengagement_start_step = start
+        a.location.params.prep.reengagement_return_mult = 1.6
+        a.prep.enroll(FakeRandom(0.0), 0)
+        Prep.counts[a.race] = 1
+        model.run_random = FakeRandom(0.95); model.time = 1   # misses the due injection
+        a.prep.progress(model)
+        assert a.prep.overdue
+        model.run_random = FakeRandom(0.7); model.time = 2    # 0.7 >= 0.5, < 0.8
+        a.prep.progress(model)
+        assert (not a.prep.overdue) is expect_return, (start, a.prep.overdue)

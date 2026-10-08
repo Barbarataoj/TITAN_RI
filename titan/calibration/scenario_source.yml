@@ -439,7 +439,7 @@ scenario:
         p_willing_moud: 0.07
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.53766
-        intensity_prep: 0.00687
+        intensity_prep: 0.02229
         intensity_moud: 0.15
         intensity_counseling: 0.0
         visit_prob_after_overdose: 1.0
@@ -457,7 +457,7 @@ scenario:
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.1078
-        intensity_prep: 0.00516
+        intensity_prep: 0.02073
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -475,7 +475,7 @@ scenario:
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.06355
-        intensity_prep: 0.00046
+        intensity_prep: 0.00187
         intensity_moud: 1.0
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -493,7 +493,7 @@ scenario:
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.03862
-        intensity_prep: 0.00162
+        intensity_prep: 0.00576
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -712,6 +712,34 @@ scenario:
     # steps 1-132, so the 2022 CAB share is the only overlap (PrEP is ~0.2 % of
     # agents). Sources: CHIA note section 8.2;
     # /oscar/scratch/jtao9/titan_calibration/lit/strategy_effects_2026-10-02/injectable_prep.md
+    #
+    # CLINICAL REVIEW, 2026-10-07 (Phil; adopted by Jun the same day; record
+    # docs/calibration_log/work_record_2026-10-07.md section 6):
+    #   * PrEP is offered to people with an indication only, not to everyone with
+    #     OUD: currently injecting (pwid), CDC sexual indication for men
+    #     (cdc_msm: MSM, or a partner who injects, is MSM or is diagnosed) and for
+    #     women (cdc_women). Before this every HIV-negative agent was eligible
+    #     ("Allcomers") and 86% of PrEP person-months went to people who neither
+    #     inject nor are MSM (incidence 0.14 per 1,000 PY). Phil's two
+    #     alternatives are sensitivity scenarios: oud_active and pwid_sharing.
+    #   * Adherence is take-it-or-don't: consistent users 0.99 (iPrEx daily-dose
+    #     estimate; Anderson 2012, PMID 22972843), the rest no protection (iPrEx
+    #     OLE, fewer than 2 doses a week). Were the TITAN defaults 0.96 / 0.76.
+    #   * Injection exposure: oral PrEP protects less. Bangkok Tenofovir Study
+    #     (PMID 23769234): 48.9% (9.6-72.2) overall, 70% (2.3-90.6) with
+    #     detectable drug (case-control), 73.5% post hoc. 0.70 for consistent
+    #     users; sensitivity 0.56-0.74.
+    target_model: [pwid, cdc_msm, cdc_women]
+    efficacy:
+      adherent: 0.99
+      non_adherent: 0.0
+    efficacy_injection:
+      adherent: 0.70
+      non_adherent: 0.0
+    # Field re-engagement of missed injectable doses (outreach-worker arm,
+    # scripts/make_phase7_pc_arms.py); off in the status quo.
+    reengagement_start_step: -1
+    reengagement_return_mult: 1.0
     use_products: true
     products:
       oral:
@@ -723,14 +751,14 @@ scenario:
         share_of_starts: 0.04          # US: 3-4 % of PrEP users 2022-24 (PMID 42360740); ~5.5 % mid-2025 (AIDS 2026)
         share_ramp_start_step: 145
         share_ramp_end_step: 229
-        share_end: 0.0625              # 25 % long-acting by 2031, CAB:LEN ~1:3 (estimate; LEN 37 % of users by 2030 is the upper scenario, PMID 42573428)
+        share_end: 0.10                # clinical review 2026-10-07 (Phil): ~10 % CAB and ~20 % LEN of new starts by 2031, oral still the default; was 0.0625 (25 % long-acting, CAB:LEN ~1:3, estimate; LEN 37 % of users by 2030 is the upper scenario, PMID 42573428)
         initiation_injections: 2       # two initiation injections one month apart
         interval_steps: 2              # then every 2 months
         attendance: 0.88               # per due injection, unsupported, OUD-adjusted (0.78-0.93): persistence 0.50-0.85 at 12 mo (42360740, 42150757, Trio), substance-use HR 2.23 (39484783); supported 0.95
-        return_prob: 0.40              # back within the no-restart window (label: <=3 months since last injection)
+        return_prob: 0.175             # back within the no-restart window (label: <=3 months since last injection). Clinical review 2026-10-07: "once someone misses they uncommonly come back, 10-25 %"; was 0.40 (unsupported)
         max_gap_steps: 1               # beyond 3 months since the last injection the label restarts initiation -> treated as stopped
         efficacy: 0.93                 # RR 0.07 (0.04-0.15) vs no PrEP (HPTN 083/084: 34379922, 35378077; counterfactual 37363917)
-        efficacy_injection: -1.0       # same as sexual; no trial data for injection exposure (HPTN 083 excluded recent PWID): sensitivity 0.5
+        efficacy_injection: 0.70       # ASSUMPTION 2026-10-07: no trial data for injection exposure (HPTN 083 excluded recent PWID); on schedule ~ a consistent oral user, so the Bangkok study's 0.70 for detectable drug is the anchor; sensitivity 0.5-0.93
         tail_full_steps: 1             # full protection through month 3 after the last injection
         tail_half_life_steps: 3.0      # RR ~0.3 at months 4-5, ~0.7 at months 6-9 (trough 1.75 ug/mL, half-life 5.6-11.5 wk: 33830459, 35949044)
         test_at_injection: true        # HIV Ag/Ab + RNA at every injection (CDC 2021)
@@ -740,14 +768,14 @@ scenario:
         share_of_starts: 0.02          # ~1 % of users in the first months (AIDS 2026), leading LA new starts in 2026 (Gilead)
         share_ramp_start_step: 162
         share_ramp_end_step: 229
-        share_end: 0.1875
+        share_end: 0.20                # clinical review 2026-10-07 (Phil); was 0.1875
         initiation_injections: 1       # oral loading days 1-2 + first injection, within one step
         interval_steps: 6              # every 26 weeks
         attendance: 0.55               # per due injection, unsupported, OUD-adjusted (0.45-0.72): trials 91-93 % on time, real world >70 % (company claim); supported 0.85
-        return_prob: 0.25
+        return_prob: 0.09              # per step over the 2-step window: 1 - 0.91^2 = 17 % come back, the clinical review's 10-25 % (2026-10-07); was 0.25 (44 %)
         max_gap_steps: 2               # label restarts the oral load beyond 28 weeks; treated as a return within 2 steps
         efficacy: 0.96                 # RR 0.04 (0.01-0.18) vs background (PURPOSE 1/2: 39046157, 39602624)
-        efficacy_injection: -1.0       # no data for injection exposure (<1 % of PURPOSE 2 injected): sensitivity 0.5
+        efficacy_injection: 0.70       # ASSUMPTION 2026-10-07: no data for injection exposure (<1 % of PURPOSE 2 injected); anchored like cabotegravir on the Bangkok study's 0.70; sensitivity 0.5-0.96
         tail_full_steps: 2             # full protection through month 8 after the last injection
         tail_half_life_steps: 3.5      # RR ~0.3 at months 9-11, ~0.7 at months 12-15 (PK-PD 40909830; CDC 40966169)
         test_at_injection: true        # HIV Ag/Ab before each injection
@@ -756,7 +784,7 @@ scenario:
     monitoring_setting: primary_care  # care_seeking layer (scripts/make_care_seeking_params.py): where PrEP monitoring happens
     monitoring_attendance: 0.6  # care_seeking layer (scripts/make_care_seeking_params.py): share of due monitoring visits attended, unsupported: RI PrEP clinic 53-68% retained at 6 months (PMID 27302837), chatbot non-users 54% (41792418)
     monitoring_interval_steps: 3  # care_seeking layer (scripts/make_care_seeking_params.py): guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)
-    acceptance: 0.6  # care_seeking layer (scripts/make_care_seeking_params.py): prescribed once discussed, registry 7.6
+    acceptance: 0.4  # care_seeking layer (scripts/make_care_seeking_params.py): starts once discussed: clinical review 2026-10-07 (25-50 %), was 0.60 (registry 7.6); sensitivity 0.25-0.60
     cap: 0.015
     cap_as_prob: false
     init: 0.0

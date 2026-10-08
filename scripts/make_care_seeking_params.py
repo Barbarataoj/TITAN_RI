@@ -177,7 +177,17 @@ ED_VISIT_AFTER_OD = 1.0            # assumption: APCD-defined nonfatal overdoses
 TEST_CODES = ["cpt_87389", "cpt_87806", "cpt_86703", "G0475", "G0432", "G0433", "G0435"]  # the screening codes job3a's lab_test counts (naive set, docs/apcd_hiv_code_reference_2026-08-17.md) as they appear in job3e; REVIEW_2026-09-29 section 2 quoted 87389 alone (factor 10.8 instead of 11.8)
 INSURANCE_PROXY_SETTING = "primary_care"  # the most inclusive setting (9,663 of 12,774 cohort members in 2022) stands in for the cohort's insurance mix
 ACCEPT_HIV_TEST = 0.55   # RI ED drug-using patients: 64.5% (PMID 25125271) and 45% (PMID 26036465) accepted an offered test
-ACCEPT_PREP = 0.60       # prescribed once discussed, registry 7.6 (primary care PrEP)
+ACCEPT_PREP = 0.40       # starts once discussed. Clinical review 2026-10-07 (Phil, RI clinician: "25-50%, a lot decline"); was 0.60 (registry 7.6); sensitivity 0.25-0.60
+# Share of each setting's visits made by agents with a PrEP indication under
+# prep.target_model [pwid, cdc_msm, cdc_women] (clinical review 2026-10-07).
+# With eligibility restricted, an offer to someone without an indication starts
+# nothing, so the per-visit rate is solved against 2022 receipt divided by this
+# share. MEASURED, not assumed: trial 26 (calibrated_scenario_best.yml), job
+# 7165864, 2 seeds x 10 reps, 2022 (steps 121-132): prep_indicated / HIV-negative
+# agents per race x sex x drug stratum, weighted by the setting's encounters.
+# Cohort share 0.357 (all who inject; 26 % of those who do not, through a
+# partner who injects, is MSM or is diagnosed). Re-measure if the rule changes.
+PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.375, "mental_health": 0.430}
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
@@ -354,12 +364,12 @@ def derive(verbose=True):
         p_test = p_test_claims if s == "ED" else p_test_claims * test_factor
         p_prep = row.prep_or_pep / row.n_denominator_hiv_negative
         i_test, ok_t = solve_intensity(w_test, ACCEPT_HIV_TEST, p_test, d)
-        i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep, d)
+        i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep / PREP_INDICATED_SHARE[s], d)
         say(f"receipt {YEAR}: HIV test {int(row.lab_test)}/{int(row.n_denominator_hiv_negative)} = {p_test_claims:.4f} same-claim"
             + ("" if s == "ED" else f" x {test_factor:.2f} = {p_test:.4f} corrected")
             + f", PrEP/PEP {int(row.prep_or_pep)} = {p_prep:.4f}  [APCD job3a]")
         say(f"intensity_hiv_test: solve {w_test:.3f} * E[1-(1-I*{ACCEPT_HIV_TEST})^n] = {p_test:.4f} -> I = {i_test:.4f}{'' if ok_t else '  UNREACHABLE, capped at 1'}")
-        say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
+        say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} / indicated share {PREP_INDICATED_SHARE[s]:.3f} = {p_prep / PREP_INDICATED_SHARE[s]:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
         say(f"intensity_moud = {INTENSITY_MOUD[s]}  [{INTENSITY_MOUD_SOURCE[s]}]")
 
         out[s] = {
@@ -416,7 +426,7 @@ SCALARS = [
     ("hiv_testing", "acceptance", ACCEPT_HIV_TEST, "RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)"),
     ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
-    ("prep", "acceptance", ACCEPT_PREP, "prescribed once discussed, registry 7.6"),
+    ("prep", "acceptance", ACCEPT_PREP, "starts once discussed: clinical review 2026-10-07 (25-50 %), was 0.60 (registry 7.6); sensitivity 0.25-0.60"),
     ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),
     ("prep", "monitoring_attendance", PREP_MONITORING_ATTENDANCE, "share of due monitoring visits attended, unsupported: RI PrEP clinic 53-68% retained at 6 months (PMID 27302837), chatbot non-users 54% (41792418)"),
     ("prep", "monitoring_setting", "primary_care", "where PrEP monitoring happens"),

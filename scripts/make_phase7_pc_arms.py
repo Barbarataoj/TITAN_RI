@@ -108,7 +108,35 @@ def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78):
     }
 
 
+# Field re-engagement of missed injectable PrEP doses (outreach worker). Not a
+# primary-care lever: it multiplies an overdue agent's per-step return
+# probability (titan/features/prep.py progress_injectable) from the start step.
+# Suggested by the clinical reviewer, 2026-10-07. STAND-IN effect size: no
+# published return-after-miss effect for PrEP outreach was found (search
+# 2026-10-08). Status quo per the reviewer: 10-25 % come back after a miss
+# (cabotegravir 0.175 per step over a 1-step window; lenacapavir 0.09 per step
+# over 2 steps). Central x2.9 -> ~50 % come back (cab 0.51; len 1-(1-0.26)^2 =
+# 45 %); low x2.0 -> ~35 %; high x5.1 -> ~90 % for cab, the ceiling seen where
+# outreach is intensive (San Francisco drop-in clinic giving long-acting HIV
+# treatment to people experiencing homelessness, 19 % of injections given
+# outside the clinic: 3 % of 637 injections more than 14 days late; JAMA Netw
+# Open 2026, doi 10.1001/jamanetworkopen.2026.20348).
+REENGAGEMENT_MULT = {"central": 2.9, "low": 2.0, "high": 5.1}
+
+
 STRATEGIES = {
+    "pc5_outreach_reengagement": {
+        "label": "Field outreach re-engaging people who miss an injectable PrEP dose (STAND-IN effect size)",
+        "prep": True,
+        "central": {"reengagement_return_mult": REENGAGEMENT_MULT["central"]},
+        "low": {"reengagement_return_mult": REENGAGEMENT_MULT["low"]},
+        "high": {"reengagement_return_mult": REENGAGEMENT_MULT["high"]},
+        "sources": [
+            "suggested by the clinical reviewer 2026-10-07 (status quo: 10-25 % return after a miss)",
+            "no published return-after-miss effect for PrEP outreach (search 2026-10-08): stand-in",
+            "ceiling: SF drop-in long-acting ART for people experiencing homelessness, 3 % of 637 injections >14 days late (doi 10.1001/jamanetworkopen.2026.20348)",
+        ],
+    },
     "pc4_chia": {
         "label": "CHIA pre-visit chatbot + provider summary (patient-facing programme in primary care)",
         "program": True,
@@ -209,6 +237,24 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
         levers = spec[variant]
         scenario = copy.deepcopy(baseline)
         base = _setting(baseline)
+        if spec.get("prep"):
+            # a prep-level programme (re-engagement): dated by its own start step
+            prep = scenario.setdefault("prep", {})
+            prep["reengagement_start_step"] = 0 if static else int(start_step)
+            prep["reengagement_return_mult"] = float(levers["reengagement_return_mult"])
+            notes = [f"{spec['label']} [{variant}]",
+                     ("static: programme on from the start" if static
+                      else f"dated: programme starts at step {start_step} (prep.reengagement_start_step)"),
+                     f"  prep.reengagement_return_mult = {prep['reengagement_return_mult']}"]
+            for name, prod in (prep.get("products") or {}).items():
+                if prod.get("type") == "Inj":
+                    r0, gap = float(prod.get("return_prob", 0.0)), int(prod.get("max_gap_steps", 1))
+                    r1 = min(1.0, r0 * prep["reengagement_return_mult"])
+                    notes.append(f"  {name}: return {r0:.3f} -> {r1:.3f} per step over {gap} step(s): "
+                                 f"{1 - (1 - r0) ** gap:.0%} -> {1 - (1 - r1) ** gap:.0%} come back")
+            notes.extend(f"  source: {x}" for x in spec["sources"])
+            out[f"{key}_{variant}{'_static' if static else ''}.yml"] = (scenario, notes)
+            continue
         if spec.get("program"):
             # programme fields are read per visit from params, so a dated arm
             # only needs reach_start_time; no timeline entry, no pool refresh

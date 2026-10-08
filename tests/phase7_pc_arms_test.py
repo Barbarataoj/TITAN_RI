@@ -133,3 +133,23 @@ def test_chia_programme_arm_sets_reach_fields_only_in_primary_care():
     assert s_static["care_seeking"]["setting"]["primary_care"]["reach_start_time"] == -9999
     hi, _ = gen.build_arms(b, variant="high")["pc4_chia_high.yml"]
     assert hi["care_seeking"]["setting"]["primary_care"]["reach_intensity_mult_prep"] == pytest.approx(3.15 / 0.65, abs=1e-3)
+
+
+@pytest.mark.unit
+def test_outreach_arm_dates_the_reengagement_programme():
+    """pc5 sets the programme start and multiplier on prep only; the baseline
+    and the care-seeking table are untouched (2026-10-08)."""
+    b = baseline()
+    b.setdefault("prep", {})["reengagement_start_step"] = -1
+    b["prep"]["reengagement_return_mult"] = 1.0
+    arms = gen.build_arms(b)
+    s, notes = arms["pc5_outreach_reengagement_central.yml"]
+    assert s["prep"]["reengagement_start_step"] == gen.DEFAULT_START_STEP
+    assert s["prep"]["reengagement_return_mult"] == pytest.approx(2.9)
+    assert s["care_seeking"] == b["care_seeking"]
+    assert b["prep"]["reengagement_start_step"] == -1          # baseline not mutated
+    static, _ = gen.build_arms(b, static=True)["pc5_outreach_reengagement_central_static.yml"]
+    assert static["prep"]["reengagement_start_step"] == 0
+    for v, m in (("low", 2.0), ("high", 5.1)):
+        s, _ = gen.build_arms(b, variant=v)[f"pc5_outreach_reengagement_{v}.yml"]
+        assert s["prep"]["reengagement_return_mult"] == pytest.approx(m)

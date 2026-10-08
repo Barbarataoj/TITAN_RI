@@ -13,7 +13,7 @@ from .. import exposures
 class Prep(base_feature.BaseFeature):
     name = "prep"
     stats = ["prep", "prep_new", "prep_injectable", "prep_oral", "prep_injections",
-             "prep_injection_visits"]
+             "prep_injection_visits", "prep_indicated"]
     """
         PrEP collects the following stats:
 
@@ -21,6 +21,9 @@ class Prep(base_feature.BaseFeature):
         * prep_new - number of agents who became active PrEP this time step
         * prep_injectable - number of agents on injectable PrEP
         * prep_oral - number of agents on oral PrEP
+        * prep_indicated - HIV-negative agents who meet prep.target_model (on PrEP
+          or not); the denominator the per-visit PrEP offer rate is solved against
+          when eligibility is restricted (2026-10-07)
     """
 
     # class level attributes to track all Prep agents
@@ -128,6 +131,8 @@ class Prep(base_feature.BaseFeature):
         cls.counts[agent.race] -= 1
 
     def set_stats(self, stats: Dict[str, int], time: int):
+        if not self.agent.hiv.active and self.indicated():  # type: ignore[attr-defined]
+            stats["prep_indicated"] += 1
         if self.active:
             stats["prep"] += 1
             if self.time == time:
@@ -175,7 +180,14 @@ class Prep(base_feature.BaseFeature):
                 return 1.0 - eff * decay
             if self.type == "Oral":
                 adherence = "adherent" if self.adherent else "non_adherent"
-                return 1.0 - params.prep.efficacy[adherence]
+                eff = params.prep.efficacy[adherence]
+                # injection exposure has its own efficacy when set (>= 0); the
+                # Bangkok Tenofovir Study puts it below the sexual value
+                if interaction_type == "injection":
+                    inj = getattr(params.prep, "efficacy_injection", None)
+                    if inj is not None and float(inj[adherence]) >= 0:
+                        eff = float(inj[adherence])
+                return 1.0 - eff
             elif self.type == "Inj":
                 annualized_last_dose_time = (
                     time - self.last_dose_time
@@ -435,12 +447,17 @@ class Prep(base_feature.BaseFeature):
         if self.next_due is None or model.time < self.next_due:
             return
         mult = getattr(self.agent, "care_reach", {}).get("prep_monitoring_mult", 1.0)
+        # field re-engagement of missed doses (outreach worker), dated; off by default
+        prep_params = self.agent.location.params.prep
+        start = int(getattr(prep_params, "reengagement_start_step", -1))
+        reengage = (float(getattr(prep_params, "reengagement_return_mult", 1.0))
+                    if start >= 0 and model.time >= start else 1.0)
         if not self.overdue:
             if model.run_random.random() < min(1.0, spec.attendance * mult):
                 self.give_injection(spec, model.time)
                 return
             self.overdue = True
-        elif model.run_random.random() < min(1.0, spec.return_prob * mult):
+        elif model.run_random.random() < min(1.0, spec.return_prob * mult * reengage):
             self.give_injection(spec, model.time)
             return
         if model.time - self.next_due >= spec.max_gap_steps:
@@ -488,15 +505,27 @@ class Prep(base_feature.BaseFeature):
         if self.agent.hiv.active or time < params.prep.start_time:  # type: ignore[attr-defined]
             return False
 
-        target_model = params.prep.target_model
-        gender = params.classes.sex_types[self.agent.sex_type].gender
-
         if (
             self.active
             or self.agent.vaccine.active  # type: ignore[attr-defined]
             or params.features.random_trial
         ):
             return False
+
+        return self.indicated()
+
+    def indicated(self) -> bool:
+        """
+        Whether the agent meets any of prep.target_model's criteria, whatever
+        its HIV or PrEP status. Split out of eligible() on 2026-10-07 so the
+        indicated population can be counted (stat `prep_indicated`).
+
+        returns:
+            whether the agent has an indication under the target models
+        """
+        params = self.agent.location.params
+        target_model = params.prep.target_model
+        gender = params.classes.sex_types[self.agent.sex_type].gender
 
         all_eligible_models = {"Allcomers", "Racial"}
 
@@ -524,11 +553,31 @@ class Prep(base_feature.BaseFeature):
             if self.agent.syringe_services.active and self.cdc_eligible():  # type: ignore[attr-defined]
                 return True
 
+        # currently injecting with an injection partnership (sharing equipment)
+        if "pwid_sharing" in target_model:
+            if self.agent.drug_type == "Inj" and self.agent.get_num_partners(
+                bond_types=self.injection_bond_types(params)
+            ):
+                return True
+
+        # active opioid use disorder (oud_state sets has_oud only while active)
+        if "oud_active" in target_model:
+            if getattr(self.agent, "has_oud", False):
+                return True
+
         if "ssp" in target_model:
             if self.agent.syringe_services.active:  # type: ignore[attr-defined]
                 return True
 
         return False
+
+    @staticmethod
+    def injection_bond_types(params) -> list:
+        """Bond types whose relationships allow injection acts (params.classes.bond_types)."""
+        return [
+            name for name, bond in params.classes.bond_types.items()
+            if "injection" in bond.acts_allowed
+        ]
 
     def cdc_eligible(self) -> bool:
         """

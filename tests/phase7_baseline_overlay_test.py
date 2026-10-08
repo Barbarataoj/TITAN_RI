@@ -28,7 +28,14 @@ def test_overlay_carries_prep_persistence_and_monitoring_into_an_old_pick():
     out = mod.overlay_care_layer(pick)
     assert out["prep"]["monitoring_interval_steps"] == src["scenario"]["prep"]["monitoring_interval_steps"]
     assert out["prep"]["discontinue_late_mult"] == src["scenario"]["prep"]["discontinue_late_mult"]
-    assert out["prep"]["acceptance"] == 0.6                              # fitted / untouched
+    # prep.acceptance is an input, not fitted (the fitted acceptance is
+    # moud.acceptance); since 2026-10-07 the source's value wins, with the rest
+    # of the clinical-review PrEP fields and the derived offer rate
+    assert out["prep"]["acceptance"] == src["scenario"]["prep"]["acceptance"]
+    assert out["prep"]["target_model"] == src["scenario"]["prep"]["target_model"]
+    assert out["prep"]["efficacy"] == src["scenario"]["prep"]["efficacy"]
+    assert out["prep"]["efficacy_injection"] == src["scenario"]["prep"]["efficacy_injection"]
+    assert out["prep"]["reengagement_start_step"] == -1
     hm = out["demographics"]["white_nonhispanic"]["sex_type"]["HM"]
     assert hm["prep"]["adherence"] == 0.5
     assert hm["prep"]["discontinue"] == 0.09
@@ -36,6 +43,8 @@ def test_overlay_carries_prep_persistence_and_monitoring_into_an_old_pick():
     assert hm["drug_type"]["NonInj"]["prep"]["discontinue"] == 0.09
     pc = out["care_seeking"]["setting"]["primary_care"]
     assert pc["p_willing_prep"] == 0.079                                 # the pick's own value kept
+    src_pc = src["scenario"]["care_seeking"]["setting"]["primary_care"]
+    assert pc["intensity_prep"] == src_pc["intensity_prep"]               # derived: always the source's
     # fields the source writes and the pick lacks are filled; schema defaults
     # (reach_*, acceptance_mult_*) are not in the source and are left to paraml
     assert pc["visit_prob_after_overdose"] == 0.0 and "intensity_hiv_test" in pc

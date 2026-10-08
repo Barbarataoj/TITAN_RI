@@ -15,7 +15,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.53766
       intensity_moud: 0.15
-      intensity_prep: 0.00687
+      intensity_prep: 0.02229
       n_providers_ri: 2145
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0558
@@ -33,7 +33,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.03862
       intensity_moud: 0.75
-      intensity_prep: 0.00162
+      intensity_prep: 0.00576
       n_providers_ri: 1928
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0268
@@ -51,7 +51,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.1078
       intensity_moud: 0.75
-      intensity_prep: 0.00516
+      intensity_prep: 0.02073
       n_providers_ri: 1833
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.2456
@@ -69,7 +69,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.06355
       intensity_moud: 1.0
-      intensity_prep: 0.00046
+      intensity_prep: 0.00187
       n_providers_ri: 253
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0938
@@ -4595,11 +4595,17 @@ partnership:
         adherent: 0.03
         non_adherent: 1.0
 prep:
-  acceptance: 0.6
+  acceptance: 0.4
   cap: 0.015
   cap_as_prob: false
   discontinue_late_after_steps: 6
   discontinue_late_mult: 0.4
+  efficacy:
+    adherent: 0.99
+    non_adherent: 0.0
+  efficacy_injection:
+    adherent: 0.7
+    non_adherent: 0.0
   init: 0.0
   monitoring_attendance: 0.6
   monitoring_interval_steps: 3
@@ -4609,12 +4615,12 @@ prep:
       attendance: 0.88
       available_from_step: 121
       efficacy: 0.93
-      efficacy_injection: -1.0
+      efficacy_injection: 0.7
       initiation_injections: 2
       interval_steps: 2
       max_gap_steps: 1
-      return_prob: 0.4
-      share_end: 0.0625
+      return_prob: 0.175
+      share_end: 0.1
       share_of_starts: 0.04
       share_ramp_end_step: 229
       share_ramp_start_step: 145
@@ -4626,12 +4632,12 @@ prep:
       attendance: 0.55
       available_from_step: 162
       efficacy: 0.96
-      efficacy_injection: -1.0
+      efficacy_injection: 0.7
       initiation_injections: 1
       interval_steps: 6
       max_gap_steps: 2
-      return_prob: 0.25
-      share_end: 0.1875
+      return_prob: 0.09
+      share_end: 0.2
       share_of_starts: 0.02
       share_ramp_end_step: 229
       share_ramp_start_step: 162
@@ -4642,7 +4648,13 @@ prep:
     oral:
       share_of_starts: -1.0
       type: Oral
+  reengagement_return_mult: 1.0
+  reengagement_start_step: -1
   start_time: 6
+  target_model:
+  - pwid
+  - cdc_msm
+  - cdc_women
   use_products: true
 syringe_services:
   timeline:

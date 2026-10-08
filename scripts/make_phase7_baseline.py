@@ -150,8 +150,16 @@ def overlay_care_layer(scenario):
     src = full.get("scenario", {})
     prep_src = src.get("prep", {}) or {}
     prep = scenario.setdefault("prep", {})
+    # PrEP fields that are inputs, never fitted, so today's source always wins:
+    # monitoring, late discontinuation, the products, and since 2026-10-07 the
+    # clinical-review fields (who is offered PrEP, acceptance, oral efficacy by
+    # route, the re-engagement programme). A calibrated pick written before
+    # them would otherwise keep "Allcomers", acceptance 0.60 and 0.96 / 0.76.
+    overlay_keys = ("use_products", "products", "acceptance", "target_model",
+                    "efficacy", "efficacy_injection", "reengagement_start_step",
+                    "reengagement_return_mult")
     for k, v in prep_src.items():
-        if k.startswith("monitoring_") or k.startswith("discontinue_late_") or k in ("use_products", "products"):
+        if k.startswith("monitoring_") or k.startswith("discontinue_late_") or k in overlay_keys:
             prep[k] = v
     # PrEP adherence (sex-type constants) and discontinuation (sex-type constant
     # with a drug-type override), data decisions of 2026-10-02 that a calibrated
@@ -177,10 +185,15 @@ def overlay_care_layer(scenario):
                     drug_block.setdefault("prep", {})[field] = node
     settings_src = (src.get("care_seeking", {}) or {}).get("setting", {}) or {}
     settings = scenario.setdefault("care_seeking", {}).setdefault("setting", {})
+    # Setting fields the pick lacks are added. intensity_prep is DERIVED (solved
+    # by make_care_seeking_params.py from 2022 receipt, given who is eligible and
+    # the acceptance), never fitted, so it is always taken from the source: since
+    # 2026-10-07 it changes with the eligibility rule.
+    always = ("intensity_prep",)
     for name, fields in settings_src.items():
         target = settings.setdefault(name, {})
         for k, v in fields.items():
-            if k not in target:
+            if k not in target or k in always:
                 target[k] = v
     return scenario
 

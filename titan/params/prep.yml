@@ -40,6 +40,24 @@ prep:
       type: float
       min: 0
       max: 1
+  efficacy_injection:
+    adherent:
+      default: -1.0
+      description: >-
+        Oral PrEP efficacy against an INJECTION exposure if the agent is
+        adherent; -1 (default) means the same as efficacy.adherent. Added
+        2026-10-07: the only trial in people who inject (Bangkok Tenofovir
+        Study, PMID 23769234) found 48.9% overall and 70% with detectable
+        drug, below the sexual-exposure values.
+      type: float
+      min: -1
+      max: 1
+    non_adherent:
+      default: -1.0
+      description: Oral PrEP efficacy against an injection exposure if non-adherent; -1 means the same as efficacy.non_adherent
+      type: float
+      min: -1
+      max: 1
   target_model:
     default:
       - Allcomers
@@ -49,11 +67,31 @@ prep:
       - cdc_msm
       - pwid
       - pwid_sex
+      - pwid_sharing
+      - oud_active
       - Racial
       - ssp
       - ssp_sex
-    description: which models to use to determine who is enrolled in PrEP
+    description: >-
+      which models to use to determine who is enrolled in PrEP. Added
+      2026-10-07: pwid_sharing (currently injecting with at least one
+      partnership that allows injection acts, i.e. sharing equipment) and
+      oud_active (active opioid use disorder, agent.has_oud).
     type: array
+  reengagement_start_step:
+    default: -1
+    description: >-
+      First model step of a field re-engagement programme for missed
+      injectable PrEP doses (outreach worker; suggested by the clinical
+      reviewer 2026-10-07). -1 = off. From this step an overdue agent's
+      per-step return probability is multiplied by reengagement_return_mult.
+    type: int
+    min: -1
+  reengagement_return_mult:
+    default: 1.0
+    description: Multiplier on an injectable product's return_prob while the re-engagement programme runs (capped at a probability of 1)
+    type: float
+    min: 0
   half_life:
     default: 40.0
     description: Half life in days of injectable PrEP, used to calculate agent's prep load
