@@ -59,17 +59,25 @@ def main():
         table[f"{name}_pass"] = mean[f"err_{i}"] <= gate
     table["member"] = table[[f"{n}_pass" for n in names]].all(axis=1)
 
-    # HIV margin in SEs: single-draw SD from the within-trial spread of draws.
+    # HIV margin in SEs. Single-draw SD of the HIV objective (in gate units):
+    # pooled over the trials with two or more draws, each weighted by its
+    # degrees of freedom (n_i - 1); the flag is the fallback when no trial has
+    # a repeat, and a clear error when neither exists (2026-10-08 review).
     hiv = f"err_{1}"
-    spread = g[hiv].apply(lambda s: s.std(ddof=1) if len(s) > 1 else np.nan) / OBJECTIVE_GATES[1]
-    sd1 = float(np.sqrt(np.nanmean(spread ** 2))) if spread.notna().any() else args.hiv_draw_sd
-    if args.hiv_draw_sd is not None and not spread.notna().any():
-        sd1 = args.hiv_draw_sd
+    per_trial = g[hiv].agg(["var", "size"])
+    rep = per_trial[per_trial["size"] >= 2]
+    if len(rep):
+        dof = rep["size"] - 1
+        sd1 = float(np.sqrt((rep["var"] * dof).sum() / dof.sum())) / OBJECTIVE_GATES[1]
+    elif args.hiv_draw_sd is not None:
+        sd1 = float(args.hiv_draw_sd)
+    else:
+        sys.exit("no trial has two or more draws; pass --hiv-draw-sd to set the single-draw SD")
     table["hiv_single_draw_sd"] = sd1
     table["hiv_margin_se"] = (1.0 - table[f"{names[1]}_ratio"]) / (sd1 / np.sqrt(table["n_draws"]))
     table["hiv_resolved"] = table["hiv_margin_se"] >= 2.0
-    extra = [c for c in ("hiv_tests_per_pwid_yr", "idu_dx_2015_2019_ri", "pwid_dx_2015_2019_ri",
-                         "idu_dx_per_year_ri", "pwid_dx_per_year_ri") if c in allp]
+    extra = [c for c in ("err_1_allwindows", "hiv_tests_per_pwid_yr", "idu_dx_2015_2019_ri",
+                         "pwid_dx_2015_2019_ri", "idu_dx_per_year_ri", "pwid_dx_per_year_ri") if c in allp]
     table = table.join(g[extra].mean()) if extra else table
     table = table.sort_values([f"{names[1]}_ratio"])
 

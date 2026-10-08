@@ -69,8 +69,8 @@ encounter_prob); receipt is proportional to it. Provider intensities cannot carr
 the index: they are frozen into the provider records when drawn.
 
 T = 1 from 2022 on, so the Phase 7 arms (dated 2023) act on the 2022 level as
-before. Nonclinical testing (`hiv_testing.nonclinical_annual`, fitted) is left
-flat: nothing in the APCD measures it.
+before. Nonclinical testing (`hiv_testing.nonclinical_annual`, pinned at 0.38
+since 2026-10-07) is left flat: nothing in the APCD measures it.
 
 Assumptions to state: the cohort's non-ED testing follows the whole-extract
 trend; the 2016 drop in commercial membership (self-insured plans leaving after

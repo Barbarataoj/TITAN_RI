@@ -26,6 +26,7 @@ import pandas as pd
 
 from titan.calibration.optuna_calibration import (
     concat_reports,
+    hiv_err_all_windows,
     scoring_t_max,
     CALIB_YAML,
     COMPOSITE_CLIP_QUANTILE,
@@ -431,6 +432,9 @@ def build_row(trial, seed, stats, targets, errs=None):
     # AFTER the loop above: their keys are in VALIDATION too, and the loop
     # would overwrite them with NaN (stats carries series, not window means).
     row.update(unscored_window_means(stats, targets))
+    # The HIV objective over every window (the pre-2026-10-07 scoring), so
+    # both scorings travel with each trial. Not a gate.
+    row["err_1_allwindows"] = float(hiv_err_all_windows(stats, targets))
     # The three rates od_err is the mean squared proportional error OF.
     # Added 2026-08-12: od_err is a scalar mean over three components, so
     # a 2x miss on the aggregate does not say whether one component is
@@ -447,7 +451,11 @@ def main():
     trials = [t.strip() for t in os.environ.get("TITAN_VAL_TRIALS", "54,172,111").split(",")]
     n_seeds = int(os.environ.get("TITAN_VAL_SEEDS", 5))
     n_reps = int(os.environ.get("TITAN_VAL_REPS", 10))
-    seeds = POP_SEEDS[:n_seeds]
+    # TITAN_VAL_POP_SEEDS (comma list) replaces the fixed POP_SEEDS so a second
+    # "fresh" draw can use new population networks, not only new run seeds
+    # (2026-10-08: the fixed list shares three seeds with the search's own).
+    override = os.environ.get("TITAN_VAL_POP_SEEDS", "").strip()
+    seeds = [int(x) for x in override.split(",") if x.strip()] if override else POP_SEEDS[:n_seeds]
 
     targets = load_targets()
     # Score every report over the calibration window only (steps <= 132), so a
@@ -455,6 +463,7 @@ def main():
     t_max = scoring_t_max(load_yaml(CALIB_YAML))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Validating trials {trials} over {len(seeds)} population seeds x {n_reps} reps")
+    print(f"Population seeds: {seeds}")
     print(f"Trial scenarios from: {TRIAL_DIR}")
     print(f"Outputs to:           {OUT_DIR}\n", flush=True)
 
@@ -581,6 +590,7 @@ def main():
                     f"{name}={prow[f'err_{i}']:.4f}({prow[f'err_{i}'] / tgt:.2f}x; raw {prow[f'raw_{i}']:.4f})"
                     for i, (name, tgt) in enumerate(OBJECTIVES)
                 )
+                + f"  [HIV over all windows, pre-2026-10-07 scoring: {prow.get('err_1_allwindows', float('nan')):.4f}]"
             )
             print(
                 f"  --> {n_pool}/{len(OBJECTIVES)} objectives pass on the pooled score  "

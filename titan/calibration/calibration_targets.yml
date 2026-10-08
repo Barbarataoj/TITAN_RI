@@ -958,16 +958,24 @@ calibration:
     # with this parameter and -0.05 with the HIV score). Unidentified, the
     # sampler fixed it at 0.199 in 13 of 20 trials, which puts PWID testing at
     # 0.37 tests/yr, below the NHBS band 0.42-0.80. Pinned so total testing
-    # meets NHBS-PWID 2022 (45% tested in the past year = 0.60 tests/PWID-yr):
-    # clinic encounters supply ~0.22 (trial 26: 0.565 at 0.346), so 0.38 is
-    # the provisional value; confirmed or adjusted by the lever run (B1).
+    # meets NHBS-PWID 2022 (45% tested in the past year = 0.60 tests/PWID-yr).
+    # UNITS: an annual probability applied through a hazard (hiv_testing.py
+    # annual_to_step), so this route supplies -ln(1 - p) tests/PWID-yr: 0.22
+    # at the fitted 0.199, 0.43 at trial 26's 0.346, 0.48 at 0.38; clinic
+    # encounters add ~0.14 (0.369 - 0.22, 0.565 - 0.43). CONFIRMED by the B1
+    # lever run (job 7098444, trials 14/18/26 at 8x40): 0.616 / 0.616 / 0.613
+    # tests/PWID-yr. The first derivation wrote "0.60 minus 0.22 from clinics"
+    # -- wrong units, same value; corrected 2026-10-08.
     # Regression over 40 draws: moving 0.199 -> 0.38 shifts the 2018-2022 HIV
-    # score by -0.07 +/- 0.13 of its gate (neutral within noise).
+    # score by -0.07 +/- 0.13 of its gate; B1 measured +0.24 +/- 0.17 (not
+    # resolved) and new PWID infections -1% to -16%, tracking the testing
+    # change: neutral on the scored diagnoses, NOT on infections, so
+    # membership is re-decided on pinned runs (work_record_2026-10-07.md s.8).
     # TO REPLACE with RI data: Mofan's any-claim HIV-testing table (request of
     # 2026-10-06, stratified by injection_proxy) gives the RI level directly.
     - path: "hiv_testing.nonclinical_annual"
       value: 0.38
-      source: "NHBS-PWID 2022 45% tested in the past year = 0.60 tests/PWID-yr, minus ~0.22 from clinic encounters (validation_targets.hiv_testing); provisional, see B1 lever run; RI any-claim table pending"
+      source: "NHBS-PWID 2022 45% tested in the past year = 0.60 tests/PWID-yr; annual probability p gives -ln(1-p) = 0.48 from this route + ~0.14 from clinic encounters = 0.62, confirmed by B1 job 7098444 (0.61-0.62); RI any-claim table pending"
 
     # Overdose survivors re-engage with MOUD LESS than other members, not more.
     # RI APCD job 2b (docs/apcd_incoming/ABM_2/job2b_medication_after_overdose.csv):

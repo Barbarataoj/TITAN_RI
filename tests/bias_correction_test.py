@@ -26,6 +26,8 @@ from titan.calibration.optuna_calibration import (
     multi_error,
     od_error,
     parse_basic_report,
+    OBJECTIVE_GATES,
+    hiv_err_all_windows,
     ridoh_hiv_rmse,
 )
 
@@ -257,8 +259,9 @@ def test_hiv_correction_removes_the_bias_in_expectation(targets):
     # fails the gate on some draws. Measured here at 40 runs: raw passes ~76%,
     # corrected ~84%. The 8 x 40 validation stage is what settles a candidate;
     # the search only has to rank on an unbiased score.
-    assert (corrected <= 1.1).mean() > (raw <= 1.1).mean() + 0.03
-    assert (corrected <= 1.1).mean() > 0.8
+    gate = OBJECTIVE_GATES[1]
+    assert (corrected <= gate).mean() > (raw <= gate).mean() + 0.03
+    assert (corrected <= gate).mean() > 0.8
 
 
 @pytest.mark.unit
@@ -369,3 +372,18 @@ def test_build_row_carries_the_unscored_window_means(tmp_path, targets):
     assert np.isfinite(row["idu_dx_2015_2019_ri"]) and row["idu_dx_2015_2019_ri"] > 0
     assert np.isfinite(row["pwid_dx_2015_2019_ri"])
     assert row["pwid_dx_2015_2019_ri"] == pytest.approx(row["idu_dx_2015_2019_ri"])
+
+
+@pytest.mark.unit
+def test_all_windows_score_travels_with_the_scored_one(targets):
+    """A stationary model at the 2018-2022 levels scores 0 on the scored
+    objective and > 0 over all windows (it misses 2015-2019), so both can be
+    reported side by side."""
+    scale = targets["pop_scale"]
+    idu = np.full(11, targets["ridoh_windows"][0]["cases_per_year"] / scale)
+    pwid = np.full(11, targets["ridoh_pwid_windows"][0]["cases_per_year"] / scale)
+    stats = {"idu_dx_counts_per_year": idu, "pwid_dx_counts_per_year": pwid}
+    assert ridoh_hiv_rmse(idu, pwid, targets["first_year"], targets) == pytest.approx(0.0, abs=1e-9)
+    both = hiv_err_all_windows(stats, targets)
+    assert both > 0.5   # the 2015-2019 miss alone is 0.7 (idu) and 2.4 (all-route) cases/yr
+    assert both == pytest.approx(np.sqrt((0.7 ** 2 + 2.416 ** 2) / 5), abs=0.02)

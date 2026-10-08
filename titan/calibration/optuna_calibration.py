@@ -125,7 +125,20 @@ OBJECTIVE_NAMES = ("oud_rmse", "ridoh_hiv_err", "od_err", "moud_traj_rmse")
 # for it.
 #
 #   oud_rmse       0.05   OUD state distribution
-#   ridoh_hiv_err  1.1    statewide PWID diagnoses/yr, RMSE over the RIDOH windows
+#   ridoh_hiv_err  1.0    statewide PWID diagnoses/yr, RMSE over the scored RIDOH
+#                         windows plus the one-sided pre-2015 bound (normally 0).
+#                         Was 1.1 until 2026-10-08. The RMSE averages one zero
+#                         term with the windows, so the per-window tolerance the
+#                         gate buys depends on how many windows are scored: with
+#                         four (to 2026-10-07) 1.1 allowed an RMS window error of
+#                         1.1 x sqrt(5/4) = 1.23/yr; with two (since 2026-10-07,
+#                         hiv.ridoh_scored_window_starts) 1.1 would allow
+#                         1.1 x sqrt(3/2) = 1.35/yr, a silent loosening found in
+#                         review. 1.0 x sqrt(3/2) = 1.22/yr restores the old
+#                         tolerance: +/-49% on the 2.5/yr injection window, +/-19%
+#                         on the 6.59/yr all-route window, or up to 1.73/yr on one
+#                         window if the other is exact. No 2026-10-07 member
+#                         changes (largest member score 0.957 of 1.0).
 #   od_err         0.01   mean squared proportional error, i.e. within ~10% on
 #                         both nonfatal overdose components. Confirmed reachable
 #                         at 0.00327 by job 5053123 and kept 2026-08-24 after B1
@@ -137,7 +150,7 @@ OBJECTIVE_NAMES = ("oud_rmse", "ridoh_hiv_err", "od_err", "moud_traj_rmse")
 #                         passed while Rhode Island rose to 0.81 (close-out of the
 #                         care-seeking refit, section 3.2); the best flat line now
 #                         scores ~0.06 and fails.
-OBJECTIVE_GATES = (0.05, 1.1, 0.01, 0.05)
+OBJECTIVE_GATES = (0.05, 1.0, 0.01, 0.05)
 
 # Model years the overdose rates are measured over, counted back from the end of
 # the run. The three overdose targets are APCD period-3 (2021-2022) averages, so
@@ -1753,6 +1766,29 @@ def ridoh_hiv_rmse(idu_counts_per_year, pwid_counts_per_year, first_year, target
 
     corrected = np.square(np.asarray(errs, dtype=float)) - np.asarray(variances, dtype=float)
     return float(np.sqrt(max(0.0, float(np.mean(corrected)))))
+
+
+def hiv_err_all_windows(stats, targets, bias_correct=True):
+    """The HIV objective scored over EVERY RIDOH window, scored and unscored.
+
+    Since 2026-10-07 the objective scores the 2018-2022 windows only
+    (split_scored_windows). This is the pre-change score, computed from the
+    same stats, so both can be reported side by side for the canonical pick
+    and every ensemble member -- the change was made after the trials were
+    seen, and reporting both is the safeguard. Not used for pass/fail.
+    """
+    t = dict(targets)
+    t["ridoh_windows"] = list(targets["ridoh_windows"]) + list(targets.get("ridoh_windows_unscored", []))
+    t["ridoh_pwid_windows"] = (list(targets["ridoh_pwid_windows"])
+                               + list(targets.get("ridoh_pwid_windows_unscored", [])))
+    return ridoh_hiv_rmse(
+        stats.get("idu_dx_counts_per_year"),
+        stats.get("pwid_dx_counts_per_year"),
+        t["first_year"],
+        t,
+        idu_by_run=stats.get("idu_dx_counts_by_run") if bias_correct else None,
+        pwid_by_run=stats.get("pwid_dx_counts_by_run") if bias_correct else None,
+    )
 
 
 def od_error(stats, targets, bias_correct=True):

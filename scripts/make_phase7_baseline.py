@@ -98,7 +98,19 @@ OUTPUT = REPO / "scenarios" / "scenario_1_baseline.yml"
 
 # Fields whose agreement with the calibration base is the whole point of this
 # script. Checked after generation so a silent structural change fails loudly.
+def _leaf(scenario, dotted):
+    node = scenario
+    for key in dotted.split("."):
+        node = (node or {}).get(key)
+    return node
+
+
 def composition(scenario):
+    # Since 2026-10-08 the anchored parameters are part of the comparison:
+    # scenarios/scenario_1_baseline.yml carried the fitted
+    # hiv_testing.nonclinical_annual 0.346 after the pin to 0.38 and passed
+    # --check, which compared population composition only.
+    anchors = {path: _leaf(scenario, path) for path in sorted(ANCHORED_PATHS_FOR_CHECK)}
     demo = scenario.get("demographics") or {}
     race = sorted(demo)[0] if demo else None
     sex_types = (demo.get(race) or {}).get("sex_type") or {}
@@ -115,10 +127,15 @@ def composition(scenario):
             k: v for k, v in (scenario.get("oud_state") or {}).items()
             if k.startswith("init")
         },
+        "anchors": anchors,
     }
 
 
 SCENARIO_SOURCE = REPO / "titan" / "calibration" / "scenario_source.yml"
+# the data-anchored paths, read from the targets file (one owner)
+ANCHORED_PATHS_FOR_CHECK = tuple(
+    e["path"] for e in (load_yaml(CALIB_YAML)["calibration"].get("anchored_parameters") or [])
+)
 
 
 def overlay_care_layer(scenario):

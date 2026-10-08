@@ -110,11 +110,14 @@ Patient acceptance (scalars outside the setting table):
   moud.acceptance         FITTED. Replaces `moud.reinit_prob` in the search:
                           with care-seeking on, MOUD starts only through
                           encounters, so this is the level lever.
-  hiv_testing.nonclinical_annual  FITTED. Testing outside clinical settings
-                          (syringe services, community). Claims see about 3% of
-                          ED users tested a year, NHBS-PWID says 45% of PWID
-                          are tested a year, so most PWID testing is not
-                          claims-visible clinical testing.
+  hiv_testing.nonclinical_annual  PINNED 0.38 (2026-10-07; fitted 10-01 to 10-07).
+                          Testing outside clinical settings (syringe services,
+                          community), an annual probability applied through a
+                          hazard, so it supplies -ln(1 - 0.38) = 0.48 tests per
+                          PWID-year; clinic encounters add about 0.14, total
+                          0.62 against NHBS-PWID's 0.60 (B1 lever run 7098444:
+                          0.61-0.62). Nothing scored identified it (the
+                          diagnosed share saturates), hence the pin.
 
 USAGE
 -----
@@ -180,7 +183,7 @@ PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / ea
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
 PREP_MONITORING_ATTENDANCE = 0.60       # unsupported attendance (0.55-0.70; registry/CHIA note 7.4)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
-NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): NHBS-PWID 0.60 tests/PWID-yr minus ~0.22 from clinic encounters. Was a fitted placeholder 0.4 from 2026-10-01
+NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): annual probability, -ln(1-0.38) = 0.48 tests/PWID-yr from this route + ~0.14 from clinics = 0.62 vs NHBS 0.60 (B1 job 7098444). Was a fitted placeholder 0.4 from 2026-10-01
 
 
 def read_csv(name):
@@ -411,7 +414,7 @@ SCALARS = [
     # (top-level key under scenario:, field, value, comment)
     ("features", "care_seeking", "true", "the care-setting layer is on; MOUD, testing and PrEP run through encounters"),
     ("hiv_testing", "acceptance", ACCEPT_HIV_TEST, "RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)"),
-    ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): NHBS-PWID 0.60 tests/PWID-yr minus clinic ~0.22; unidentified by the objective, was fitted 2026-10-01 to 10-07"),
+    ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
     ("prep", "acceptance", ACCEPT_PREP, "prescribed once discussed, registry 7.6"),
     ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),

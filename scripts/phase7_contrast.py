@@ -175,7 +175,9 @@ def ensemble_contrasts(reps, outcomes, args):
                 "member_sd": mm.std(ddof=1) if len(mm) > 1 else np.nan,
                 "member_min": mm.min(), "member_max": mm.max(),
                 "share_members_negative": float((mm < 0).mean()),
-                "diff_mean_statewide": diff[oc].mean() * scale if is_count else np.nan,
+                # each (member, seed) difference on its member's own scale
+                "diff_mean_statewide": (float((diff[oc] * diff["member"].map(scale_of)).mean())
+                                        if is_count else np.nan),
                 "horizon_years": float(years.loc[arm]),
             })
     table = pd.DataFrame(pooled)

@@ -569,7 +569,7 @@ scenario:
         sex: 0.5
     start_time: -999
   hiv_testing:
-    nonclinical_annual: 0.38  # care_seeking layer (scripts/make_care_seeking_params.py): PINNED (anchored_parameters, 2026-10-07): NHBS-PWID 0.60 tests/PWID-yr minus clinic ~0.22; unidentified by the objective, was fitted 2026-10-01 to 10-07
+    nonclinical_annual: 0.38  # care_seeking layer (scripts/make_care_seeking_params.py): PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07
     acceptance: 0.55  # care_seeking layer (scripts/make_care_seeking_params.py): RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)
     base_prob_annual: 0.3
     high_risk_mult: 2.0

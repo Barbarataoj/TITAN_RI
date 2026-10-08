@@ -4472,7 +4472,7 @@ hiv_testing:
   moud_early_mult: 3.0
   moud_early_window_months: 3.0
   moud_stable_mult: 1.5
-  nonclinical_annual: 0.34604758300876853
+  nonclinical_annual: 0.38
   oud_mult: 1.5
   post_overdose_mult: 4.0
   post_relapse_mult: 2.5
@@ -4501,7 +4501,7 @@ model:
     run: 0
   time:
     burn_steps: 120
-    num_steps: 240
+    num_steps: 132
     steps_per_year: 12
 moud:
   acceptance: 0.5322189122750579

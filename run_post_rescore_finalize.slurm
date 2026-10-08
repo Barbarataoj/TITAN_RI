@@ -43,7 +43,9 @@ with open(val / "pooled_summary.csv", "w", newline="") as fh:
 passed = [r for r in rows if r.get("pass4") == "True"]
 print(f"re-scored {len(rows)} trials; pass4 on the pooled gate: {len(passed)}: {[r['trial'] for r in passed]}")
 # best = lowest sum of gate-normalized errors among passers (else among all)
-gates = (0.05, 1.1, 0.01, 0.10)
+# one owner for the gates (rule 6): a hard-coded (0.05, 1.1, 0.01, 0.10) carried the
+# pre-2026-10-05 MOUD gate here until 2026-10-08
+sys.path.insert(0, '.'); from titan.calibration.optuna_calibration import OBJECTIVE_GATES as gates
 pool = passed or rows
 best = min(pool, key=lambda r: sum(float(r[f"err_{i}"]) / g for i, g in enumerate(gates)))
 (val / "pass_list.txt").write_text(",".join(r["trial"] for r in passed) + "\n")
