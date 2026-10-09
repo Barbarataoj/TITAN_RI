@@ -147,8 +147,14 @@ def main():
             counts[name] = n / years * s["probability"]                              # per year, statewide
         reach_visits = diff_statewide("reach_visits") / years
         reached_pm = diff_statewide("reached_person_months") / years
-        infections = -diff_statewide("hiv_new_pwid") / years                     # averted per year
+        # Infections averted per year, from the expected-infection (hazard)
+        # estimator when the ensemble carries it (2026-10-09): same expectation
+        # as the counts, without the coin-flip noise that made the counts
+        # unusable at this incidence (SE 1-3 % of the status quo vs 0.3-0.8 %).
+        estimator = "hiv_hazard_pwid" if "hiv_hazard_pwid" in t.index else "hiv_new_pwid"
+        infections = -diff_statewide(estimator) / years
         ledger = {"arm": arm, "horizon_years": years, "infections_averted_per_year": infections,
+                  "infections_estimator": estimator,
                   **{f"n_{k}": v for k, v in counts.items()},
                   "reach_visits_per_year": reach_visits, "reached_person_months_per_year": reached_pm}
         # clinic
