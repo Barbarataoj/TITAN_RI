@@ -66,7 +66,10 @@ def test_dated_ehr_arm_uses_timeline_scalars_and_pool_refresh():
     assert tl["pc_hiv_test_willing"]["parameter"] == "care_seeking|setting|primary_care|p_willing_hiv_test"
     assert tl["pc_hiv_test_willing"]["start_time"] == 133
     assert tl["pc_hiv_test_intensity"]["scalar"] == pytest.approx(1.5)
-    assert tl["pc_prep_intensity"]["scalar"] == pytest.approx(2.6)
+    # since 2026-10-09 the PrEP lever of this arm is the test-and-offer bundle,
+    # not an independent per-visit multiplier
+    assert "pc_prep_intensity" not in tl
+    assert pc["prep_bundle_prob"] == 0.8 and pc["prep_bundle_start_step"] == 133
     assert "pc_prep_willing" not in tl           # efficacy 0 for PrEP willingness in this arm
     assert tl["pc_hiv_test_acceptance"]["parameter"] == "care_seeking|setting|primary_care|acceptance_mult_hiv_test"
     assert tl["pc_hiv_test_acceptance"]["scalar"] == pytest.approx(0.65 / 0.55)
@@ -78,16 +81,30 @@ def test_dated_ehr_arm_uses_timeline_scalars_and_pool_refresh():
 
 
 @pytest.mark.unit
-def test_navigation_arm_is_patient_side_only():
-    arms = gen.build_arms(baseline(), static=True)
-    s, notes = arms["pc3_navigation_same_day_central_static.yml"]
+def test_navigation_arm_is_a_staffed_programme_in_primary_care():
+    """Since 2026-10-09: reach, same-day, warm handoff, adherence support and
+    re-engagement, all in primary care; acceptance as reach multipliers on the
+    baseline values; re-engagement scaled by reach (mean-field)."""
+    b = baseline()
+    b.setdefault("prep", {})["reengagement_start_step"] = -1
+    b["prep"]["reengagement_return_mult"] = 1.0
+    arms = gen.build_arms(b)
+    s, notes = arms["pc3_navigation_same_day_central.yml"]
     pc = s["care_seeking"]["setting"]["primary_care"]
-    assert pc["acceptance_mult_hiv_test"] == pytest.approx(0.83 / 0.55)
-    assert pc["acceptance_mult_prep"] == pytest.approx(0.75 / 0.60)
+    assert pc["reach_prob"] == 0.25 and pc["reach_start_time"] == gen.DEFAULT_START_STEP
+    assert pc["reach_acceptance_mult_hiv_test"] == pytest.approx(0.83 / 0.55)
+    assert pc["reach_acceptance_mult_prep"] == pytest.approx(0.75 / b["prep"]["acceptance"])
+    assert pc["reach_prep_same_day_prob"] == 1.0 and pc["reach_prep_deferred_return_prob"] == 0.8
+    assert pc["reach_prep_adherence_mult"] == pytest.approx(1.26)
+    assert s["prep"]["reengagement_return_mult"] == pytest.approx(1 + 1.9 * 0.25)
+    assert s["prep"]["reengagement_start_step"] == gen.DEFAULT_START_STEP
     for other in ("ED", "sud_treatment", "mental_health"):
-        assert s["care_seeking"]["setting"][other] == baseline()["care_seeking"]["setting"][other]
-    assert s["hiv_testing"]["acceptance"] == 0.55 and s["prep"]["acceptance"] == 0.60
-    assert s["moud"]["acceptance"] == 0.75
+        assert s["care_seeking"]["setting"][other] == b["care_seeking"]["setting"][other]
+    assert pc["p_willing_prep"] == b["care_seeking"]["setting"]["primary_care"]["p_willing_prep"]
+    assert s["hiv_testing"]["acceptance"] == b["hiv_testing"]["acceptance"] and s["prep"]["acceptance"] == b["prep"]["acceptance"]
+    assert b["prep"]["reengagement_return_mult"] == 1.0          # baseline not mutated
+    static, _ = gen.build_arms(b, static=True)["pc3_navigation_same_day_central_static.yml"]
+    assert static["care_seeking"]["setting"]["primary_care"]["reach_start_time"] == -9999
 
 
 @pytest.mark.unit
@@ -136,20 +153,23 @@ def test_chia_programme_arm_sets_reach_fields_only_in_primary_care():
 
 
 @pytest.mark.unit
-def test_outreach_arm_dates_the_reengagement_programme():
-    """pc5 sets the programme start and multiplier on prep only; the baseline
-    and the care-seeking table are untouched (2026-10-08)."""
+def test_ehr_arm_sets_the_bundle_and_injectable_first_is_a_prep_arm():
     b = baseline()
-    b.setdefault("prep", {})["reengagement_start_step"] = -1
-    b["prep"]["reengagement_return_mult"] = 1.0
     arms = gen.build_arms(b)
-    s, notes = arms["pc5_outreach_reengagement_central.yml"]
-    assert s["prep"]["reengagement_start_step"] == gen.DEFAULT_START_STEP
-    assert s["prep"]["reengagement_return_mult"] == pytest.approx(2.9)
-    assert s["care_seeking"] == b["care_seeking"]
-    assert b["prep"]["reengagement_start_step"] == -1          # baseline not mutated
-    static, _ = gen.build_arms(b, static=True)["pc5_outreach_reengagement_central_static.yml"]
-    assert static["prep"]["reengagement_start_step"] == 0
-    for v, m in (("low", 2.0), ("high", 5.1)):
-        s, _ = gen.build_arms(b, variant=v)[f"pc5_outreach_reengagement_{v}.yml"]
-        assert s["prep"]["reengagement_return_mult"] == pytest.approx(m)
+    s, notes = arms["pc2_ehr_opt_out_central.yml"]
+    pc = s["care_seeking"]["setting"]["primary_care"]
+    assert pc["prep_bundle_prob"] == 0.8 and pc["prep_bundle_prob_unwilling"] == 0.15
+    assert pc["prep_bundle_start_step"] == gen.DEFAULT_START_STEP
+    assert "pc_prep_intensity" not in (s.get("timeline_scaling") or {}).get("timeline", {})   # the CDS lever is the bundle now
+    static, _ = gen.build_arms(b, static=True)["pc2_ehr_opt_out_central_static.yml"]
+    assert static["care_seeking"]["setting"]["primary_care"]["prep_bundle_start_step"] == -999
+    inj, notes = arms["pc6_injectable_first_pwid_central.yml"]
+    assert inj["prep"]["injectable_first_pwid_share"] == 0.4
+    assert inj["prep"]["injectable_first_start_step"] == gen.DEFAULT_START_STEP
+    assert inj["care_seeking"] == b["care_seeking"]
+    for v, share in (("low", 0.2), ("high", 0.8)):
+        assert gen.build_arms(b, variant=v)[f"pc6_injectable_first_pwid_{v}.yml"][0]["prep"]["injectable_first_pwid_share"] == share
+    chia, _ = arms["pc4_chia_central.yml"]
+    cpc = chia["care_seeking"]["setting"]["primary_care"]
+    assert cpc["reach_prep_bundle_prob"] == pytest.approx(0.5 + 0.65 * 0.3)
+    assert cpc["reach_prep_adherence_mult"] == pytest.approx(1 + 0.65 * 0.26)

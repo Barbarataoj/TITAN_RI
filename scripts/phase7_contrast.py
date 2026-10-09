@@ -98,6 +98,10 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
     # window per run; `prep` and `care_reached` are per-step stocks, so their
     # sums are person-months.
     for col, name in (("hiv_tests", "hiv_tests"), ("care_encounters_primary_care", "pc_visits"),
+                      # test-and-offer bundle and workload counts (2026-10-09)
+                      ("prep_bundle_offers", "prep_bundle_offers"), ("prep_new_bundled", "prep_starts_bundled"),
+                      ("prep_new_same_day", "prep_starts_same_day"), ("prep_new_deferred", "prep_starts_deferred"),
+                      ("prep_indicated", "prep_indicated_person_months"),
                       ("care_offer_primary_care_hiv_test", "pc_test_offers"),
                       ("care_offer_primary_care_prep", "pc_prep_offers"),
                       ("prep_new", "prep_starts"), ("prep", "prep_person_months"),
@@ -242,6 +246,8 @@ def main():
                             "hiv_averted_prep_pwid_inj_route", "hiv_hazard_all", "hiv_averted_prep_all",
                             "overdose_deaths", "overdose_events", "moud_coverage",
                             "hiv_tests", "pc_visits", "pc_test_offers", "pc_prep_offers", "prep_starts",
+                            "prep_bundle_offers", "prep_starts_bundled", "prep_starts_same_day", "prep_starts_deferred",
+                            "prep_indicated_person_months",
                             "prep_person_months", "prep_monitoring_visits", "reach_visits", "reached_person_months",
                             "prep_injections", "prep_injections_cab_la", "prep_injections_lenacapavir", "prep_injection_visits",
                             "prep_cab_la", "prep_lenacapavir", "prep_oral",

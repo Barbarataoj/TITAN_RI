@@ -136,6 +136,55 @@ class HIVTesting(base_feature.BaseFeature):
         # =================================================
         if hiv_feat.active and not hiv_feat.dx:
             hiv_feat.diagnose(model)
+        elif not hiv_feat.active and model.params.features.care_seeking:
+            # a negative result: the test-and-offer bundle (2026-10-09)
+            self.bundle_prep_after_negative_test(model)
+
+    def bundle_prep_after_negative_test(self, model: "model.TITAN"):
+        """
+        PrEP raised at the visit where the test came back negative. The
+        setting is the one that offered the test this step; the probability is
+        the setting's prep_bundle_prob when the agent's provider there
+        prescribes PrEP, prep_bundle_prob_unwilling otherwise, and at least
+        reach_prep_bundle_prob at an active programme visit. Delivery (same-day
+        or deferred) is the setting's, with the programme's deferred return
+        probability when reached. One bundle per step.
+        """
+        offers_by_setting = getattr(self.agent, "care_offer_by_setting", None) or {}
+        care = getattr(model.params, "care_seeking", None)
+        if care is None:
+            return
+        reached = bool(getattr(self.agent, "care_reach", None))
+        for setting_name, offers in offers_by_setting.items():
+            if not offers.get("hiv_test"):
+                continue
+            try:
+                setting = care.setting[setting_name]
+            except (KeyError, AttributeError, TypeError):
+                continue
+            if model.time < int(getattr(setting, "prep_bundle_start_step", -999)):
+                continue
+            willing = False
+            cs = getattr(self.agent, "care_seeking", None)
+            idx = (getattr(cs, "provider_id", {}) or {}).get(setting_name)
+            pool = (getattr(type(cs), "providers", {}) or {}).get(setting_name, []) if cs is not None else []
+            if idx is not None and idx < len(pool):
+                willing = bool(pool[idx]["prep"]["willing"])
+            p = float(getattr(setting, "prep_bundle_prob", 0.0)) if willing else float(getattr(setting, "prep_bundle_prob_unwilling", 0.0))
+            if reached:
+                p = max(p, float(getattr(setting, "reach_prep_bundle_prob", -1.0)))
+            if p <= 0.0:
+                continue
+            if model.run_random.random() >= p:
+                return
+            same_day = float(getattr(setting, "prep_same_day_prob", 1.0))
+            ret = float(getattr(setting, "prep_deferred_return_prob", 1.0))
+            if reached and float(getattr(setting, "reach_prep_same_day_prob", -1.0)) >= 0:
+                same_day = float(getattr(setting, "reach_prep_same_day_prob"))
+            if reached and float(getattr(setting, "reach_prep_deferred_return_prob", -1.0)) >= 0:
+                ret = float(getattr(setting, "reach_prep_deferred_return_prob"))
+            self.agent.prep.offer_after_negative_test(model, same_day, ret)  # type: ignore[attr-defined]
+            return
 
     # =====================================================
     # Testing probability, two pathways

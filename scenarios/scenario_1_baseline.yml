@@ -15,13 +15,18 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.53766
       intensity_moud: 0.15
-      intensity_prep: 0.02229
+      intensity_prep: 0.01709
       n_providers_ri: 2145
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0558
       p_willing_moud: 0.07
       p_willing_prep: 0.1432
       panel_skew: 0.16
+      prep_bundle_prob: 0.5
+      prep_bundle_prob_unwilling: 0.0
+      prep_bundle_start_step: -999
+      prep_deferred_return_prob: 0.35
+      prep_same_day_prob: 0.2
       visit_heterogeneity_shape: 0.33
       visit_mult_hiv_positive: 1.784
       visit_mult_inj: 2.33
@@ -33,13 +38,18 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.03862
       intensity_moud: 0.75
-      intensity_prep: 0.00576
+      intensity_prep: 0.00442
       n_providers_ri: 1928
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0268
       p_willing_moud: 0.9981
       p_willing_prep: 0.109
       panel_skew: 0.19
+      prep_bundle_prob: 0.5
+      prep_bundle_prob_unwilling: 0.0
+      prep_bundle_start_step: -999
+      prep_deferred_return_prob: 0.35
+      prep_same_day_prob: 0.5
       visit_heterogeneity_shape: 0.2
       visit_mult_hiv_positive: 1.306
       visit_mult_inj: 1.7
@@ -51,13 +61,18 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.1078
       intensity_moud: 0.75
-      intensity_prep: 0.02073
+      intensity_prep: 0.01588
       n_providers_ri: 1833
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.2456
       p_willing_moud: 1.0
       p_willing_prep: 0.0794
       panel_skew: 0.47
+      prep_bundle_prob: 0.5
+      prep_bundle_prob_unwilling: 0.0
+      prep_bundle_start_step: -999
+      prep_deferred_return_prob: 0.35
+      prep_same_day_prob: 0.5
       visit_heterogeneity_shape: 0.62
       visit_mult_hiv_positive: 1.09
       visit_mult_inj: 1.23
@@ -69,13 +84,18 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.06355
       intensity_moud: 1.0
-      intensity_prep: 0.00187
+      intensity_prep: 0.00145
       n_providers_ri: 253
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0938
       p_willing_moud: 0.9688
       p_willing_prep: 0.125
       panel_skew: 0.15
+      prep_bundle_prob: 0.5
+      prep_bundle_prob_unwilling: 0.0
+      prep_bundle_start_step: -999
+      prep_deferred_return_prob: 0.35
+      prep_same_day_prob: 0.5
       visit_heterogeneity_shape: 0.045
       visit_mult_hiv_positive: 0.672
       visit_mult_inj: 1.85

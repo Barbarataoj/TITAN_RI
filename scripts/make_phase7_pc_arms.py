@@ -102,9 +102,17 @@ def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78):
         "reach_intensity_mult_prep": round(rr / 0.65, 4),      # per-visit multiplier so the per-patient-year effect is rr
         "reach_acceptance_mult_prep": 1.0,
         "reach_prep_discontinue_mult": round(1.0 - d * (1.0 - 0.50), 4),   # AHF refill 57.0 vs 32.4 % -> h 0.50
-        "reach_prep_adherence_mult": round(1.0 + d * 0.10, 4),
+        # adherence messaging (2026-10-09): a chatbot can do what PrEPmate's
+        # bidirectional texting did, protective drug levels 72 vs 57 % (x1.26,
+        # PMID 30239620; multi-component feedback RR 1.83, PMID 38814406),
+        # OUD-discounted by d; was x1.10
+        "reach_prep_adherence_mult": round(1.0 + d * 0.26, 4),
         "reach_prep_restart_prob": 0.015,
         "reach_prep_monitoring_mult": round(1.0 + d * 0.22, 4),           # AHF attendance 66.1 vs 53.9 %
+        # the prepared patient at the visit where the test comes back negative
+        # (2026-10-09 bundle): PrEP raised with at least this probability,
+        # whatever the provider's habit; status quo 0.5 at prescribers, 0 at others
+        "reach_prep_bundle_prob": round(0.5 + d * 0.3, 4),
     }
 
 
@@ -125,18 +133,6 @@ REENGAGEMENT_MULT = {"central": 2.9, "low": 2.0, "high": 5.1}
 
 
 STRATEGIES = {
-    "pc5_outreach_reengagement": {
-        "label": "Field outreach re-engaging people who miss an injectable PrEP dose (STAND-IN effect size)",
-        "prep": True,
-        "central": {"reengagement_return_mult": REENGAGEMENT_MULT["central"]},
-        "low": {"reengagement_return_mult": REENGAGEMENT_MULT["low"]},
-        "high": {"reengagement_return_mult": REENGAGEMENT_MULT["high"]},
-        "sources": [
-            "suggested by the clinical reviewer 2026-10-07 (status quo: 10-25 % return after a miss)",
-            "no published return-after-miss effect for PrEP outreach (search 2026-10-08): stand-in",
-            "ceiling: SF drop-in long-acting ART for people experiencing homelessness, 3 % of 637 injections >14 days late (doi 10.1001/jamanetworkopen.2026.20348)",
-        ],
-    },
     "pc4_chia": {
         "label": "CHIA pre-visit chatbot + provider summary (patient-facing programme in primary care)",
         "program": True,
@@ -175,20 +171,29 @@ STRATEGIES = {
     },
     "pc2_ehr_opt_out": {
         "label": "EHR reminder + opt-out default + MA/nurse standing orders (I lever, W to the reach)",
+        # PrEP since 2026-10-09: the clinical-decision-support prompt acts at the
+        # visit where the test comes back negative (the test-and-offer bundle),
+        # not as an independent per-visit multiplier. Prescribing providers raise
+        # PrEP more often (0.5 -> 0.8); the prompt gets some non-prescribers to
+        # act (0 -> 0.15). CDS x1.3 overall / x2.6 among willing (38412047), x4.5
+        # from a near-zero base (40376113), passive BPA null (35225082).
         "central": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.67, "intensity_mult": 1.5},
-            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 2.6},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.65},
+            "bundle": {"prep_bundle_prob": 0.8, "prep_bundle_prob_unwilling": 0.15},
         },
         "low": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.35, "intensity_mult": 1.2},
-            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.3},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.60},
+            "bundle": {"prep_bundle_prob": 0.6, "prep_bundle_prob_unwilling": 0.05},
         },
         "high": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.9, "intensity_mult": 2.0},
-            "prep": {"reach": 1.0, "willing_efficacy": 0.2, "intensity_mult": 4.5},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.2, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.85},
+            "bundle": {"prep_bundle_prob": 0.9, "prep_bundle_prob_unwilling": 0.30},
         },
         "sources": [
             "testing: EHR reminder x4 on receipt sustained 2 yr (24363958); BPA + incentive x5.1 (39214701); passive alert x1.9 (27378268); 70-80% offered under facilitation (23605307)",
@@ -197,26 +202,62 @@ STRATEGIES = {
         ],
     },
     "pc3_navigation_same_day": {
-        "label": "Patient navigation + same-day rapid testing / PrEP start (A lever)",
+        # Since 2026-10-09 a staffed patient-facing programme in primary care (the
+        # same machinery as CHIA), not an acceptance multiplier alone: a peer
+        # navigator enrols a share of patients with OUD at their visits (reach,
+        # capacity-limited), accompanies same-day testing and PrEP starts, hands
+        # deferred starts off warmly, supports adherence and follow-up, and
+        # re-engages missed injectable doses (the 2026-10-08 outreach arm, folded
+        # in here at the reviewer's request). Workload is read from the model:
+        # reached person-months, tests, starts, injection visits, re-engagements.
+        "label": "Peer navigation: same-day testing / PrEP start, warm handoff, adherence support, re-engagement (patient-facing programme)",
+        "program": True,
         "central": {
-            "hiv_test": {"reach": 0.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
-            "prep": {"reach": 0.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
+            "program": {"reach_prob": 0.25, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
+                        "reach_prep_bundle_prob": 0.8, "reach_prep_same_day_prob": 1.0,
+                        "reach_prep_deferred_return_prob": 0.8, "reach_prep_adherence_mult": 1.26,
+                        "reach_prep_monitoring_mult": 1.21, "reach_prep_restart_prob": 0.015},
             "acceptance": {"hiv_test": 0.83, "prep": 0.75},
+            "prep_params": {"reengagement_return_mult": 2.9},
         },
         "low": {
-            "hiv_test": {"reach": 0.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
-            "prep": {"reach": 0.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
+            "program": {"reach_prob": 0.15, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
+                        "reach_prep_bundle_prob": 0.6, "reach_prep_same_day_prob": 0.8,
+                        "reach_prep_deferred_return_prob": 0.6, "reach_prep_adherence_mult": 1.0,
+                        "reach_prep_monitoring_mult": 1.1, "reach_prep_restart_prob": 0.01},
             "acceptance": {"hiv_test": 0.66, "prep": 0.55},
+            "prep_params": {"reengagement_return_mult": 2.0},
         },
         "high": {
-            "hiv_test": {"reach": 0.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
-            "prep": {"reach": 0.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
+            "program": {"reach_prob": 0.40, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
+                        "reach_prep_bundle_prob": 0.9, "reach_prep_same_day_prob": 1.0,
+                        "reach_prep_deferred_return_prob": 0.9, "reach_prep_adherence_mult": 1.6,
+                        "reach_prep_monitoring_mult": 1.3, "reach_prep_restart_prob": 0.03},
             "acceptance": {"hiv_test": 0.85, "prep": 0.77},
+            "prep_params": {"reengagement_return_mult": 5.1},
         },
         "sources": [
             "testing: navigation RR 1.5-1.65 on screening uptake (32700218), cap 0.85 (18421508 nurse-initiated); rapid POC +0.05 (18421508)",
             "PrEP: same-day / on-site offer to PWID accepted 0.55-0.77 (42201314, 33148998, 31944854); referral-out 0.10-0.15 (39886694)",
+            "warm handoff: 81 % attended a first PrEP visit vs 36 % by EHR message and 27 % with a card (34448603)",
+            "adherence support: PrEPmate protective drug levels 72 vs 57 % (x1.26, 30239620); retention 86 vs 71 % (x1.21); multi-component feedback RR 1.83 (38814406)",
+            "re-engagement of missed injectable doses: STAND-IN x2.9 (2.0-5.1), scaled by reach as a mean-field approximation; ceiling SF drop-in LA-ART 3 % >14 d late (doi 10.1001/jamanetworkopen.2026.20348)",
+            "reach 0.25 (0.15-0.40): ASSUMPTION pending navigator caseload data (Jun / Phil, 2026-10-09)",
         ],
+    },
+    "pc6_injectable_first_pwid": {
+        # The clinical reviewer's question (2026-10-07): injectable PrEP for people
+        # who inject. Clinics default to a long-acting injectable for patients who
+        # currently inject; everyone else follows the product trend. Acceptability
+        # of 3-monthly injectable PrEP among people who inject 38 % (1,127-person
+        # survey, three US cities 2019-20; aOR 1.7 vs non-injectors; PMID 36104676).
+        "label": "Injectable-first PrEP for people who inject (share of their starts long-acting)",
+        "prep": True,
+        "prep_start_fields": ["injectable_first_start_step"],
+        "central": {"prep_params": {"injectable_first_pwid_share": 0.4}},
+        "low": {"prep_params": {"injectable_first_pwid_share": 0.2}},
+        "high": {"prep_params": {"injectable_first_pwid_share": 0.8}},
+        "sources": ["acceptability 38 % among people who inject (PMID 36104676); 0.8 = the design ceiling"],
     },
 }
 
@@ -238,20 +279,15 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
         scenario = copy.deepcopy(baseline)
         base = _setting(baseline)
         if spec.get("prep"):
-            # a prep-level programme (re-engagement): dated by its own start step
+            # a prep-level arm (injectable-first): dated by its own start-step fields
             prep = scenario.setdefault("prep", {})
-            prep["reengagement_start_step"] = 0 if static else int(start_step)
-            prep["reengagement_return_mult"] = float(levers["reengagement_return_mult"])
             notes = [f"{spec['label']} [{variant}]",
-                     ("static: programme on from the start" if static
-                      else f"dated: programme starts at step {start_step} (prep.reengagement_start_step)"),
-                     f"  prep.reengagement_return_mult = {prep['reengagement_return_mult']}"]
-            for name, prod in (prep.get("products") or {}).items():
-                if prod.get("type") == "Inj":
-                    r0, gap = float(prod.get("return_prob", 0.0)), int(prod.get("max_gap_steps", 1))
-                    r1 = min(1.0, r0 * prep["reengagement_return_mult"])
-                    notes.append(f"  {name}: return {r0:.3f} -> {r1:.3f} per step over {gap} step(s): "
-                                 f"{1 - (1 - r0) ** gap:.0%} -> {1 - (1 - r1) ** gap:.0%} come back")
+                     ("static: on from the start" if static else f"dated: from step {start_step}")]
+            for k, v in levers["prep_params"].items():
+                prep[k] = v
+                notes.append(f"  prep.{k} = {v}")
+            for k in spec.get("prep_start_fields", []):
+                prep[k] = -999 if static else int(start_step)
             notes.extend(f"  source: {x}" for x in spec["sources"])
             out[f"{key}_{variant}{'_static' if static else ''}.yml"] = (scenario, notes)
             continue
@@ -260,13 +296,36 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
             # only needs reach_start_time; no timeline entry, no pool refresh
             fields = dict(levers["program"])
             fields["reach_start_time"] = -9999 if static else int(start_step)
+            # patient-side acceptance at the programme's visits, as a multiplier
+            # on the baseline acceptance (hiv_testing.acceptance, prep.acceptance)
+            for service, a1 in levers.get("acceptance", {}).items():
+                top, field = ACCEPTANCE_PATH[service]
+                a0 = float(baseline[top][field])
+                if a0 > 0:
+                    fields[f"reach_acceptance_mult_{service}"] = round(a1 / a0, 6)
             notes = [f"{spec['label']} [{variant}]",
                      ("static: programme on from the start, burn-in included" if static
                       else f"dated: programme starts at step {start_step} (reach_start_time)")]
             for k, v in fields.items():
                 _setting(scenario)[k] = v
                 notes.append(f"  {SETTING}.{k} = {v}")
-            notes.append("  other settings (ED, sud_treatment, mental_health) unchanged; W/I/acceptance of primary care unchanged")
+            # prep-level companions of a programme (re-engagement of missed
+            # injectable doses by the navigator), scaled by reach as a mean-field
+            # approximation: the engine's lever is population-wide
+            prep_params = dict(levers.get("prep_params", {}))
+            if prep_params:
+                prep = scenario.setdefault("prep", {})
+                reach = float(fields.get("reach_prob", 1.0))
+                if "reengagement_return_mult" in prep_params:
+                    full = float(prep_params["reengagement_return_mult"])
+                    prep["reengagement_return_mult"] = round(1.0 + (full - 1.0) * reach, 4)
+                    prep["reengagement_start_step"] = 0 if static else int(start_step)
+                    notes.append(f"  prep.reengagement_return_mult = 1 + ({full} - 1) x reach {reach} = {prep['reengagement_return_mult']} (mean-field)")
+                for k, v in prep_params.items():
+                    if k != "reengagement_return_mult":
+                        prep[k] = v
+                        notes.append(f"  prep.{k} = {v}")
+            notes.append("  other settings (ED, sud_treatment, mental_health) unchanged; W/I of primary care unchanged")
             notes.extend(f"  source: {s}" for s in spec["sources"])
             out[f"{key}_{variant}{'_static' if static else ''}.yml"] = (scenario, notes)
             continue
@@ -320,6 +379,15 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
                 timeline[f"pc_{service}_acceptance"] = {
                     "parameter": f"care_seeking|setting|{SETTING}|acceptance_mult_{service}",
                     "start_time": start_step, "stop_time": TIMELINE_STOP, "scalar": round(m1 / m0, 6)}
+        # the test-and-offer bundle at the visit where the test comes back
+        # negative (2026-10-09): setting fields read per step, dated by their
+        # own start step
+        for k, v in levers.get("bundle", {}).items():
+            _setting(scenario)[k] = v
+            notes.append(f"  {SETTING}.{k} = {v} (was {base.get(k, 'unset')})")
+            changed = True
+        if levers.get("bundle"):
+            _setting(scenario)["prep_bundle_start_step"] = -999 if static else int(start_step)
         if not changed:
             notes.append("  WARNING: no lever moves at this variant -- the arm is the baseline")
         if timeline:

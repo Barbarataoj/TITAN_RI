@@ -78,6 +78,23 @@ prep:
       partnership that allows injection acts, i.e. sharing equipment) and
       oud_active (active opioid use disorder, agent.has_oud).
     type: array
+  injectable_first_pwid_share:
+    default: -1.0
+    description: >-
+      Share of PrEP starts among people who currently inject that are a
+      long-acting injectable, from injectable_first_start_step on; the
+      injectable products split it in proportion to their own shares and the
+      oral product takes the rest. -1 = off (every agent follows
+      products.*.share_of_starts). Clinical review 2026-10-07: the novel
+      question is injectable PrEP for people who inject.
+    type: float
+    min: -1.0
+    max: 1.0
+  injectable_first_start_step:
+    default: -999
+    description: First model step injectable_first_pwid_share applies; -999 = always.
+    type: int
+    min: -999
   reengagement_start_step:
     default: -1
     description: >-

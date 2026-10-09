@@ -439,10 +439,15 @@ scenario:
         p_willing_moud: 0.07
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.53766
-        intensity_prep: 0.02229
+        intensity_prep: 0.01709
         intensity_moud: 0.15
         intensity_counseling: 0.0
         visit_prob_after_overdose: 1.0
+        prep_bundle_prob: 0.5
+        prep_bundle_prob_unwilling: 0.0
+        prep_bundle_start_step: -999
+        prep_same_day_prob: 0.2
+        prep_deferred_return_prob: 0.35
       primary_care:
         visit_rate_annual: 5.8131
         visit_heterogeneity_shape: 0.62
@@ -457,10 +462,15 @@ scenario:
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.1078
-        intensity_prep: 0.02073
+        intensity_prep: 0.01588
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
+        prep_bundle_prob: 0.5
+        prep_bundle_prob_unwilling: 0.0
+        prep_bundle_start_step: -999
+        prep_same_day_prob: 0.5
+        prep_deferred_return_prob: 0.35
       sud_treatment:
         visit_rate_annual: 2.3562
         visit_heterogeneity_shape: 0.045
@@ -475,10 +485,15 @@ scenario:
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.06355
-        intensity_prep: 0.00187
+        intensity_prep: 0.00145
         intensity_moud: 1.0
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
+        prep_bundle_prob: 0.5
+        prep_bundle_prob_unwilling: 0.0
+        prep_bundle_start_step: -999
+        prep_same_day_prob: 0.5
+        prep_deferred_return_prob: 0.35
       mental_health:
         visit_rate_annual: 12.9759
         visit_heterogeneity_shape: 0.2
@@ -493,10 +508,15 @@ scenario:
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.03862
-        intensity_prep: 0.00576
+        intensity_prep: 0.00442
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
+        prep_bundle_prob: 0.5
+        prep_bundle_prob_unwilling: 0.0
+        prep_bundle_start_step: -999
+        prep_same_day_prob: 0.5
+        prep_deferred_return_prob: 0.35
   # <<< care_seeking <<<
   classes:
     sex_types:

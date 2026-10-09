@@ -13,7 +13,9 @@ from .. import exposures
 class Prep(base_feature.BaseFeature):
     name = "prep"
     stats = ["prep", "prep_new", "prep_injectable", "prep_oral", "prep_injections",
-             "prep_injection_visits", "prep_indicated"]
+             "prep_injection_visits", "prep_indicated",
+             # test-and-offer bundle (2026-10-09)
+             "prep_bundle_offers", "prep_new_bundled", "prep_new_same_day", "prep_new_deferred"]
     """
         PrEP collects the following stats:
 
@@ -44,6 +46,11 @@ class Prep(base_feature.BaseFeature):
         self.next_due: Optional[int] = None
         self.overdue = False
         self.injections_this_step = 0
+        # test-and-offer bundle: a deferred start waiting for the result visit
+        self.pending_start: Optional[int] = None
+        self.pending_return_prob = 0.0
+        self.bundle_offered_this_step = False
+        self.started_bundled_this_step = ""   # "", "same_day" or "deferred"
 
     @classmethod
     def init_class(cls, params: "ObjMap"):
@@ -96,12 +103,22 @@ class Prep(base_feature.BaseFeature):
         """
         self.injections_this_step = 0
         self.injection_visit_this_step = False
+        self.bundle_offered_this_step = False
+        self.started_bundled_this_step = ""
         if (
             not self.agent.hiv.active  # type: ignore[attr-defined]
             and model.time >= self.agent.location.params.prep.start_time
         ):
             if self.active:
                 self.progress(model)
+            elif self.pending_start is not None and model.time >= self.pending_start:
+                # a deferred bundled start: the result visit one step after the
+                # negative test; the patient returns with pending_return_prob
+                returns = self.pending_return_prob
+                self.pending_start, self.pending_return_prob = None, 0.0
+                if self.eligible(model.time) and model.run_random.random() < returns:
+                    self.enroll(model.run_random, model.time)
+                    self.started_bundled_this_step = "deferred"
             elif self.eligible(model.time):
                 self.initiate(model)
 
@@ -133,6 +150,11 @@ class Prep(base_feature.BaseFeature):
     def set_stats(self, stats: Dict[str, int], time: int):
         if not self.agent.hiv.active and self.indicated():  # type: ignore[attr-defined]
             stats["prep_indicated"] += 1
+        if self.bundle_offered_this_step:
+            stats["prep_bundle_offers"] += 1
+        if self.started_bundled_this_step:
+            stats["prep_new_bundled"] += 1
+            stats["prep_new_same_day" if self.started_bundled_this_step == "same_day" else "prep_new_deferred"] += 1
         if self.active:
             stats["prep"] += 1
             if self.time == time:
@@ -288,6 +310,30 @@ class Prep(base_feature.BaseFeature):
         if model.run_random.random() < acceptance:
             self.enroll(model.run_random, model.time)
 
+    def offer_after_negative_test(self, model: "model.TITAN", same_day_prob: float, return_prob: float):
+        """
+        The test-and-offer bundle (2026-10-09): PrEP raised at the visit where
+        the agent's HIV test came back negative. Called by hiv_testing. The
+        agent must have an indication and not be on PrEP (eligible); accepts
+        with prep.acceptance x the visit's acceptance multiplier; starts the
+        same day with probability same_day_prob, otherwise at a result visit
+        one step later with probability return_prob.
+        """
+        if not self.eligible(model.time):
+            return
+        self.bundle_offered_this_step = True
+        params = self.agent.location.params
+        acceptance = float(getattr(params.prep, "acceptance", 1.0))
+        acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
+        if model.run_random.random() >= acceptance:
+            return
+        if model.run_random.random() < same_day_prob:
+            self.enroll(model.run_random, model.time)
+            self.started_bundled_this_step = "same_day"
+        else:
+            self.pending_start = model.time + 1
+            self.pending_return_prob = float(return_prob)
+
     def enroll(self, rand_gen, time):
         """
         Enroll an agent in PrEP
@@ -313,7 +359,8 @@ class Prep(base_feature.BaseFeature):
         self.next_due = None
         self.overdue = False
         if getattr(params.prep, "use_products", False):
-            self.product = self.draw_product(params.prep.products, rand_gen, time)
+            self.product = self.draw_product(params.prep.products, rand_gen, time,
+                                             drug_type=self.agent.drug_type, prep_params=params.prep)
             spec = params.prep.products[self.product]
             self.type = spec.type
             if self.type == "Inj":
@@ -345,11 +392,13 @@ class Prep(base_feature.BaseFeature):
         return share
 
     @classmethod
-    def draw_product(cls, products, rand_gen, time=None) -> str:
+    def draw_product(cls, products, rand_gen, time=None, drug_type=None, prep_params=None) -> str:
         """
         Draw a product name by its share of starts at `time`. Products with
         share -1 split the remainder (1 minus the others); first product if all
-        shares are 0.
+        shares are 0. With prep.injectable_first_pwid_share set and the agent
+        currently injecting, the injectable products together take that share
+        (split in proportion to their own) and the others the rest.
         """
         names = list(products.keys())
         raw = [cls.product_share(products[n], time) for n in names]
@@ -357,6 +406,16 @@ class Prep(base_feature.BaseFeature):
         n_rem = sum(1 for s in raw if s < 0)
         rem = max(0.0, 1.0 - fixed) / n_rem if n_rem else 0.0
         shares = [s if s >= 0 else rem for s in raw]
+        pwid_share = float(getattr(prep_params, "injectable_first_pwid_share", -1.0)) if prep_params is not None else -1.0
+        start = int(getattr(prep_params, "injectable_first_start_step", -999)) if prep_params is not None else -999
+        if drug_type == "Inj" and pwid_share >= 0 and (time is None or time >= start):
+            is_inj = [getattr(products[n], "type", None) == "Inj" for n in names]
+            s_inj = sum(sh for sh, i in zip(shares, is_inj) if i)
+            s_oth = sum(sh for sh, i in zip(shares, is_inj) if not i)
+            shares = [
+                (sh / s_inj * pwid_share if s_inj > 0 else 0.0) if i else (sh / s_oth * (1.0 - pwid_share) if s_oth > 0 else 0.0)
+                for sh, i in zip(shares, is_inj)
+            ]
         total = sum(shares)
         if total <= 0:
             return names[0]

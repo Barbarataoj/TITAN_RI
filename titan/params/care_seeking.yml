@@ -126,6 +126,58 @@ care_seeking:
         description: "Multiplier on prep.acceptance for a PrEP offer made in this setting (see acceptance_mult_hiv_test). Default 1.0."
         default: 1.0
         min: 0.0
+      # Test-and-offer bundle (2026-10-09, Jun / clinical review): PrEP is
+      # raised at the visit where an HIV test comes back negative, for an agent
+      # with an indication. Replaces nothing: the independent per-visit PrEP
+      # offer (p_willing_prep x intensity_prep) stays for conversations without
+      # a test. All off by default (bundle probabilities 0).
+      prep_bundle_prob:
+        type: float
+        description: "Probability PrEP is raised after a negative HIV test at this setting when the agent's provider prescribes PrEP (willing). 0 = off."
+        default: 0.0
+        min: 0.0
+        max: 1.0
+      prep_bundle_prob_unwilling:
+        type: float
+        description: "Same, when the provider does not prescribe PrEP (e.g. a clinical-decision-support prompt or a prepared patient gets a non-prescriber to act). 0 = off."
+        default: 0.0
+        min: 0.0
+        max: 1.0
+      prep_bundle_start_step:
+        type: int
+        description: "First model step the bundle applies (dated arms); -999 = always."
+        default: -999
+        min: -999
+      prep_same_day_prob:
+        type: float
+        description: "Share of bundled PrEP starts prescribed at the testing visit (same-day); the rest are deferred to a result visit one step later."
+        default: 1.0
+        min: 0.0
+        max: 1.0
+      prep_deferred_return_prob:
+        type: float
+        description: "Probability a deferred patient returns and starts PrEP at the next step (referral-out / result visit)."
+        default: 1.0
+        min: 0.0
+        max: 1.0
+      reach_prep_bundle_prob:
+        type: float
+        description: "At an active programme visit, the bundle probability is at least this, whatever the provider's willingness (a prepared patient). -1 = off."
+        default: -1.0
+        min: -1.0
+        max: 1.0
+      reach_prep_deferred_return_prob:
+        type: float
+        description: "At an active programme visit, the deferred return probability (a navigator's warm handoff). -1 = off."
+        default: -1.0
+        min: -1.0
+        max: 1.0
+      reach_prep_same_day_prob:
+        type: float
+        description: "At an active programme visit, the share of bundled PrEP starts prescribed the same day (a navigator arranging a same-day start). -1 = off (the setting's prep_same_day_prob)."
+        default: -1.0
+        min: -1.0
+        max: 1.0
       acceptance_mult_moud:
         type: float
         description: "Multiplier on moud.acceptance for a MOUD offer made in this setting (see acceptance_mult_hiv_test). Default 1.0."

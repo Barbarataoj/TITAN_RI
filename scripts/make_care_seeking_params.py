@@ -188,6 +188,33 @@ ACCEPT_PREP = 0.40       # starts once discussed. Clinical review 2026-10-07 (Ph
 # Cohort share 0.357 (all who inject; 26 % of those who do not, through a
 # partner who injects, is MSM or is diagnosed). Re-measure if the rule changes.
 PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.375, "mental_health": 0.430}
+# Test-and-offer bundle (2026-10-09, Jun / clinical review): PrEP raised at the
+# visit where an HIV test comes back negative, for a patient with an indication.
+#   PREP_BUNDLE_PROB_WILLING   P(PrEP raised | negative test, provider prescribes PrEP).
+#       No direct US primary-care measure; bounds: 1.1 % of eligible patients
+#       receive PrEP in a year (PMID 37795848), 8 % at one academic centre
+#       (PMC9580717), 15-25 % of at-risk patients have it discussed (registry
+#       7.6). 0.5 (0.3-0.8) among prescribers.
+#   PREP_SAME_DAY              share prescribed at the testing visit; the rest deferred
+#       to a result visit. Same-day programmes feasible (PMID 33128874, 31341933);
+#       no measured share among primary-care prescribers: 0.5 (0.3-0.8),
+#       ASSUMPTION consistent with the clinical review ("some clinicians prescribe
+#       right away and only call if positive"); ED 0.2.
+#   PREP_DEFERRED_RETURN       P(returns and starts | deferred): 43 % attended a first
+#       PrEP visit after a co-located referral (81 % warm handoff, 36 % EHR message,
+#       27 % card; PMID 34448603), 45 % after partner-services referral (PMID
+#       35797587), 51 % returned for results at rural syringe programmes (PMID
+#       39886694). 0.35 (0.25-0.45); a navigator's warm handoff 0.8.
+#   PREP_BUNDLED_SHARE_OF_STARTS  MEASURED: with the bundle at these values and the
+#       independent offer rate unchanged, 2022 PrEP starts rose 29.2 % on trial 26
+#       (job 7231474, 8 x 40, common random numbers), i.e. the bundle supplies
+#       0.292 / 1.292 = 0.226 of starts. The independent per-visit rate is solved
+#       against the remaining share so 2022 receipt is unchanged.
+PREP_BUNDLE_PROB_WILLING = 0.5
+PREP_BUNDLE_PROB_UNWILLING = 0.0
+PREP_SAME_DAY = {"ED": 0.2, "primary_care": 0.5, "sud_treatment": 0.5, "mental_health": 0.5}
+PREP_DEFERRED_RETURN = 0.35
+PREP_BUNDLED_SHARE_OF_STARTS = 0.226
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
@@ -364,12 +391,14 @@ def derive(verbose=True):
         p_test = p_test_claims if s == "ED" else p_test_claims * test_factor
         p_prep = row.prep_or_pep / row.n_denominator_hiv_negative
         i_test, ok_t = solve_intensity(w_test, ACCEPT_HIV_TEST, p_test, d)
-        i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep / PREP_INDICATED_SHARE[s], d)
+        p_prep_residual = p_prep * (1.0 - PREP_BUNDLED_SHARE_OF_STARTS)       # the bundle supplies the rest
+        i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep_residual / PREP_INDICATED_SHARE[s], d)
         say(f"receipt {YEAR}: HIV test {int(row.lab_test)}/{int(row.n_denominator_hiv_negative)} = {p_test_claims:.4f} same-claim"
             + ("" if s == "ED" else f" x {test_factor:.2f} = {p_test:.4f} corrected")
             + f", PrEP/PEP {int(row.prep_or_pep)} = {p_prep:.4f}  [APCD job3a]")
         say(f"intensity_hiv_test: solve {w_test:.3f} * E[1-(1-I*{ACCEPT_HIV_TEST})^n] = {p_test:.4f} -> I = {i_test:.4f}{'' if ok_t else '  UNREACHABLE, capped at 1'}")
-        say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} / indicated share {PREP_INDICATED_SHARE[s]:.3f} = {p_prep / PREP_INDICATED_SHARE[s]:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
+        say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} x (1 - bundled {PREP_BUNDLED_SHARE_OF_STARTS}) / indicated share {PREP_INDICATED_SHARE[s]:.3f} = {p_prep_residual / PREP_INDICATED_SHARE[s]:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
+        say(f"test-and-offer bundle: P(PrEP raised | negative test) {PREP_BUNDLE_PROB_WILLING} at prescribing providers, same-day {PREP_SAME_DAY[s]}, deferred return {PREP_DEFERRED_RETURN}")
         say(f"intensity_moud = {INTENSITY_MOUD[s]}  [{INTENSITY_MOUD_SOURCE[s]}]")
 
         out[s] = {
@@ -390,6 +419,11 @@ def derive(verbose=True):
             "intensity_moud": INTENSITY_MOUD[s],
             "intensity_counseling": 0.0,
             "visit_prob_after_overdose": ED_VISIT_AFTER_OD if s == "ED" else 0.0,
+            "prep_bundle_prob": PREP_BUNDLE_PROB_WILLING,
+            "prep_bundle_prob_unwilling": PREP_BUNDLE_PROB_UNWILLING,
+            "prep_bundle_start_step": -999,
+            "prep_same_day_prob": PREP_SAME_DAY[s],
+            "prep_deferred_return_prob": PREP_DEFERRED_RETURN,
         }
         say(f"visit_prob_after_overdose = {out[s]['visit_prob_after_overdose']}  "
             + ("[assumption: claims-defined nonfatal overdoses are ED-treated by construction]" if s == "ED" else "[none]"))

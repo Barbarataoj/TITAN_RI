@@ -778,3 +778,71 @@ def test_reengagement_raises_return_after_a_missed_injection_from_its_start(make
         model.run_random = FakeRandom(0.7); model.time = 2    # 0.7 >= 0.5, < 0.8
         a.prep.progress(model)
         assert (not a.prep.overdue) is expect_return, (start, a.prep.overdue)
+
+
+# ---------------------------------------- test-and-offer bundle, injectable-first (2026-10-09)
+
+@pytest.mark.unit
+def test_offer_after_negative_test_same_day_and_deferred(make_model, make_agent):
+    model = make_model()
+    model.time = 20
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid"]
+    a.location.params.prep.start_time = 0
+    a.location.params.prep.acceptance = 0.5
+    a.care_offer_mult = {"prep": 1.0}
+    Prep.counts[a.race] = 0
+    # declines (0.7 >= acceptance 0.5): offered, not started
+    model.run_random = FakeRandom(0.7)
+    a.prep.offer_after_negative_test(model, same_day_prob=1.0, return_prob=1.0)
+    assert a.prep.bundle_offered_this_step and not a.prep.active
+    # accepts, same day
+    model.run_random = FakeRandom(0.1)
+    a.prep.offer_after_negative_test(model, same_day_prob=1.0, return_prob=1.0)
+    assert a.prep.active and a.prep.time == 20 and a.prep.started_bundled_this_step == "same_day"
+    # deferred: accepted (0.1 < 0.5) but 0.1 >= same_day 0.0 -> pending next step
+    b = make_agent(DU="Inj")
+    b.location.params.prep.target_model = ["pwid"]; b.location.params.prep.start_time = 0
+    b.location.params.prep.acceptance = 0.5; b.care_offer_mult = {"prep": 1.0}
+    b.prep.offer_after_negative_test(model, same_day_prob=0.0, return_prob=0.4)
+    assert not b.prep.active and b.prep.pending_start == 21 and b.prep.pending_return_prob == 0.4
+    model.time = 21
+    model.run_random = FakeRandom(0.6)            # does not return (0.6 >= 0.4)
+    b.prep.update_agent(model)
+    assert not b.prep.active and b.prep.pending_start is None
+    c = make_agent(DU="Inj")
+    c.location.params.prep.target_model = ["pwid"]; c.location.params.prep.start_time = 0
+    c.location.params.prep.acceptance = 0.5; c.care_offer_mult = {"prep": 1.0}
+    model.time = 30; model.run_random = FakeRandom(0.1)
+    c.prep.offer_after_negative_test(model, same_day_prob=0.0, return_prob=0.4)
+    model.time = 31; model.run_random = FakeRandom(0.2)   # returns (0.2 < 0.4)
+    c.prep.update_agent(model)
+    assert c.prep.active and c.prep.time == 31 and c.prep.started_bundled_this_step == "deferred"
+    from collections import defaultdict
+    stats = defaultdict(int); c.prep.set_stats(stats, 31)
+    assert stats["prep_new_bundled"] == 1 and stats["prep_new_deferred"] == 1 and stats["prep_new_same_day"] == 0
+    # no indication -> no offer
+    d = make_agent(DU="NonInj")
+    d.location.params.prep.target_model = ["pwid"]; d.location.params.prep.start_time = 0
+    d.prep.offer_after_negative_test(model, 1.0, 1.0)
+    assert not d.prep.bundle_offered_this_step and not d.prep.active
+
+
+@pytest.mark.unit
+def test_injectable_first_for_people_who_inject(make_agent):
+    from titan.parse_params import ObjMap
+    products = ObjMap({"oral": {"type": "Oral", "share_of_starts": -1.0},
+                       "cab_la": {"type": "Inj", "share_of_starts": 0.1},
+                       "lenacapavir": {"type": "Inj", "share_of_starts": 0.2}})
+    pp = ObjMap({"injectable_first_pwid_share": 0.8, "injectable_first_start_step": 133})
+    # off: draw 0.5 falls in oral's 0.7 remainder
+    assert Prep.draw_product(products, FakeRandom(0.5), 200) == "oral"
+    # on for people who inject from step 133: injectables take 0.8 (cab 0.8/3 = 0.267, len 0.533),
+    # oral 0.2; cumulated in product order: oral [0, 0.2), cab [0.2, 0.467), len [0.467, 1]
+    assert Prep.draw_product(products, FakeRandom(0.1), 200, drug_type="Inj", prep_params=pp) == "oral"
+    assert Prep.draw_product(products, FakeRandom(0.3), 200, drug_type="Inj", prep_params=pp) == "cab_la"
+    assert Prep.draw_product(products, FakeRandom(0.5), 200, drug_type="Inj", prep_params=pp) == "lenacapavir"
+    assert Prep.draw_product(products, FakeRandom(0.9), 200, drug_type="Inj", prep_params=pp) == "lenacapavir"
+    # not yet started, or not injecting: unchanged
+    assert Prep.draw_product(products, FakeRandom(0.5), 100, drug_type="Inj", prep_params=pp) == "oral"
+    assert Prep.draw_product(products, FakeRandom(0.5), 200, drug_type="NonInj", prep_params=pp) == "oral"
