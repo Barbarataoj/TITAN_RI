@@ -876,7 +876,7 @@ def set_oud_initial_conditions(scenario, calib):
             n += 1
     return n, inj_ppl
 
-def run_titan(params_file, output_dir, n_reps=None, score_t_max=None):
+def run_titan(params_file, output_dir, n_reps=None, score_t_max=None, run_seed_base=None):
     # Monte-Carlo reps are driven ONLY by the -n/--nMC CLI flag; params.model.num_reps
     # is dead config (nothing in the engine reads it). Default 10 per CALIBRATION_PLAN;
     # override with TITAN_CALIB_REPS for smoke tests. Reps append to one basicReport.txt
@@ -892,8 +892,16 @@ def run_titan(params_file, output_dir, n_reps=None, score_t_max=None):
         sys.executable, "-m", "titan.run_titan",
         "-p", str(params_file),
         "-o", str(output_dir),
-        "-n", str(n_reps),
     ]
+    if run_seed_base is None:
+        cmd += ["-n", str(n_reps)]
+    else:
+        # Common random numbers (2026-10-09): replicate i runs with
+        # model.seed.run = run_seed_base + i, so two scenarios validated with
+        # the same base share every stream and differ only where their
+        # parameters make them differ. A sweep over the seed, one replicate
+        # per value (drange's stop is exclusive).
+        cmd += ["-n", "1", "-w", f"model.seed.run:{int(run_seed_base)}:{int(run_seed_base) + int(n_reps)}:1"]
     subprocess.run(cmd, check=True)
 
     report = output_dir / "basicReport.txt"

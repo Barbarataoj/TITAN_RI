@@ -74,6 +74,18 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
         "overdose_deaths": by_run_all["overdose_deaths"].sum(),
         "overdose_events": by_run_all["overdose_events"].sum(),
     })
+    # Expected infections (2026-10-09): the hazard the engine rolled, summed
+    # over exposures; same expectation as the counts, without the coin-flip
+    # noise. _averted_prep is the part of the hazard PrEP removed (direct
+    # protection only; onward transmission it prevents shows up in the hazard).
+    for col, name in (("hiv_hazard", "hiv_hazard_pwid"), ("hiv_hazard_inj", "hiv_hazard_pwid_inj_route"),
+                      ("hiv_hazard_averted_prep", "hiv_averted_prep_pwid"),
+                      ("hiv_hazard_averted_prep_inj", "hiv_averted_prep_pwid_inj_route")):
+        if col in inj:
+            out[name] = by_run_inj[col].sum()
+    if "hiv_hazard" in df:
+        out["hiv_hazard_all"] = by_run_all["hiv_hazard"].sum()
+        out["hiv_averted_prep_all"] = by_run_all["hiv_hazard_averted_prep"].sum()
     # coverage: mean over steps of (moud_active / oud_active) per run
     cov = (df.groupby(["run_id", "t"])[["moud_active", "oud_active"]].sum())
     cov = (cov["moud_active"] / cov["oud_active"].replace(0, np.nan)).groupby("run_id").mean()
@@ -167,11 +179,19 @@ def ensemble_contrasts(reps, outcomes, args):
                     "diff_statewide": row[oc] * scale_of(member) if is_count else np.nan,
                 })
             mm = by_member[oc]
+            # Two standard errors for the pooled difference (2026-10-09): the
+            # spread of the member means (parameter uncertainty + noise, but
+            # an 11-sample SD that can come out small by chance: it did on
+            # 2026-10-08, 1.7x too small) and the Monte Carlo error implied by
+            # each member's own seeds. The reported diff_se is the larger.
+            se_members = mm.std(ddof=1) / np.sqrt(len(mm)) if len(mm) > 1 else np.nan
+            se_mc = float(np.sqrt(np.nanmean(by_member_se[oc] ** 2) / len(mm))) if len(mm) else np.nan
             pooled.append({
                 "arm": arm, "outcome": oc, "n_members": len(mm), "n_member_seed": len(diff),
                 "baseline_mean": base.loc[common][oc].mean(), "arm_mean": a.loc[common][oc].mean(),
                 "diff_mean": diff[oc].mean(),
-                "diff_se": mm.std(ddof=1) / np.sqrt(len(mm)) if len(mm) > 1 else np.nan,
+                "diff_se": np.nanmax([se_members, se_mc]),
+                "diff_se_members": se_members, "diff_se_mc": se_mc,
                 "member_sd": mm.std(ddof=1) if len(mm) > 1 else np.nan,
                 "member_min": mm.min(), "member_max": mm.max(),
                 "share_members_negative": float((mm < 0).mean()),
@@ -218,6 +238,8 @@ def main():
         reps = pd.concat(pool.map(_one, [(d, args.t_min, args.t_max) for d in dirs]))
 
     outcomes = [c for c in ("hiv_new_pwid", "hiv_new_pwid_inj_route", "hiv_dx_new_pwid",
+                            "hiv_hazard_pwid", "hiv_hazard_pwid_inj_route", "hiv_averted_prep_pwid",
+                            "hiv_averted_prep_pwid_inj_route", "hiv_hazard_all", "hiv_averted_prep_all",
                             "overdose_deaths", "overdose_events", "moud_coverage",
                             "hiv_tests", "pc_visits", "pc_test_offers", "pc_prep_offers", "prep_starts",
                             "prep_person_months", "prep_monitoring_visits", "reach_visits", "reached_person_months",

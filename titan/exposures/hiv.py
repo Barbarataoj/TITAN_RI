@@ -22,6 +22,20 @@ class HIV(base_exposure.BaseExposure):
         "hiv_dx_new_sex",
         "hiv_new_background",
         "hiv_dx_new_background",
+        # Expected infections (2026-10-09): the sum, over every exposure of a
+        # susceptible agent this step, of the probability of conversion the
+        # engine then rolled -- the hazard, before the coin flip. Its total
+        # has the same expectation as hiv_new and none of the Bernoulli noise,
+        # which at Rhode Island's incidence is 60% of the variance of a run's
+        # infection count. _averted_prep is the part of the hazard that the
+        # agent's PrEP removed: the probability the same exposures would have
+        # carried without it, minus the probability they carried.
+        "hiv_hazard",
+        "hiv_hazard_inj",
+        "hiv_hazard_sex",
+        "hiv_hazard_background",
+        "hiv_hazard_averted_prep",
+        "hiv_hazard_averted_prep_inj",
     ]
     """
         HIV collects the following stats:
@@ -88,6 +102,32 @@ class HIV(base_exposure.BaseExposure):
         self.dx_time: Optional[int] = None
         self.aids = False
         self.acquisition_route: Optional[str] = None
+        # per-step expected-infection accumulators (see stats); reset whenever a
+        # new time is seen, so the order of expose() and update_agent() within
+        # a step does not matter
+        self._hazard_time: Optional[int] = None
+        self._hazard: Dict[str, float] = {}
+
+    def record_hazard(self, time: int, route: str, p: float, averted: float = 0.0):
+        """
+        Accumulate this step's expected infections for a susceptible agent:
+        `p`, the conversion probability the engine rolls for one exposure, and
+        `averted`, the probability PrEP removed from that exposure. Pure
+        bookkeeping, no random draw.
+        """
+        if self._hazard_time != time:
+            self._hazard_time = time
+            self._hazard = {}
+        h = self._hazard
+        h["hiv_hazard"] = h.get("hiv_hazard", 0.0) + p
+        key = {"injection": "hiv_hazard_inj", "sex": "hiv_hazard_sex",
+               "background": "hiv_hazard_background"}.get(route)
+        if key:
+            h[key] = h.get(key, 0.0) + p
+        if averted:
+            h["hiv_hazard_averted_prep"] = h.get("hiv_hazard_averted_prep", 0.0) + averted
+            if route == "injection":
+                h["hiv_hazard_averted_prep_inj"] = h.get("hiv_hazard_averted_prep_inj", 0.0) + averted
 
     @classmethod
     def init_class(cls, params):
@@ -280,6 +320,12 @@ class HIV(base_exposure.BaseExposure):
         # Case 2: agent is HIV-  --> apply background FOI from non-OUD partners
         p_background = self.get_background_foi_probability(model)  # NEW
 
+        # expected-infection bookkeeping (no random draw)
+        averted = 0.0
+        if getattr(getattr(self.agent, "prep", None), "active", False):
+            averted = max(0.0, self.get_background_foi_probability(model, skip_prep=True) - p_background)
+        self.record_hazard(model.time, "background", p_background, averted)
+
         if p_background > 0.0 and model.run_random.random() < p_background:
             # Background FOI stands in for partners outside the modelled OUD
             # population and is sexual by construction, so it is not attributed
@@ -317,6 +363,9 @@ class HIV(base_exposure.BaseExposure):
             cls.dx_counts[agent.race][agent.sex_type] -= 1
 
     def set_stats(self, stats: Dict[str, int], time: int):
+        if self._hazard_time == time:
+            for key, value in self._hazard.items():
+                stats[key] += value
         if self.active:
             stats["hiv"] += 1
             # One counter per incident route. "seed" is deliberately not counted:
@@ -374,6 +423,16 @@ class HIV(base_exposure.BaseExposure):
             model, interaction, partner, num_acts
         )
 
+        # expected-infection bookkeeping (no random draw): the hazard this
+        # exposure carries, and the share PrEP removed from it
+        averted = 0.0
+        if getattr(getattr(partner, "prep", None), "active", False):
+            p_unprotected = agent_.hiv.get_transmission_probability(  # type: ignore[attr-defined]
+                model, interaction, partner, num_acts, skip_prep=True
+            )
+            averted = max(0.0, p_unprotected - p)
+        partner.hiv.record_hazard(model.time, interaction, p, averted)  # type: ignore[attr-defined]
+
         if model.run_random.random() < p:
             # if agent HIV+ partner becomes HIV+
             partner.hiv.convert(model, interaction)  # type: ignore[attr-defined]
@@ -384,6 +443,7 @@ class HIV(base_exposure.BaseExposure):
         interaction: str,
         partner: "agent.Agent",
         num_acts: int,
+        skip_prep: bool = False,
     ) -> float:
         """
         Determines the probability of an hiv transmission event from agent to partner based on
@@ -441,6 +501,8 @@ class HIV(base_exposure.BaseExposure):
             # time-dependent acquisition multiplier (injectable PrEP decay,
             # vaccine waning) would have evaluated at the wrong moment; oral
             # PrEP ignores the argument, so calibrated results are unchanged
+            if skip_prep and feature.name == "prep":
+                continue  # the counterfactual without PrEP (expected-infection bookkeeping)
             p *= partner_feature.get_acquisition_risk_multiplier(model.time, interaction)
 
         # Scaling parameter for acute HIV infections
@@ -550,7 +612,7 @@ class HIV(base_exposure.BaseExposure):
             return getattr(by_sex, sex_type, None)
 
     # NEW: helper for background HIV risk from non-OUD partners
-    def get_background_foi_probability(self, model: "model.TITAN") -> float:
+    def get_background_foi_probability(self, model: "model.TITAN", skip_prep: bool = False) -> float:
         """
         Compute per-timestep HIV acquisition probability from non-OUD partners
         (background force-of-infection) for HIV-susceptible agents.
@@ -650,6 +712,8 @@ class HIV(base_exposure.BaseExposure):
         # apply; use model.time rather than self.time since self.time is only
         # set once this (currently HIV-) agent converts.
         for feature in model.features:
+            if skip_prep and feature.name == "prep":
+                continue  # the counterfactual without PrEP (expected-infection bookkeeping)
             agent_feature = getattr(self.agent, feature.name)
             p_background *= agent_feature.get_acquisition_risk_multiplier(
                 model.time, "sex"

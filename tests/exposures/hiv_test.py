@@ -641,3 +641,57 @@ def test_deprecated_background_per_act_key_sentinel_passes():
         )
     )
     HIV._check_deprecated_background_keys(params)
+
+
+# ------------------------------------------- expected-infection hazard (2026-10-09)
+
+@pytest.mark.unit
+def test_expose_records_the_hazard_and_what_prep_averted(make_model, make_agent):
+    """The hazard recorded equals the probability the engine rolls; with the
+    susceptible partner on adherent oral PrEP, averted = p without PrEP - p
+    with it; nothing is recorded for an uninfected pair; the roll is unchanged."""
+    model = make_model()
+    model.run_random = FakeRandom(1.1)        # never converts
+    model.time = 7
+    a = make_agent(); p = make_agent()
+    a.partners["Sex"] = set(); p.partners["Sex"] = set()
+    rel = Relationship(a, p, 10, bond_type="Sex")
+    HIV.expose(model, "sex", rel, 10)
+    assert p.hiv._hazard == {} and a.hiv._hazard == {}       # neither infected
+    a.hiv.active = True
+    HIV.expose(model, "sex", rel, 10)
+    p_roll = a.hiv.get_transmission_probability(model, "sex", p, 10)
+    assert p.hiv._hazard["hiv_hazard"] == pytest.approx(p_roll)
+    assert p.hiv._hazard["hiv_hazard_sex"] == pytest.approx(p_roll)
+    assert "hiv_hazard_averted_prep" not in p.hiv._hazard
+    assert p.hiv.active is False
+    # same partner on adherent oral PrEP
+    p.prep.active = True; p.prep.type = "Oral"; p.prep.adherent = True; p.prep.last_dose_time = 7
+    model.time = 8
+    HIV.expose(model, "sex", rel, 10)
+    with_prep = a.hiv.get_transmission_probability(model, "sex", p, 10)
+    without = a.hiv.get_transmission_probability(model, "sex", p, 10, skip_prep=True)
+    assert without > with_prep > 0
+    assert p.hiv._hazard_time == 8                              # reset on the new step
+    assert p.hiv._hazard["hiv_hazard"] == pytest.approx(with_prep)
+    assert p.hiv._hazard["hiv_hazard_averted_prep"] == pytest.approx(without - with_prep)
+    # set_stats emits this step's hazard once, for the current step only
+    stats = {k: 0 for k in HIV.stats}
+    p.hiv.set_stats(stats, 8)
+    assert stats["hiv_hazard"] == pytest.approx(with_prep)
+    assert stats["hiv_hazard_averted_prep"] == pytest.approx(without - with_prep)
+    stats = {k: 0 for k in HIV.stats}
+    p.hiv.set_stats(stats, 9)
+    assert stats["hiv_hazard"] == 0
+
+
+@pytest.mark.unit
+def test_background_exposure_records_its_hazard(make_model, make_agent):
+    model = make_model()
+    model.run_random = FakeRandom(1.1)
+    model.time = 3
+    a = make_agent()
+    p_bg = a.hiv.get_background_foi_probability(model)
+    a.hiv.update_agent(model)
+    assert a.hiv._hazard.get("hiv_hazard_background", 0.0) == pytest.approx(p_bg)
+    assert a.hiv._hazard.get("hiv_hazard", 0.0) == pytest.approx(p_bg)

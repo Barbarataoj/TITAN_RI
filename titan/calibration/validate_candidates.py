@@ -456,6 +456,12 @@ def main():
     # (2026-10-08: the fixed list shares three seeds with the search's own).
     override = os.environ.get("TITAN_VAL_POP_SEEDS", "").strip()
     seeds = [int(x) for x in override.split(",") if x.strip()] if override else POP_SEEDS[:n_seeds]
+    # TITAN_VAL_CRN_BASE=<int>: common random numbers. Replicate i of population
+    # seed s runs with model.seed.run = base + 1000 x (index of s) + i, the same
+    # for every trial in the batch, so arms of a Phase 7 ensemble share their
+    # streams with the status quo (2026-10-09). Unset: fresh run seeds.
+    crn = os.environ.get("TITAN_VAL_CRN_BASE", "").strip()
+    crn_base = int(crn) if crn else None
 
     targets = load_targets()
     # Score every report over the calibration window only (steps <= 132), so a
@@ -464,6 +470,7 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Validating trials {trials} over {len(seeds)} population seeds x {n_reps} reps")
     print(f"Population seeds: {seeds}")
+    print("Run seeds: " + (f"common random numbers from base {crn_base}" if crn_base is not None else "fresh per replicate"))
     print(f"Trial scenarios from: {TRIAL_DIR}")
     print(f"Outputs to:           {OUT_DIR}\n", flush=True)
 
@@ -489,7 +496,8 @@ def main():
             write_yaml(yml, scenario)
 
             print(f"--- {tag}", flush=True)
-            stats = run_titan(yml, outdir, n_reps=n_reps, score_t_max=t_max)
+            run_base = None if crn_base is None else crn_base + 1000 * seeds.index(seed)
+            stats = run_titan(yml, outdir, n_reps=n_reps, score_t_max=t_max, run_seed_base=run_base)
             errs = multi_error(stats, targets)
 
             row = build_row(trial, seed, stats, targets, errs)
