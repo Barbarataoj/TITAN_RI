@@ -244,7 +244,17 @@ PREP_SAME_DAY = {"ED": 0.2, "primary_care": 0.5, "sud_treatment": 0.5, "mental_h
 PREP_REFERRAL_PROB = 0.10                # derived (Blackstock / Petroll / Edelman), range 0.05-0.30
 PREP_REFERRAL_RETURN = {"ED": 0.20, "primary_care": 0.25, "sud_treatment": 0.25, "mental_health": 0.25}
 PREP_DEFERRED_RETURN = {"ED": PREP_REFERRAL_RETURN["ED"], "primary_care": 0.35, "sud_treatment": 0.35, "mental_health": 0.35}
-PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.121, "primary_care": 0.231, "sud_treatment": 0.401, "mental_health": 0.025}
+# Values-on measurement (referral 0.10, non-injector testing 0.20; chain_fix_members_on_2026-10-12,
+# jobs 7328908-11, read-outs 7328917 / 7329675): naive B/I0 ED 0.165 (SE 0.014), PC 0.433
+# (0.020), SUD 0.679 (0.090), MH 0.048 (0.006); statewide 0.265. With the referral path the
+# test-linked starts take 5.2 % of the independent path's people (independent starts 1.418
+# with the bundle on vs 1.491 off, delta = 0.0515), so the constant is c_s = B_s/I0_s - delta,
+# which makes the re-solved total equal the no-bundle total by construction (per-setting pool
+# losses -0.6 % to -7.4 %, within noise of uniform; the per-setting correction would carry
+# SE 0.04-0.10 against 0.02-0.03 here). Mental health rounds to 0 (its few test-linked
+# starts are offset by its pool loss). Bundle-only values were ED 0.121 / PC 0.231 /
+# SUD 0.401 / MH 0.025 (jobs 7326917-20).
+PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.113, "primary_care": 0.382, "sud_treatment": 0.628, "mental_health": 0.0}
 TEST_LINKED_OFF = {s: 0.0 for s in PREP_TEST_LINKED_PER_INDEPENDENT}   # the reference: full independent rate
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)

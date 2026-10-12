@@ -15,7 +15,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.53766
       intensity_moud: 0.15
-      intensity_prep: 0.0195
+      intensity_prep: 0.01968
       n_providers_ri: 2145
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0558
@@ -24,7 +24,7 @@ care_seeking:
       panel_skew: 0.16
       prep_bundle_prob: 0.5
       prep_deferred_return_prob: 0.2
-      prep_referral_prob: 0.0
+      prep_referral_prob: 0.1
       prep_referral_return_prob: 0.2
       prep_same_day_prob: 0.2
       visit_heterogeneity_shape: 0.33
@@ -38,7 +38,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.03862
       intensity_moud: 0.75
-      intensity_prep: 0.00561
+      intensity_prep: 0.00576
       n_providers_ri: 1928
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0268
@@ -47,7 +47,7 @@ care_seeking:
       panel_skew: 0.19
       prep_bundle_prob: 0.5
       prep_deferred_return_prob: 0.35
-      prep_referral_prob: 0.0
+      prep_referral_prob: 0.1
       prep_referral_return_prob: 0.25
       prep_same_day_prob: 0.5
       visit_heterogeneity_shape: 0.2
@@ -61,7 +61,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.1078
       intensity_moud: 0.75
-      intensity_prep: 0.01577
+      intensity_prep: 0.01259
       n_providers_ri: 1833
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.2456
@@ -70,7 +70,7 @@ care_seeking:
       panel_skew: 0.47
       prep_bundle_prob: 0.5
       prep_deferred_return_prob: 0.35
-      prep_referral_prob: 0.0
+      prep_referral_prob: 0.1
       prep_referral_return_prob: 0.25
       prep_same_day_prob: 0.5
       visit_heterogeneity_shape: 0.62
@@ -84,7 +84,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.06355
       intensity_moud: 1.0
-      intensity_prep: 0.00112
+      intensity_prep: 0.00069
       n_providers_ri: 253
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0938
@@ -93,7 +93,7 @@ care_seeking:
       panel_skew: 0.15
       prep_bundle_prob: 0.5
       prep_deferred_return_prob: 0.35
-      prep_referral_prob: 0.0
+      prep_referral_prob: 0.1
       prep_referral_return_prob: 0.25
       prep_same_day_prob: 0.5
       visit_heterogeneity_shape: 0.045
@@ -4493,7 +4493,7 @@ hiv_testing:
   moud_early_window_months: 3.0
   moud_stable_mult: 1.5
   nonclinical_annual: 0.38
-  nonclinical_annual_noninj: -1.0
+  nonclinical_annual_noninj: 0.2
   oud_mult: 1.5
   post_overdose_mult: 4.0
   post_relapse_mult: 2.5
