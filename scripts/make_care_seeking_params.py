@@ -225,13 +225,17 @@ PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.3
 #   PREP_TEST_LINKED_PER_INDEPENDENT  B / I0 per setting: test-linked (bundled +
 #       referred) 2022 starts per unit of the starts the independent per-visit offer
 #       makes at its full (un-reduced) rate. The independent rate is solved against
-#       p_prep x (1 - B/I0) so 2022 receipt matches the APCD. MEASURED statewide
-#       0.158 (bundle only, referral off; 11 members x 8 seeds x 40 reps, job 7240112,
-#       ensemble_bundle_2026-10-09 vs ensemble_crn_hazard_2026-10-09; members
-#       0.134-0.187). The per-setting values are measured from the per-setting start
-#       stats (prep_new_bundled_<s>, prep_new_independent_<s>, engine 2026-10-12) on
-#       a run with the bundle on and the full independent rate (TEST_LINKED_OFF);
-#       until that run lands every setting carries the statewide value.
+#       p_prep x (1 - B/I0) so 2022 receipt matches the APCD. MEASURED per setting
+#       (bundle only, referral off): 11 members x 8 seeds x 40 reps at the full
+#       independent rate with the bundle on (chain_fix_members_2026-10-12, jobs
+#       7326917-20, read-out 7326939; per-setting start stats of the 2026-10-12
+#       engine): ED 0.121 (SE 0.013, members 0.056-0.212), primary care 0.231 (0.013,
+#       0.190-0.295), SUD treatment 0.401 (0.065, 0.083-0.778), mental health 0.025
+#       (0.005, 0.006-0.075); statewide 0.144 (the earlier statewide 0.158, job
+#       7240112, was measured at the reduced rate). Attribution closes (independent
+#       by setting 1.477 = prep_new - bundled); the pool effect is -0.8 % (1.477 vs
+#       1.489 with the bundle off). RE-MEASURE when the referral path is switched on
+#       (referral starts are test-linked too) or any bundle input changes.
 #       Was 0.226 = 0.292/1.292 from a single-member 8 x 40 run (SE 0.108), the
 #       bundle's share of the inflated total rather than B/I0; that left 2022 starts
 #       8.3 % below receipt (work record 2026-10-09 section 10.5).
@@ -240,7 +244,7 @@ PREP_SAME_DAY = {"ED": 0.2, "primary_care": 0.5, "sud_treatment": 0.5, "mental_h
 PREP_REFERRAL_PROB = 0.0                 # proposed 0.15, pending confirmation
 PREP_REFERRAL_RETURN = {"ED": 0.20, "primary_care": 0.25, "sud_treatment": 0.25, "mental_health": 0.25}
 PREP_DEFERRED_RETURN = {"ED": PREP_REFERRAL_RETURN["ED"], "primary_care": 0.35, "sud_treatment": 0.35, "mental_health": 0.35}
-PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.158, "primary_care": 0.158, "sud_treatment": 0.158, "mental_health": 0.158}
+PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.121, "primary_care": 0.231, "sud_treatment": 0.401, "mental_health": 0.025}
 TEST_LINKED_OFF = {s: 0.0 for s in PREP_TEST_LINKED_PER_INDEPENDENT}   # the reference: full independent rate
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)
