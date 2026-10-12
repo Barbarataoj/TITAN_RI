@@ -210,11 +210,11 @@ PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.3
 #       34.9 % had ever prescribed or referred (Blackstock 2017, PMID 27778215) while
 #       17 % of primary-care providers had ever prescribed (Petroll 2017, PMID
 #       27885552): ever-referred-only is roughly the size of ever-prescribed, i.e. about
-#       one fifth of non-prescribers; if they refer at the prescribers' 0.5, the
-#       non-prescriber average is ~0.11; 15 % of internists prefer referring out
-#       (Edelman 2019, PMID 31890474). Proposed 0.15 (0.05-0.30), TAGGED ASSUMPTION,
-#       pending Jun / Phil. 0.0 until confirmed (the referral path is then off and
-#       the engine identical to 2026-10-09).
+#       one fifth of non-prescribers; if they refer at the prescribers' bundle rate
+#       0.5, the non-prescriber average is 0.5 x 0.2 = 0.10; 15 % of internists prefer
+#       referring out (Edelman 2019, PMID 31890474). 0.10 (0.05-0.30), DERIVED from
+#       those surveys (Jun 2026-10-12: use the evidence-supported value); the EHR arm's
+#       prompt lifts it to 0.15 (CDS x1.5, within the x1.3-2.6 of PMID 38412047).
 #   PREP_REFERRAL_RETURN       P(attends elsewhere and starts | agreed to a referral):
 #       attendance 27 % card / 36 % EHR message / 81 % warm handoff, 43 % filled after
 #       a co-located referral (PMID 34448603), fill given attendance ~0.72; off-site
@@ -241,7 +241,7 @@ PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.3
 #       8.3 % below receipt (work record 2026-10-09 section 10.5).
 PREP_BUNDLE_PROB_WILLING = 0.5
 PREP_SAME_DAY = {"ED": 0.2, "primary_care": 0.5, "sud_treatment": 0.5, "mental_health": 0.5}
-PREP_REFERRAL_PROB = 0.0                 # proposed 0.15, pending confirmation
+PREP_REFERRAL_PROB = 0.10                # derived (Blackstock / Petroll / Edelman), range 0.05-0.30
 PREP_REFERRAL_RETURN = {"ED": 0.20, "primary_care": 0.25, "sud_treatment": 0.25, "mental_health": 0.25}
 PREP_DEFERRED_RETURN = {"ED": PREP_REFERRAL_RETURN["ED"], "primary_care": 0.35, "sud_treatment": 0.35, "mental_health": 0.35}
 PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.121, "primary_care": 0.231, "sud_treatment": 0.401, "mental_health": 0.025}
@@ -251,7 +251,7 @@ PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / ea
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
 PREP_MONITORING_ATTENDANCE = 0.60       # unsupported attendance (0.55-0.70; registry/CHIA note 7.4)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
-NONCLINICAL_TESTING_NONINJ = -1.0        # proposed 0.20, pending confirmation; -1 = same as people who inject (engine identical to 2026-10-09)
+NONCLINICAL_TESTING_NONINJ = 0.20        # 2026-10-12 (Jun): past-year testing ~27 % with the clinic route; Ahrens 2023 PMID 36594172 (Medicaid MOUD initiators, 11 states: HIV test within 90 days 20 % 2016 -> 25 % 2019), Meade 2009 PMID 19444732 (33 % non-injecting vs 71 % injecting); range 0.10-0.30; -1 = PWID rate
 NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): annual probability, -ln(1-0.38) = 0.48 tests/PWID-yr from this route + ~0.14 from clinics = 0.62 vs NHBS 0.60 (B1 job 7098444). Was a fitted placeholder 0.4 from 2026-10-01
 
 
@@ -495,7 +495,7 @@ SCALARS = [
     ("features", "care_seeking", "true", "the care-setting layer is on; MOUD, testing and PrEP run through encounters"),
     ("hiv_testing", "acceptance", ACCEPT_HIV_TEST, "RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)"),
     ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07"),
-    ("hiv_testing", "nonclinical_annual_noninj", NONCLINICAL_TESTING_NONINJ, "people with OUD who do not inject (2026-10-12): -1 = PWID rate; proposed 0.20 (0.10-0.30) TAGGED pending confirmation: past-year tested 33 % oxycodone vs 71 % heroin (Meade 2009, PMID 19444732), OTP clients 17-41 % (NDATSS), replaced by the APCD any-claim table when delivered"),
+    ("hiv_testing", "nonclinical_annual_noninj", NONCLINICAL_TESTING_NONINJ, "people with OUD who do not inject (2026-10-12): 0.20 (0.10-0.30) gives ~0.32 tests/yr with the clinic route (~27 % tested in a year): Medicaid MOUD initiators tested for HIV within 90 days 20 % (2016) -> 25 % (2019), 11 states (Ahrens 2023, PMID 36594172); past-year tested 33 % oxycodone vs 71 % heroin (Meade 2009, PMID 19444732); OTP clients 17-41 % (NDATSS); replaced by the APCD any-claim table when delivered"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
     ("prep", "acceptance", ACCEPT_PREP, "starts once discussed: clinical review 2026-10-07 (25-50 %), was 0.60 (registry 7.6); sensitivity 0.25-0.60"),
     ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),
