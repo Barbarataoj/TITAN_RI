@@ -113,6 +113,11 @@ def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78):
         # (2026-10-09 bundle): PrEP raised with at least this probability,
         # whatever the provider's habit; status quo 0.5 at prescribers, 0 at others
         "reach_prep_bundle_prob": round(0.5 + d * 0.3, 4),
+        # 2026-10-12: at a non-prescriber the prepared patient's request is a
+        # referral with the same floor; the chatbot cannot book or walk the
+        # patient over, so the return probability stays the setting's
+        # (sensitivity 0.36, EHR-message attendance, if it sends reminders)
+        "reach_prep_referral_prob": round(0.5 + d * 0.3, 4),
     }
 
 
@@ -175,25 +180,29 @@ STRATEGIES = {
         # visit where the test comes back negative (the test-and-offer bundle),
         # not as an independent per-visit multiplier. Prescribing providers raise
         # PrEP more often (0.5 -> 0.8); the prompt gets some non-prescribers to
-        # act (0 -> 0.15). CDS x1.3 overall / x2.6 among willing (38412047), x4.5
-        # from a near-zero base (40376113), passive BPA null (35225082).
+        # refer (2026-10-12: a referral, never a same-day start, status-quo
+        # referral probability -> 0.15; the patient then attends elsewhere with
+        # the setting's prep_referral_return_prob). CDS x1.3 overall / x2.6
+        # among willing (38412047), x4.5 from a near-zero base (40376113),
+        # passive BPA null (35225082). Lever fields are dated by
+        # prep_bundle_lever_start_step; the base fields stay the status quo's.
         "central": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.67, "intensity_mult": 1.5},
             "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.65},
-            "bundle": {"prep_bundle_prob": 0.8, "prep_bundle_prob_unwilling": 0.15},
+            "bundle": {"prep_bundle_prob_lever": 0.8, "prep_referral_prob_lever": 0.15},
         },
         "low": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.35, "intensity_mult": 1.2},
             "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.60},
-            "bundle": {"prep_bundle_prob": 0.6, "prep_bundle_prob_unwilling": 0.05},
+            "bundle": {"prep_bundle_prob_lever": 0.6, "prep_referral_prob_lever": 0.05},
         },
         "high": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.9, "intensity_mult": 2.0},
             "prep": {"reach": 1.0, "willing_efficacy": 0.2, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.85},
-            "bundle": {"prep_bundle_prob": 0.9, "prep_bundle_prob_unwilling": 0.30},
+            "bundle": {"prep_bundle_prob_lever": 0.9, "prep_referral_prob_lever": 0.30},
         },
         "sources": [
             "testing: EHR reminder x4 on receipt sustained 2 yr (24363958); BPA + incentive x5.1 (39214701); passive alert x1.9 (27378268); 70-80% offered under facilitation (23605307)",
@@ -216,7 +225,12 @@ STRATEGIES = {
             "program": {"reach_prob": 0.25, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
                         "reach_prep_bundle_prob": 0.8, "reach_prep_same_day_prob": 1.0,
                         "reach_prep_deferred_return_prob": 0.8, "reach_prep_adherence_mult": 1.26,
-                        "reach_prep_monitoring_mult": 1.21, "reach_prep_restart_prob": 0.015},
+                        "reach_prep_monitoring_mult": 1.21, "reach_prep_restart_prob": 0.015,
+                        # 2026-10-12: at a non-prescriber the prepared patient gets a
+                        # referral (floor 0.8) and the navigator's warm handoff gets
+                        # 0.70 of them started (81 % attend, PMID 34448603; 80 %
+                        # completed a PrEP appointment with navigation; x fill)
+                        "reach_prep_referral_prob": 0.8, "reach_prep_referral_return_prob": 0.70},
             "acceptance": {"hiv_test": 0.83, "prep": 0.75},
             "prep_params": {"reengagement_return_mult": 2.9},
         },
@@ -224,7 +238,8 @@ STRATEGIES = {
             "program": {"reach_prob": 0.15, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
                         "reach_prep_bundle_prob": 0.6, "reach_prep_same_day_prob": 0.8,
                         "reach_prep_deferred_return_prob": 0.6, "reach_prep_adherence_mult": 1.0,
-                        "reach_prep_monitoring_mult": 1.1, "reach_prep_restart_prob": 0.01},
+                        "reach_prep_monitoring_mult": 1.1, "reach_prep_restart_prob": 0.01,
+                        "reach_prep_referral_prob": 0.6, "reach_prep_referral_return_prob": 0.60},
             "acceptance": {"hiv_test": 0.66, "prep": 0.55},
             "prep_params": {"reengagement_return_mult": 2.0},
         },
@@ -232,7 +247,8 @@ STRATEGIES = {
             "program": {"reach_prob": 0.40, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
                         "reach_prep_bundle_prob": 0.9, "reach_prep_same_day_prob": 1.0,
                         "reach_prep_deferred_return_prob": 0.9, "reach_prep_adherence_mult": 1.6,
-                        "reach_prep_monitoring_mult": 1.3, "reach_prep_restart_prob": 0.03},
+                        "reach_prep_monitoring_mult": 1.3, "reach_prep_restart_prob": 0.03,
+                        "reach_prep_referral_prob": 0.9, "reach_prep_referral_return_prob": 0.80},
             "acceptance": {"hiv_test": 0.85, "prep": 0.77},
             "prep_params": {"reengagement_return_mult": 5.1},
         },
@@ -380,14 +396,17 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
                     "parameter": f"care_seeking|setting|{SETTING}|acceptance_mult_{service}",
                     "start_time": start_step, "stop_time": TIMELINE_STOP, "scalar": round(m1 / m0, 6)}
         # the test-and-offer bundle at the visit where the test comes back
-        # negative (2026-10-09): setting fields read per step, dated by their
-        # own start step
+        # negative (2026-10-09): dated lever fields (*_lever) replace the base
+        # bundle / referral probabilities from prep_bundle_lever_start_step;
+        # the base fields stay the status quo's so the arm is identical to it
+        # before the start (2026-10-12)
         for k, v in levers.get("bundle", {}).items():
+            assert k.endswith("_lever"), f"bundle lever {k} must be a *_lever field"
             _setting(scenario)[k] = v
-            notes.append(f"  {SETTING}.{k} = {v} (was {base.get(k, 'unset')})")
+            notes.append(f"  {SETTING}.{k} = {v} (base {base.get(k[:-len('_lever')], 'unset')} before the start)")
             changed = True
         if levers.get("bundle"):
-            _setting(scenario)["prep_bundle_start_step"] = -999 if static else int(start_step)
+            _setting(scenario)["prep_bundle_lever_start_step"] = -999 if static else int(start_step)
         if not changed:
             notes.append("  WARNING: no lever moves at this variant -- the arm is the baseline")
         if timeline:

@@ -12,10 +12,19 @@ from .. import exposures
 
 class Prep(base_feature.BaseFeature):
     name = "prep"
+    # the care settings whose starts are attributed by setting; must match the
+    # settings in titan/params/care_seeking.yml (asserted in tests)
+    SETTINGS = ("ED", "primary_care", "sud_treatment", "mental_health")
     stats = ["prep", "prep_new", "prep_injectable", "prep_oral", "prep_injections",
              "prep_injection_visits", "prep_indicated",
-             # test-and-offer bundle (2026-10-09)
-             "prep_bundle_offers", "prep_new_bundled", "prep_new_same_day", "prep_new_deferred"]
+             # test-and-offer bundle (2026-10-09) and referral path (2026-10-12):
+             # prep_new_bundled = every test-linked start (same-day, deferred,
+             # referred); per setting, test-linked and independent (regular
+             # offer) starts, for the per-setting re-solve of the offer rate
+             "prep_bundle_offers", "prep_new_bundled", "prep_new_same_day", "prep_new_deferred",
+             "prep_new_referred"] \
+            + [f"prep_new_bundled_{s}" for s in SETTINGS] \
+            + [f"prep_new_independent_{s}" for s in SETTINGS]
     """
         PrEP collects the following stats:
 
@@ -49,8 +58,12 @@ class Prep(base_feature.BaseFeature):
         # test-and-offer bundle: a deferred start waiting for the result visit
         self.pending_start: Optional[int] = None
         self.pending_return_prob = 0.0
+        self.pending_kind = ""                # "deferred" (result visit) or "referred" (elsewhere)
+        self.pending_setting = ""
         self.bundle_offered_this_step = False
-        self.started_bundled_this_step = ""   # "", "same_day" or "deferred"
+        self.started_bundled_this_step = ""   # "", "same_day", "deferred" or "referred"
+        self.started_bundled_setting = ""     # the setting of the test behind a bundled start
+        self.started_independent_setting = ""  # the setting of the regular offer behind an independent start
 
     @classmethod
     def init_class(cls, params: "ObjMap"):
@@ -105,6 +118,8 @@ class Prep(base_feature.BaseFeature):
         self.injection_visit_this_step = False
         self.bundle_offered_this_step = False
         self.started_bundled_this_step = ""
+        self.started_bundled_setting = ""
+        self.started_independent_setting = ""
         if (
             not self.agent.hiv.active  # type: ignore[attr-defined]
             and model.time >= self.agent.location.params.prep.start_time
@@ -115,10 +130,13 @@ class Prep(base_feature.BaseFeature):
                 # a deferred bundled start: the result visit one step after the
                 # negative test; the patient returns with pending_return_prob
                 returns = self.pending_return_prob
+                kind, setting_name = self.pending_kind or "deferred", self.pending_setting
                 self.pending_start, self.pending_return_prob = None, 0.0
+                self.pending_kind, self.pending_setting = "", ""
                 if self.eligible(model.time) and model.run_random.random() < returns:
                     self.enroll(model.run_random, model.time)
-                    self.started_bundled_this_step = "deferred"
+                    self.started_bundled_this_step = kind
+                    self.started_bundled_setting = setting_name
             elif self.eligible(model.time):
                 self.initiate(model)
 
@@ -154,7 +172,11 @@ class Prep(base_feature.BaseFeature):
             stats["prep_bundle_offers"] += 1
         if self.started_bundled_this_step:
             stats["prep_new_bundled"] += 1
-            stats["prep_new_same_day" if self.started_bundled_this_step == "same_day" else "prep_new_deferred"] += 1
+            stats[f"prep_new_{self.started_bundled_this_step}"] += 1
+            if self.started_bundled_setting in self.SETTINGS:
+                stats[f"prep_new_bundled_{self.started_bundled_setting}"] += 1
+        if self.started_independent_setting in self.SETTINGS:
+            stats[f"prep_new_independent_{self.started_independent_setting}"] += 1
         if self.active:
             stats["prep"] += 1
             if self.time == time:
@@ -309,30 +331,45 @@ class Prep(base_feature.BaseFeature):
         acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
         if model.run_random.random() < acceptance:
             self.enroll(model.run_random, model.time)
+            # attribute the start to the setting that made the offer (first
+            # offering setting this step), for the per-setting re-solve
+            for setting_name, offers in (getattr(self.agent, "care_offer_by_setting", None) or {}).items():
+                if offers.get("prep"):
+                    self.started_independent_setting = setting_name
+                    break
 
-    def offer_after_negative_test(self, model: "model.TITAN", same_day_prob: float, return_prob: float):
+    def offer_after_negative_test(self, model: "model.TITAN", same_day_prob: float, return_prob: float,
+                                  referral: bool = False, acceptance_mult: float = 1.0, setting_name: str = ""):
         """
         The test-and-offer bundle (2026-10-09): PrEP raised at the visit where
         the agent's HIV test came back negative. Called by hiv_testing. The
         agent must have an indication and not be on PrEP (eligible); accepts
-        with prep.acceptance x the visit's acceptance multiplier; starts the
-        same day with probability same_day_prob, otherwise at a result visit
-        one step later with probability return_prob.
+        with prep.acceptance x acceptance_mult (the setting's multiplier, and
+        the programme's when reached, passed in by hiv_testing). A bundle at a
+        prescribing provider starts the same day with probability same_day_prob,
+        otherwise at a result visit one step later with probability
+        return_prob. A referral (referral=True, a provider who does not
+        prescribe) is never same-day: the patient attends elsewhere one step
+        later with probability return_prob. setting_name is the setting of the
+        test, kept for the per-setting start stats.
         """
         if not self.eligible(model.time):
             return
         self.bundle_offered_this_step = True
         params = self.agent.location.params
         acceptance = float(getattr(params.prep, "acceptance", 1.0))
-        acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
+        acceptance = min(1.0, acceptance * float(acceptance_mult))
         if model.run_random.random() >= acceptance:
             return
-        if model.run_random.random() < same_day_prob:
+        if not referral and model.run_random.random() < same_day_prob:
             self.enroll(model.run_random, model.time)
             self.started_bundled_this_step = "same_day"
+            self.started_bundled_setting = setting_name
         else:
             self.pending_start = model.time + 1
             self.pending_return_prob = float(return_prob)
+            self.pending_kind = "referred" if referral else "deferred"
+            self.pending_setting = setting_name
 
     def enroll(self, rand_gen, time):
         """

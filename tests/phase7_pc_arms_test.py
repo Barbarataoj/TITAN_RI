@@ -18,7 +18,8 @@ SPEC.loader.exec_module(gen)
 def setting(**kw):
     s = {"visit_rate_annual": 5.8, "p_willing_hiv_test": 0.246, "p_willing_prep": 0.079,
          "p_willing_moud": 1.0, "intensity_hiv_test": 0.108, "intensity_prep": 0.0052,
-         "intensity_moud": 0.75, "pool_refresh_time": -9999}
+         "intensity_moud": 0.75, "pool_refresh_time": -9999,
+         "prep_bundle_prob": 0.5, "prep_referral_prob": 0.0}
     s.update(kw)
     return s
 
@@ -69,7 +70,8 @@ def test_dated_ehr_arm_uses_timeline_scalars_and_pool_refresh():
     # since 2026-10-09 the PrEP lever of this arm is the test-and-offer bundle,
     # not an independent per-visit multiplier
     assert "pc_prep_intensity" not in tl
-    assert pc["prep_bundle_prob"] == 0.8 and pc["prep_bundle_start_step"] == 133
+    assert pc["prep_bundle_prob_lever"] == 0.8 and pc["prep_bundle_lever_start_step"] == 133
+    assert pc["prep_bundle_prob"] == baseline()["care_seeking"]["setting"]["primary_care"]["prep_bundle_prob"]   # base untouched
     assert "pc_prep_willing" not in tl           # efficacy 0 for PrEP willingness in this arm
     assert tl["pc_hiv_test_acceptance"]["parameter"] == "care_seeking|setting|primary_care|acceptance_mult_hiv_test"
     assert tl["pc_hiv_test_acceptance"]["scalar"] == pytest.approx(0.65 / 0.55)
@@ -158,11 +160,19 @@ def test_ehr_arm_sets_the_bundle_and_injectable_first_is_a_prep_arm():
     arms = gen.build_arms(b)
     s, notes = arms["pc2_ehr_opt_out_central.yml"]
     pc = s["care_seeking"]["setting"]["primary_care"]
-    assert pc["prep_bundle_prob"] == 0.8 and pc["prep_bundle_prob_unwilling"] == 0.15
-    assert pc["prep_bundle_start_step"] == gen.DEFAULT_START_STEP
+    # 2026-10-12: dated lever fields; the base bundle and referral values stay the
+    # status quo's; non-prescribers refer (prep_referral_prob_lever), never prescribe
+    assert pc["prep_bundle_prob_lever"] == 0.8 and pc["prep_referral_prob_lever"] == 0.15
+    assert pc["prep_bundle_lever_start_step"] == gen.DEFAULT_START_STEP
+    base_pc = b["care_seeking"]["setting"]["primary_care"]
+    assert pc["prep_bundle_prob"] == base_pc["prep_bundle_prob"] and pc["prep_referral_prob"] == base_pc["prep_referral_prob"]
+    assert "prep_bundle_prob_unwilling" not in pc and "prep_bundle_start_step" not in pc
     assert "pc_prep_intensity" not in (s.get("timeline_scaling") or {}).get("timeline", {})   # the CDS lever is the bundle now
     static, _ = gen.build_arms(b, static=True)["pc2_ehr_opt_out_central_static.yml"]
-    assert static["care_seeking"]["setting"]["primary_care"]["prep_bundle_start_step"] == -999
+    assert static["care_seeking"]["setting"]["primary_care"]["prep_bundle_lever_start_step"] == -999
+    nav, _ = arms["pc3_navigation_same_day_central.yml"]
+    npc = nav["care_seeking"]["setting"]["primary_care"]
+    assert npc["reach_prep_referral_prob"] == 0.8 and npc["reach_prep_referral_return_prob"] == 0.70
     inj, notes = arms["pc6_injectable_first_pwid_central.yml"]
     assert inj["prep"]["injectable_first_pwid_share"] == 0.4
     assert inj["prep"]["injectable_first_start_step"] == gen.DEFAULT_START_STEP
@@ -172,4 +182,5 @@ def test_ehr_arm_sets_the_bundle_and_injectable_first_is_a_prep_arm():
     chia, _ = arms["pc4_chia_central.yml"]
     cpc = chia["care_seeking"]["setting"]["primary_care"]
     assert cpc["reach_prep_bundle_prob"] == pytest.approx(0.5 + 0.65 * 0.3)
+    assert cpc["reach_prep_referral_prob"] == pytest.approx(0.5 + 0.65 * 0.3) and "reach_prep_referral_return_prob" not in cpc
     assert cpc["reach_prep_adherence_mult"] == pytest.approx(1 + 0.65 * 0.26)

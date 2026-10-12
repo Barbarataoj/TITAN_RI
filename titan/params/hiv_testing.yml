@@ -158,6 +158,18 @@ hiv_testing:
       Annual probability of testing outside any clinical setting, e.g. community
       or syringe services testing. Added on top of the encounter-driven pathway.
       Defaults to zero so that testing is entirely encounter-driven unless set.
+      Applies to people who inject (pinned from NHBS-PWID) and, unless
+      nonclinical_annual_noninj is set, to everyone else too.
     type: float
     min: 0.0
+    max: 1.0
+  nonclinical_annual_noninj:
+    default: -1.0
+    description: |
+      Annual probability of non-clinical testing for agents who do not inject
+      (drug_type NonInj). -1 = use nonclinical_annual (the engine is then
+      identical to before 2026-10-12). Set because the PWID rate comes from a
+      PWID survey and overstates testing among people with OUD who do not inject.
+    type: float
+    min: -1.0
     max: 1.0

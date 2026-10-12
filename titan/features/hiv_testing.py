@@ -142,19 +142,27 @@ class HIVTesting(base_feature.BaseFeature):
 
     def bundle_prep_after_negative_test(self, model: "model.TITAN"):
         """
-        PrEP raised at the visit where the test came back negative. The
-        setting is the one that offered the test this step; the probability is
-        the setting's prep_bundle_prob when the agent's provider there
-        prescribes PrEP, prep_bundle_prob_unwilling otherwise, and at least
-        reach_prep_bundle_prob at an active programme visit. Delivery (same-day
-        or deferred) is the setting's, with the programme's deferred return
-        probability when reached. One bundle per step.
+        PrEP raised at the visit where the test came back negative (the
+        test-and-offer bundle, 2026-10-09; referral path, gating and dated
+        levers 2026-10-12). The setting is the one that offered the test this
+        step. At a provider who prescribes PrEP the bundle is raised with
+        prep_bundle_prob and delivered the same day or at a result visit one
+        step later. At a provider who does not prescribe, a referral is raised
+        with prep_referral_prob; it is never same-day, and the patient attends
+        elsewhere and starts with prep_referral_return_prob. A programme that
+        reached the agent in this setting (care_seeking.reached[setting]) applies
+        its floors and overrides; an agent reached nowhere, or only in another
+        setting, gets the base values. From prep_bundle_lever_start_step the
+        dated lever values (prep_bundle_prob_lever, prep_referral_prob_lever)
+        replace the base probabilities where set (>= 0). The acceptance
+        multiplier is the setting's acceptance_mult_prep, times
+        reach_acceptance_mult_prep when reached. One bundle per step.
         """
         offers_by_setting = getattr(self.agent, "care_offer_by_setting", None) or {}
         care = getattr(model.params, "care_seeking", None)
         if care is None:
             return
-        reached = bool(getattr(self.agent, "care_reach", None))
+        cs = getattr(self.agent, "care_seeking", None)
         for setting_name, offers in offers_by_setting.items():
             if not offers.get("hiv_test"):
                 continue
@@ -162,28 +170,50 @@ class HIVTesting(base_feature.BaseFeature):
                 setting = care.setting[setting_name]
             except (KeyError, AttributeError, TypeError):
                 continue
-            if model.time < int(getattr(setting, "prep_bundle_start_step", -999)):
-                continue
+            reached = False
             willing = False
-            cs = getattr(self.agent, "care_seeking", None)
-            idx = (getattr(cs, "provider_id", {}) or {}).get(setting_name)
-            pool = (getattr(type(cs), "providers", {}) or {}).get(setting_name, []) if cs is not None else []
-            if idx is not None and idx < len(pool):
-                willing = bool(pool[idx]["prep"]["willing"])
-            p = float(getattr(setting, "prep_bundle_prob", 0.0)) if willing else float(getattr(setting, "prep_bundle_prob_unwilling", 0.0))
-            if reached:
-                p = max(p, float(getattr(setting, "reach_prep_bundle_prob", -1.0)))
+            if cs is not None:
+                reached = bool((getattr(cs, "reached", None) or {}).get(setting_name, False))
+                idx = (getattr(cs, "provider_id", None) or {}).get(setting_name)
+                pool = (getattr(type(cs), "providers", None) or {}).get(setting_name, [])
+                if idx is not None and idx < len(pool):
+                    willing = bool(pool[idx]["prep"]["willing"])
+            lever_on = model.time >= int(getattr(setting, "prep_bundle_lever_start_step", -999))
+            if willing:
+                p = float(getattr(setting, "prep_bundle_prob", 0.0))
+                lever = float(getattr(setting, "prep_bundle_prob_lever", -1.0))
+                if lever_on and lever >= 0.0:
+                    p = lever
+                if reached:
+                    p = max(p, float(getattr(setting, "reach_prep_bundle_prob", -1.0)))
+            else:
+                p = float(getattr(setting, "prep_referral_prob", 0.0))
+                lever = float(getattr(setting, "prep_referral_prob_lever", -1.0))
+                if lever_on and lever >= 0.0:
+                    p = lever
+                if reached:
+                    p = max(p, float(getattr(setting, "reach_prep_referral_prob", -1.0)))
             if p <= 0.0:
                 continue
             if model.run_random.random() >= p:
                 return
-            same_day = float(getattr(setting, "prep_same_day_prob", 1.0))
-            ret = float(getattr(setting, "prep_deferred_return_prob", 1.0))
-            if reached and float(getattr(setting, "reach_prep_same_day_prob", -1.0)) >= 0:
-                same_day = float(getattr(setting, "reach_prep_same_day_prob"))
-            if reached and float(getattr(setting, "reach_prep_deferred_return_prob", -1.0)) >= 0:
-                ret = float(getattr(setting, "reach_prep_deferred_return_prob"))
-            self.agent.prep.offer_after_negative_test(model, same_day, ret)  # type: ignore[attr-defined]
+            mult = float(getattr(setting, "acceptance_mult_prep", 1.0))
+            if reached:
+                mult *= float(getattr(setting, "reach_acceptance_mult_prep", 1.0))
+            prep = self.agent.prep  # type: ignore[attr-defined]
+            if willing:
+                same_day = float(getattr(setting, "prep_same_day_prob", 1.0))
+                ret = float(getattr(setting, "prep_deferred_return_prob", 1.0))
+                if reached and float(getattr(setting, "reach_prep_same_day_prob", -1.0)) >= 0.0:
+                    same_day = float(getattr(setting, "reach_prep_same_day_prob"))
+                if reached and float(getattr(setting, "reach_prep_deferred_return_prob", -1.0)) >= 0.0:
+                    ret = float(getattr(setting, "reach_prep_deferred_return_prob"))
+                prep.offer_after_negative_test(model, same_day, ret, acceptance_mult=mult, setting_name=setting_name)
+            else:
+                ret = float(getattr(setting, "prep_referral_return_prob", 0.0))
+                if reached and float(getattr(setting, "reach_prep_referral_return_prob", -1.0)) >= 0.0:
+                    ret = float(getattr(setting, "reach_prep_referral_return_prob"))
+                prep.offer_after_negative_test(model, 0.0, ret, referral=True, acceptance_mult=mult, setting_name=setting_name)
             return
 
     # =====================================================
@@ -215,8 +245,15 @@ class HIVTesting(base_feature.BaseFeature):
             return min(1.0, getattr(testing_params, "acceptance", 1.0) * mult)
 
         # testing that happens outside any clinical setting, e.g. community or
-        # syringe services testing; zero unless the parameter is set
+        # syringe services testing; zero unless the parameter is set. Since
+        # 2026-10-12 people who do not inject have their own rate
+        # (nonclinical_annual_noninj) when it is set (>= 0): the pinned PWID
+        # rate comes from a PWID survey and does not describe them.
         nonclinical_annual = getattr(testing_params, "nonclinical_annual", 0.0)
+        if self.agent.drug_type == "NonInj":
+            noninj = getattr(testing_params, "nonclinical_annual_noninj", -1.0)
+            if noninj >= 0.0:
+                nonclinical_annual = noninj
         return self.annual_to_step(nonclinical_annual, steps_per_year)
 
     def state_proxy_prob(self, testing_params: ObjMap, steps_per_year: int) -> float:

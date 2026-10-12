@@ -85,11 +85,19 @@ def _bundle_setup(make_model, make_agent, willing, prev=None, **setting):
     model.params.features.care_seeking = False
     a = make_agent(DU="Inj")
     model.params.features.care_seeking = True
-    fields = {"prep_bundle_prob": 0.0, "prep_bundle_prob_unwilling": 0.0, "prep_bundle_start_step": -999,
-              "prep_same_day_prob": 1.0, "prep_deferred_return_prob": 1.0,
-              "reach_prep_bundle_prob": -1.0, "reach_prep_deferred_return_prob": -1.0, "reach_prep_same_day_prob": -1.0}
+    fields = {"prep_bundle_prob": 0.0, "prep_same_day_prob": 1.0, "prep_deferred_return_prob": 1.0,
+              "prep_referral_prob": 0.0, "prep_referral_return_prob": 0.0,
+              "prep_bundle_prob_lever": -1.0, "prep_referral_prob_lever": -1.0, "prep_bundle_lever_start_step": -999,
+              "acceptance_mult_prep": 1.0, "reach_acceptance_mult_prep": 1.0,
+              "reach_prep_bundle_prob": -1.0, "reach_prep_deferred_return_prob": -1.0, "reach_prep_same_day_prob": -1.0,
+              "reach_prep_referral_prob": -1.0, "reach_prep_referral_return_prob": -1.0}
+    reached = setting.pop("reached", False)
     fields.update(setting)
     model.params.care_seeking = ObjMap({"setting": {"primary_care": fields}})
+    # per-setting reach (care_seeking.reached), the only thing the bundle gates on;
+    # care_reach is the neutral multiplier dict every agent carries (2026-10-12)
+    a.care_seeking.reached = {"primary_care": True} if reached else {}
+    a.care_reach = {"prep_discontinue_mult": 1.0, "prep_adherence_mult": 1.0, "prep_restart_prob": 0.0, "prep_monitoring_mult": 1.0}
     a.location.params.prep.target_model = ["pwid"]
     a.location.params.prep.start_time = 0
     a.location.params.prep.acceptance = 1.0
@@ -130,16 +138,127 @@ def test_bundle_needs_a_negative_test_and_a_willing_provider_unless_reached(make
     model, b = _bundle_setup(make_model, make_agent, willing=False, prev=model, prep_bundle_prob=1.0)
     b.hiv_testing.update_agent(model)
     assert b.hiv_testing.tests_this_step == 1 and not b.prep.active and not b.prep.bundle_offered_this_step
-    # unwilling provider, reached by a programme with a floor: PrEP
-    model, c = _bundle_setup(make_model, make_agent, willing=False, prev=model, prep_bundle_prob=1.0, reach_prep_bundle_prob=1.0)
-    c.care_reach = {"prep_adherence_mult": 1.0}
+    # unwilling provider, reached by a programme whose only floor is the bundle
+    # floor: still no PrEP (a non-prescriber cannot prescribe, 2026-10-12)
+    model, c = _bundle_setup(make_model, make_agent, willing=False, prev=model, prep_bundle_prob=1.0,
+                             reach_prep_bundle_prob=1.0, reached=True)
     c.hiv_testing.update_agent(model)
-    assert c.prep.active
-    # not yet started (dated arm): no PrEP
-    model, d = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0, prep_bundle_start_step=200)
+    assert not c.prep.active and not c.prep.bundle_offered_this_step
+    # unwilling provider, reached by a programme with a referral floor and a
+    # warm handoff: a referral, never same-day, started next step
+    model, e = _bundle_setup(make_model, make_agent, willing=False, prev=model, prep_bundle_prob=1.0,
+                             prep_same_day_prob=1.0, reach_prep_referral_prob=1.0, reach_prep_referral_return_prob=1.0, reached=True)
+    e.hiv_testing.update_agent(model)
+    assert e.prep.bundle_offered_this_step and not e.prep.active
+    assert e.prep.pending_start == 141 and e.prep.pending_kind == "referred" and e.prep.pending_return_prob == 1.0
+    model.time = 141
+    e.prep.update_agent(model)
+    assert e.prep.active and e.prep.started_bundled_this_step == "referred" and e.prep.started_bundled_setting == "primary_care"
+    model.time = 140
+    # dated lever: base 0 until the lever starts, then the lever value
+    model, d = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=0.0,
+                             prep_bundle_prob_lever=1.0, prep_bundle_lever_start_step=200)
     d.hiv_testing.update_agent(model)
     assert not d.prep.active and not d.prep.bundle_offered_this_step
+    model.time = 200
+    d.hiv_testing.tests_this_step = 0
+    d.hiv_testing.update_agent(model)
+    assert d.prep.active and d.prep.started_bundled_this_step == "same_day"
+    model.time = 140
     model.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_bundle_floors_apply_only_to_an_agent_reached_in_that_setting(make_model, make_agent):
+    """The 2026-10-09 code gated on bool(care_reach), which is True for every agent
+    (reach_effects returns neutral values), so programme floors applied to everyone
+    (ensemble_bundle_2026-10-09 placebo failure). Gate on care_seeking.reached[setting]."""
+    # unreached, neutral care_reach, setting carries a floor: base values apply (0 -> nothing)
+    model, a = _bundle_setup(make_model, make_agent, willing=True, prep_bundle_prob=0.0, reach_prep_bundle_prob=1.0)
+    a.hiv_testing.update_agent(model)
+    assert a.hiv_testing.tests_this_step == 1 and not a.prep.bundle_offered_this_step and not a.prep.active
+    # reached in another setting only: still the base values here
+    model, b = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=0.0, reach_prep_bundle_prob=1.0)
+    b.care_seeking.reached = {"ED": True}
+    b.hiv_testing.update_agent(model)
+    assert not b.prep.bundle_offered_this_step
+    # reached in this setting: the floor applies
+    model, c = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=0.0, reach_prep_bundle_prob=1.0, reached=True)
+    c.hiv_testing.update_agent(model)
+    assert c.prep.active and c.prep.started_bundled_this_step == "same_day"
+    model.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_bundle_acceptance_uses_the_settings_multiplier(make_model, make_agent):
+    """acceptance_mult_prep and, when reached, reach_acceptance_mult_prep scale the
+    bundled offer's acceptance (2026-10-12; before, only a regular offer's multiplier did)."""
+    from conftest import FakeRandom
+    model, a = _bundle_setup(make_model, make_agent, willing=True, prep_bundle_prob=1.0, acceptance_mult_prep=1.0)
+    a.location.params.prep.acceptance = 0.5
+    model.run_random = FakeRandom(0.3)          # test taken (0.3 < 1), bundle raised, declines (0.3 >= 0.5? no: 0.3 < 0.5 accepts)
+    model.run_random = FakeRandom(0.6)          # 0.6 < 1 test; 0.6 < 1 raised; 0.6 >= 0.5 declines
+    a.hiv_testing.update_agent(model)
+    assert a.prep.bundle_offered_this_step and not a.prep.active
+    model, b = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0, acceptance_mult_prep=1.5)
+    b.location.params.prep.acceptance = 0.5
+    model.run_random = FakeRandom(0.6)          # 0.6 < 0.75 accepts
+    b.hiv_testing.update_agent(model)
+    assert b.prep.active
+    # the programme multiplier only when reached in the setting
+    model, c = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0, reach_acceptance_mult_prep=1.5)
+    c.location.params.prep.acceptance = 0.5
+    model.run_random = FakeRandom(0.6)
+    c.hiv_testing.update_agent(model)
+    assert not c.prep.active
+    model, d = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0, reach_acceptance_mult_prep=1.5, reached=True)
+    d.location.params.prep.acceptance = 0.5
+    model.run_random = FakeRandom(0.6)
+    d.hiv_testing.update_agent(model)
+    assert d.prep.active
+    model.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_referral_at_a_non_prescriber_is_never_same_day(make_model, make_agent):
+    model, a = _bundle_setup(make_model, make_agent, willing=False, prep_bundle_prob=1.0, prep_same_day_prob=1.0,
+                             prep_referral_prob=1.0, prep_referral_return_prob=0.4)
+    a.hiv_testing.update_agent(model)
+    assert a.prep.bundle_offered_this_step and not a.prep.active
+    assert a.prep.pending_start == 141 and a.prep.pending_kind == "referred" and a.prep.pending_return_prob == 0.4
+    from conftest import FakeRandom
+    from collections import defaultdict
+    model.time = 141
+    model.run_random = FakeRandom(0.2)           # attends (0.2 < 0.4)
+    a.prep.update_agent(model)
+    assert a.prep.active and a.prep.started_bundled_this_step == "referred"
+    stats = defaultdict(int); a.prep.set_stats(stats, 141)
+    assert stats["prep_new"] == 1 and stats["prep_new_bundled"] == 1 and stats["prep_new_referred"] == 1
+    assert stats["prep_new_bundled_primary_care"] == 1 and stats["prep_new_same_day"] == 0 and stats["prep_new_deferred"] == 0
+    model.time = 140
+    model.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_nonclinical_testing_rate_by_drug_type(make_model, make_agent):
+    """People who do not inject get nonclinical_annual_noninj when it is set (>= 0),
+    the PWID rate otherwise; people who inject always get nonclinical_annual (2026-10-12)."""
+    model = make_model()
+    inj = make_agent(DU="Inj"); non = make_agent(DU="NonInj")
+    for ag in (inj, non):
+        ag.care_offer = {"hiv_test": False}
+    tp = inj.location.params.hiv_testing
+    tp.nonclinical_annual = 0.38
+    tp.nonclinical_annual_noninj = -1.0
+    steps = model.params.model.time.steps_per_year
+    assert inj.hiv_testing.encounter_prob(tp, steps) == pytest.approx(inj.hiv_testing.annual_to_step(0.38, steps))
+    assert non.hiv_testing.encounter_prob(tp, steps) == pytest.approx(inj.hiv_testing.annual_to_step(0.38, steps))
+    tp.nonclinical_annual_noninj = 0.20
+    assert inj.hiv_testing.encounter_prob(tp, steps) == pytest.approx(inj.hiv_testing.annual_to_step(0.38, steps))
+    assert non.hiv_testing.encounter_prob(tp, steps) == pytest.approx(non.hiv_testing.annual_to_step(0.20, steps))
+    tp.nonclinical_annual_noninj = 0.0
+    assert non.hiv_testing.encounter_prob(tp, steps) == 0.0
+    tp.nonclinical_annual_noninj = -1.0
 
 
 
@@ -150,10 +269,9 @@ def test_bundle_deferred_delivery_uses_the_programme_return_when_reached(make_mo
     a.hiv_testing.update_agent(model)
     assert not a.prep.active and a.prep.pending_start == 141 and a.prep.pending_return_prob == 0.3
     model, b = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0,
-                             prep_same_day_prob=0.0, prep_deferred_return_prob=0.3, reach_prep_deferred_return_prob=0.8)
-    b.care_reach = {"prep_adherence_mult": 1.0}
+                             prep_same_day_prob=0.0, prep_deferred_return_prob=0.3, reach_prep_deferred_return_prob=0.8, reached=True)
     b.hiv_testing.update_agent(model)
-    assert b.prep.pending_return_prob == 0.8
+    assert b.prep.pending_return_prob == 0.8 and b.prep.pending_kind == "deferred"
     model.params.features.care_seeking = False
 
 
@@ -165,8 +283,7 @@ def test_bundle_same_day_share_uses_the_programme_value_when_reached(make_model,
     a.hiv_testing.update_agent(model)
     assert not a.prep.active and a.prep.pending_start == 141
     model, b = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0,
-                             prep_same_day_prob=0.0, reach_prep_same_day_prob=1.0)
-    b.care_reach = {"prep_adherence_mult": 1.0}
+                             prep_same_day_prob=0.0, reach_prep_same_day_prob=1.0, reached=True)
     b.hiv_testing.update_agent(model)
     assert b.prep.active and b.prep.started_bundled_this_step == "same_day"
     model.params.features.care_seeking = False

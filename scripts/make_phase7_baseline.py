@@ -189,12 +189,22 @@ def overlay_care_layer(scenario):
     # by make_care_seeking_params.py from 2022 receipt, given who is eligible and
     # the acceptance), never fitted, so it is always taken from the source: since
     # 2026-10-07 it changes with the eligibility rule.
-    always = ("intensity_prep",)
+    # The test-and-offer bundle and referral fields (2026-10-09 / 10-12) are
+    # inputs as well, set by the generator from the literature and from the
+    # measured B/I0, so today's source always wins for them too.
+    always = ("intensity_prep", "prep_bundle_prob", "prep_same_day_prob", "prep_deferred_return_prob",
+              "prep_referral_prob", "prep_referral_return_prob",
+              "prep_bundle_prob_lever", "prep_referral_prob_lever", "prep_bundle_lever_start_step")
     for name, fields in settings_src.items():
         target = settings.setdefault(name, {})
         for k, v in fields.items():
             if k not in target or k in always:
                 target[k] = v
+    # Non-clinical testing for people who do not inject (2026-10-12): a source
+    # scalar, not an anchored parameter (nonclinical_annual is), so carry it here.
+    testing_src = src.get("hiv_testing", {}) or {}
+    if "nonclinical_annual_noninj" in testing_src:
+        scenario.setdefault("hiv_testing", {})["nonclinical_annual_noninj"] = testing_src["nonclinical_annual_noninj"]
     return scenario
 
 

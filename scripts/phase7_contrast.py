@@ -101,6 +101,10 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
                       # test-and-offer bundle and workload counts (2026-10-09)
                       ("prep_bundle_offers", "prep_bundle_offers"), ("prep_new_bundled", "prep_starts_bundled"),
                       ("prep_new_same_day", "prep_starts_same_day"), ("prep_new_deferred", "prep_starts_deferred"),
+                      # referral path and per-setting start attribution (2026-10-12)
+                      ("prep_new_referred", "prep_starts_referred"),
+                      *[(f"prep_new_bundled_{s}", f"prep_starts_bundled_{s}") for s in ("ED", "primary_care", "sud_treatment", "mental_health")],
+                      *[(f"prep_new_independent_{s}", f"prep_starts_independent_{s}") for s in ("ED", "primary_care", "sud_treatment", "mental_health")],
                       ("prep_indicated", "prep_indicated_person_months"),
                       ("care_offer_primary_care_hiv_test", "pc_test_offers"),
                       ("care_offer_primary_care_prep", "pc_prep_offers"),
@@ -247,6 +251,9 @@ def main():
                             "overdose_deaths", "overdose_events", "moud_coverage",
                             "hiv_tests", "pc_visits", "pc_test_offers", "pc_prep_offers", "prep_starts",
                             "prep_bundle_offers", "prep_starts_bundled", "prep_starts_same_day", "prep_starts_deferred",
+                            "prep_starts_referred",
+                            *[f"prep_starts_bundled_{x}" for x in ("ED", "primary_care", "sud_treatment", "mental_health")],
+                            *[f"prep_starts_independent_{x}" for x in ("ED", "primary_care", "sud_treatment", "mental_health")],
                             "prep_indicated_person_months",
                             "prep_person_months", "prep_monitoring_visits", "reach_visits", "reached_person_months",
                             "prep_injections", "prep_injections_cab_la", "prep_injections_lenacapavir", "prep_injection_visits",

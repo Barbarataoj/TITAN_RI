@@ -205,21 +205,49 @@ PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.3
 #       27 % card; PMID 34448603), 45 % after partner-services referral (PMID
 #       35797587), 51 % returned for results at rural syringe programmes (PMID
 #       39886694). 0.35 (0.25-0.45); a navigator's warm handoff 0.8.
-#   PREP_BUNDLED_SHARE_OF_STARTS  MEASURED: with the bundle at these values and the
-#       independent offer rate unchanged, 2022 PrEP starts rose 29.2 % on trial 26
-#       (job 7231474, 8 x 40, common random numbers), i.e. the bundle supplies
-#       0.292 / 1.292 = 0.226 of starts. The independent per-visit rate is solved
-#       against the remaining share so 2022 receipt is unchanged.
+#   PREP_REFERRAL_PROB         P(referral to PrEP care raised | negative test, indicated,
+#       provider does not prescribe) (2026-10-12). Among academic general internists
+#       34.9 % had ever prescribed or referred (Blackstock 2017, PMID 27778215) while
+#       17 % of primary-care providers had ever prescribed (Petroll 2017, PMID
+#       27885552): ever-referred-only is roughly the size of ever-prescribed, i.e. about
+#       one fifth of non-prescribers; if they refer at the prescribers' 0.5, the
+#       non-prescriber average is ~0.11; 15 % of internists prefer referring out
+#       (Edelman 2019, PMID 31890474). Proposed 0.15 (0.05-0.30), TAGGED ASSUMPTION,
+#       pending Jun / Phil. 0.0 until confirmed (the referral path is then off and
+#       the engine identical to 2026-10-09).
+#   PREP_REFERRAL_RETURN       P(attends elsewhere and starts | agreed to a referral):
+#       attendance 27 % card / 36 % EHR message / 81 % warm handoff, 43 % filled after
+#       a co-located referral (PMID 34448603), fill given attendance ~0.72; off-site
+#       0.27-0.36 x 0.72 = 0.19-0.26 -> 0.25. ED 0.20 (0.13-0.59): 59 % attended when
+#       booked in the ED (n = 22), 2 of 15 in Baltimore, 21 % any follow-up within 90
+#       days (Jackson 2024, PMID 38127296). The ED's deferred start is also a referral
+#       (no result visit), so its deferred return equals its referral return.
+#   PREP_TEST_LINKED_PER_INDEPENDENT  B / I0 per setting: test-linked (bundled +
+#       referred) 2022 starts per unit of the starts the independent per-visit offer
+#       makes at its full (un-reduced) rate. The independent rate is solved against
+#       p_prep x (1 - B/I0) so 2022 receipt matches the APCD. MEASURED statewide
+#       0.158 (bundle only, referral off; 11 members x 8 seeds x 40 reps, job 7240112,
+#       ensemble_bundle_2026-10-09 vs ensemble_crn_hazard_2026-10-09; members
+#       0.134-0.187). The per-setting values are measured from the per-setting start
+#       stats (prep_new_bundled_<s>, prep_new_independent_<s>, engine 2026-10-12) on
+#       a run with the bundle on and the full independent rate (TEST_LINKED_OFF);
+#       until that run lands every setting carries the statewide value.
+#       Was 0.226 = 0.292/1.292 from a single-member 8 x 40 run (SE 0.108), the
+#       bundle's share of the inflated total rather than B/I0; that left 2022 starts
+#       8.3 % below receipt (work record 2026-10-09 section 10.5).
 PREP_BUNDLE_PROB_WILLING = 0.5
-PREP_BUNDLE_PROB_UNWILLING = 0.0
 PREP_SAME_DAY = {"ED": 0.2, "primary_care": 0.5, "sud_treatment": 0.5, "mental_health": 0.5}
-PREP_DEFERRED_RETURN = 0.35
-PREP_BUNDLED_SHARE_OF_STARTS = 0.226
+PREP_REFERRAL_PROB = 0.0                 # proposed 0.15, pending confirmation
+PREP_REFERRAL_RETURN = {"ED": 0.20, "primary_care": 0.25, "sud_treatment": 0.25, "mental_health": 0.25}
+PREP_DEFERRED_RETURN = {"ED": PREP_REFERRAL_RETURN["ED"], "primary_care": 0.35, "sud_treatment": 0.35, "mental_health": 0.35}
+PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.158, "primary_care": 0.158, "sud_treatment": 0.158, "mental_health": 0.158}
+TEST_LINKED_OFF = {s: 0.0 for s in PREP_TEST_LINKED_PER_INDEPENDENT}   # the reference: full independent rate
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
 PREP_MONITORING_ATTENDANCE = 0.60       # unsupported attendance (0.55-0.70; registry/CHIA note 7.4)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
+NONCLINICAL_TESTING_NONINJ = -1.0        # proposed 0.20, pending confirmation; -1 = same as people who inject (engine identical to 2026-10-09)
 NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): annual probability, -ln(1-0.38) = 0.48 tests/PWID-yr from this route + ~0.14 from clinics = 0.62 vs NHBS 0.60 (B1 job 7098444). Was a fitted placeholder 0.4 from 2026-10-01
 
 
@@ -264,7 +292,11 @@ def solve_intensity(w, acc, target, dist):
     return (lo + hi) / 2, True
 
 
-def derive(verbose=True):
+def derive(verbose=True, test_linked=None):
+    """test_linked: B/I0 per setting for the PrEP re-solve (default
+    PREP_TEST_LINKED_PER_INDEPENDENT; TEST_LINKED_OFF gives the reference scenario
+    with the full independent rate, used to measure B/I0)."""
+    test_linked = PREP_TEST_LINKED_PER_INDEPENDENT if test_linked is None else test_linked
     import pandas as pd
     out = {}
     log = []
@@ -391,14 +423,14 @@ def derive(verbose=True):
         p_test = p_test_claims if s == "ED" else p_test_claims * test_factor
         p_prep = row.prep_or_pep / row.n_denominator_hiv_negative
         i_test, ok_t = solve_intensity(w_test, ACCEPT_HIV_TEST, p_test, d)
-        p_prep_residual = p_prep * (1.0 - PREP_BUNDLED_SHARE_OF_STARTS)       # the bundle supplies the rest
+        p_prep_residual = p_prep * (1.0 - test_linked[s])       # the bundle and referral supply the rest (B/I0 per setting)
         i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep_residual / PREP_INDICATED_SHARE[s], d)
         say(f"receipt {YEAR}: HIV test {int(row.lab_test)}/{int(row.n_denominator_hiv_negative)} = {p_test_claims:.4f} same-claim"
             + ("" if s == "ED" else f" x {test_factor:.2f} = {p_test:.4f} corrected")
             + f", PrEP/PEP {int(row.prep_or_pep)} = {p_prep:.4f}  [APCD job3a]")
         say(f"intensity_hiv_test: solve {w_test:.3f} * E[1-(1-I*{ACCEPT_HIV_TEST})^n] = {p_test:.4f} -> I = {i_test:.4f}{'' if ok_t else '  UNREACHABLE, capped at 1'}")
-        say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} x (1 - bundled {PREP_BUNDLED_SHARE_OF_STARTS}) / indicated share {PREP_INDICATED_SHARE[s]:.3f} = {p_prep_residual / PREP_INDICATED_SHARE[s]:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
-        say(f"test-and-offer bundle: P(PrEP raised | negative test) {PREP_BUNDLE_PROB_WILLING} at prescribing providers, same-day {PREP_SAME_DAY[s]}, deferred return {PREP_DEFERRED_RETURN}")
+        say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} x (1 - test-linked B/I0 {test_linked[s]}) / indicated share {PREP_INDICATED_SHARE[s]:.3f} = {p_prep_residual / PREP_INDICATED_SHARE[s]:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
+        say(f"test-and-offer bundle: P(PrEP raised | negative test) {PREP_BUNDLE_PROB_WILLING} at prescribing providers, same-day {PREP_SAME_DAY[s]}, deferred return {PREP_DEFERRED_RETURN[s]}; referral at non-prescribers {PREP_REFERRAL_PROB}, return {PREP_REFERRAL_RETURN[s]}")
         say(f"intensity_moud = {INTENSITY_MOUD[s]}  [{INTENSITY_MOUD_SOURCE[s]}]")
 
         out[s] = {
@@ -420,10 +452,10 @@ def derive(verbose=True):
             "intensity_counseling": 0.0,
             "visit_prob_after_overdose": ED_VISIT_AFTER_OD if s == "ED" else 0.0,
             "prep_bundle_prob": PREP_BUNDLE_PROB_WILLING,
-            "prep_bundle_prob_unwilling": PREP_BUNDLE_PROB_UNWILLING,
-            "prep_bundle_start_step": -999,
             "prep_same_day_prob": PREP_SAME_DAY[s],
-            "prep_deferred_return_prob": PREP_DEFERRED_RETURN,
+            "prep_deferred_return_prob": PREP_DEFERRED_RETURN[s],
+            "prep_referral_prob": PREP_REFERRAL_PROB,
+            "prep_referral_return_prob": PREP_REFERRAL_RETURN[s],
         }
         say(f"visit_prob_after_overdose = {out[s]['visit_prob_after_overdose']}  "
             + ("[assumption: claims-defined nonfatal overdoses are ED-treated by construction]" if s == "ED" else "[none]"))
@@ -459,6 +491,7 @@ SCALARS = [
     ("features", "care_seeking", "true", "the care-setting layer is on; MOUD, testing and PrEP run through encounters"),
     ("hiv_testing", "acceptance", ACCEPT_HIV_TEST, "RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)"),
     ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07"),
+    ("hiv_testing", "nonclinical_annual_noninj", NONCLINICAL_TESTING_NONINJ, "people with OUD who do not inject (2026-10-12): -1 = PWID rate; proposed 0.20 (0.10-0.30) TAGGED pending confirmation: past-year tested 33 % oxycodone vs 71 % heroin (Meade 2009, PMID 19444732), OTP clients 17-41 % (NDATSS), replaced by the APCD any-claim table when delivered"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
     ("prep", "acceptance", ACCEPT_PREP, "starts once discussed: clinical review 2026-10-07 (25-50 %), was 0.60 (registry 7.6); sensitivity 0.25-0.60"),
     ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),

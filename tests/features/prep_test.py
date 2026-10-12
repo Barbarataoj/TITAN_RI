@@ -821,11 +821,57 @@ def test_offer_after_negative_test_same_day_and_deferred(make_model, make_agent)
     from collections import defaultdict
     stats = defaultdict(int); c.prep.set_stats(stats, 31)
     assert stats["prep_new_bundled"] == 1 and stats["prep_new_deferred"] == 1 and stats["prep_new_same_day"] == 0
+    # the acceptance multiplier is passed in by hiv_testing (the setting's), not read
+    # from care_offer_mult (2026-10-12): acceptance 0.5 x 1.6 = 0.8 > 0.7 accepts
+    e = make_agent(DU="Inj")
+    e.location.params.prep.target_model = ["pwid"]; e.location.params.prep.start_time = 0
+    e.location.params.prep.acceptance = 0.5; e.care_offer_mult = {"prep": 1.0}
+    model.time = 40; model.run_random = FakeRandom(0.7)
+    e.prep.offer_after_negative_test(model, 1.0, 1.0, acceptance_mult=1.6, setting_name="ED")
+    assert e.prep.active and e.prep.started_bundled_setting == "ED"
+    stats = defaultdict(int); e.prep.set_stats(stats, 40)
+    assert stats["prep_new_bundled_ED"] == 1 and stats["prep_new_bundled_primary_care"] == 0
     # no indication -> no offer
     d = make_agent(DU="NonInj")
     d.location.params.prep.target_model = ["pwid"]; d.location.params.prep.start_time = 0
     d.prep.offer_after_negative_test(model, 1.0, 1.0)
     assert not d.prep.bundle_offered_this_step and not d.prep.active
+
+
+@pytest.mark.unit
+def test_independent_start_is_attributed_to_the_offering_setting(make_model, make_agent):
+    """A start after a regular offer carries the offering setting (first setting
+    with a PrEP offer this step) into prep_new_independent_<setting> (2026-10-12)."""
+    from collections import defaultdict
+    model = make_model()
+    model.time = 20
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid"]
+    a.location.params.prep.start_time = 0
+    a.location.params.prep.acceptance = 1.0
+    a.location.params.features.care_seeking = True
+    a.care_offer = {"hiv_test": False, "prep": True}
+    a.care_offer_mult = {"prep": 1.0}
+    a.care_offer_by_setting = {"ED": {"hiv_test": False, "prep": False}, "sud_treatment": {"hiv_test": False, "prep": True}}
+    a.care_reach = {}
+    Prep.counts[a.race] = 0
+    model.run_random = FakeRandom(0.1)
+    a.prep.initiate(model)
+    assert a.prep.active and a.prep.started_independent_setting == "sud_treatment"
+    stats = defaultdict(int); a.prep.set_stats(stats, 20)
+    assert stats["prep_new"] == 1 and stats["prep_new_independent_sud_treatment"] == 1 and stats["prep_new_bundled"] == 0
+    a.location.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_prep_settings_match_the_scenario_source():
+    """Prep.SETTINGS (the per-setting start stats) must name exactly the care settings
+    the generated scenario carries (one owner: scripts/make_care_seeking_params.py)."""
+    import yaml
+    from pathlib import Path
+    src = yaml.safe_load(Path(__file__).resolve().parents[2].joinpath("titan", "calibration", "scenario_source.yml").read_text())
+    settings = set(src["scenario"]["care_seeking"]["setting"])
+    assert set(Prep.SETTINGS) == settings, (Prep.SETTINGS, settings)
 
 
 @pytest.mark.unit

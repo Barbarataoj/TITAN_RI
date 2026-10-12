@@ -439,15 +439,15 @@ scenario:
         p_willing_moud: 0.07
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.53766
-        intensity_prep: 0.01709
+        intensity_prep: 0.01865
         intensity_moud: 0.15
         intensity_counseling: 0.0
         visit_prob_after_overdose: 1.0
         prep_bundle_prob: 0.5
-        prep_bundle_prob_unwilling: 0.0
-        prep_bundle_start_step: -999
         prep_same_day_prob: 0.2
-        prep_deferred_return_prob: 0.35
+        prep_deferred_return_prob: 0.2
+        prep_referral_prob: 0.0
+        prep_referral_return_prob: 0.2
       primary_care:
         visit_rate_annual: 5.8131
         visit_heterogeneity_shape: 0.62
@@ -462,15 +462,15 @@ scenario:
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.1078
-        intensity_prep: 0.01588
+        intensity_prep: 0.01733
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
         prep_bundle_prob: 0.5
-        prep_bundle_prob_unwilling: 0.0
-        prep_bundle_start_step: -999
         prep_same_day_prob: 0.5
         prep_deferred_return_prob: 0.35
+        prep_referral_prob: 0.0
+        prep_referral_return_prob: 0.25
       sud_treatment:
         visit_rate_annual: 2.3562
         visit_heterogeneity_shape: 0.045
@@ -485,15 +485,15 @@ scenario:
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.06355
-        intensity_prep: 0.00145
+        intensity_prep: 0.00157
         intensity_moud: 1.0
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
         prep_bundle_prob: 0.5
-        prep_bundle_prob_unwilling: 0.0
-        prep_bundle_start_step: -999
         prep_same_day_prob: 0.5
         prep_deferred_return_prob: 0.35
+        prep_referral_prob: 0.0
+        prep_referral_return_prob: 0.25
       mental_health:
         visit_rate_annual: 12.9759
         visit_heterogeneity_shape: 0.2
@@ -508,15 +508,15 @@ scenario:
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.03862
-        intensity_prep: 0.00442
+        intensity_prep: 0.00482
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
         prep_bundle_prob: 0.5
-        prep_bundle_prob_unwilling: 0.0
-        prep_bundle_start_step: -999
         prep_same_day_prob: 0.5
         prep_deferred_return_prob: 0.35
+        prep_referral_prob: 0.0
+        prep_referral_return_prob: 0.25
   # <<< care_seeking <<<
   classes:
     sex_types:
@@ -589,6 +589,7 @@ scenario:
         sex: 0.5
     start_time: -999
   hiv_testing:
+    nonclinical_annual_noninj: -1.0  # care_seeking layer (scripts/make_care_seeking_params.py): people with OUD who do not inject (2026-10-12): -1 = PWID rate; proposed 0.20 (0.10-0.30) TAGGED pending confirmation: past-year tested 33 % oxycodone vs 71 % heroin (Meade 2009, PMID 19444732), OTP clients 17-41 % (NDATSS), replaced by the APCD any-claim table when delivered
     nonclinical_annual: 0.38  # care_seeking layer (scripts/make_care_seeking_params.py): PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07
     acceptance: 0.55  # care_seeking layer (scripts/make_care_seeking_params.py): RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)
     base_prob_annual: 0.3
