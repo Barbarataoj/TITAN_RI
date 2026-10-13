@@ -19,7 +19,7 @@ def setting(**kw):
     s = {"visit_rate_annual": 5.8, "p_willing_hiv_test": 0.246, "p_willing_prep": 0.079,
          "p_willing_moud": 1.0, "intensity_hiv_test": 0.108, "intensity_prep": 0.0052,
          "intensity_moud": 0.75, "pool_refresh_time": -9999,
-         "prep_bundle_prob": 0.5, "prep_referral_prob": 0.0}
+         "prep_bundle_prob": 0.5, "prep_referral_prob": 0.10}
     s.update(kw)
     return s
 
@@ -151,7 +151,8 @@ def test_chia_programme_arm_sets_reach_fields_only_in_primary_care():
     s_static, _ = gen.build_arms(b, static=True)["pc4_chia_central_static.yml"]
     assert s_static["care_seeking"]["setting"]["primary_care"]["reach_start_time"] == -9999
     hi, _ = gen.build_arms(b, variant="high")["pc4_chia_high.yml"]
-    assert hi["care_seeking"]["setting"]["primary_care"]["reach_intensity_mult_prep"] == pytest.approx(3.15 / 0.65, abs=1e-3)
+    assert hi["care_seeking"]["setting"]["primary_care"]["reach_intensity_mult_prep"] == pytest.approx(3.15 / 0.80, abs=1e-3)   # divisor = the variant's visit probability (2026-10-13)
+    assert hi["care_seeking"]["setting"]["primary_care"]["reach_visit_prob"] == 0.80
 
 
 @pytest.mark.unit
@@ -162,7 +163,8 @@ def test_ehr_arm_sets_the_bundle_and_injectable_first_is_a_prep_arm():
     pc = s["care_seeking"]["setting"]["primary_care"]
     # 2026-10-12: dated lever fields; the base bundle and referral values stay the
     # status quo's; non-prescribers refer (prep_referral_prob_lever), never prescribe
-    assert pc["prep_bundle_prob_lever"] == 0.8 and pc["prep_referral_prob_lever"] == 0.15
+    assert pc["prep_bundle_prob_lever"] == 0.8 and pc["prep_referral_prob_lever"] == pytest.approx(0.10 * 1.5)   # a multiplier on the base (2026-10-13)
+    assert gen.build_arms(b, variant="high")["pc2_ehr_opt_out_high.yml"][0]["care_seeking"]["setting"]["primary_care"]["prep_referral_prob_lever"] == pytest.approx(0.26)
     assert pc["prep_bundle_lever_start_step"] == gen.DEFAULT_START_STEP
     base_pc = b["care_seeking"]["setting"]["primary_care"]
     assert pc["prep_bundle_prob"] == base_pc["prep_bundle_prob"] and pc["prep_referral_prob"] == base_pc["prep_referral_prob"]

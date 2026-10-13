@@ -280,7 +280,15 @@ MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke
 # MH 0.437 per run-year -> 0.00069 / 0.00073 / 0.00006 / 0.00087. Converted to the
 # setting's patient-year denominator with COHORT_2022 / n_denominator_hiv_negative.
 # Re-measure when PrEP volume or monitoring inputs change.
-FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00768 + 0.00073, "sud_treatment": 0.00006, "mental_health": 0.00087}
+# Subtracted as PEOPLE, not events (review 2026-10-13): the receipt is the share of patients
+# with >= 1 test claim in the year, so a PrEP user with several monitoring visits counts once.
+# Oral-PrEP user-years 1.738 per run-year; with quarterly visits attended at 0.6 a user-year
+# has >= 1 attended visit with probability 1 - 0.4^4 = 0.97 -> 1.69 people -> 0.00338 per
+# cohort person-year (was 3.834 visits -> 0.00768). Injection visits 0.143 per run-year
+# (test_at_injection; one per person per quarter at most) -> 0.00029, in primary_care (the
+# monitoring setting). Starts are people (one test each). APPROXIMATION until a
+# distinct-people-per-year stat exists; the exact value lies between 1.74 and 3.83 people.
+FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00338 + 0.00029 + 0.00073, "sud_treatment": 0.00006, "mental_health": 0.00087}
 NONCLINICAL_TESTING_NONINJ = 0.20        # 2026-10-12 (Jun): past-year testing ~27 % with the clinic route; Ahrens 2023 PMID 36594172 (Medicaid MOUD initiators, 11 states: HIV test within 90 days 20 % 2016 -> 25 % 2019), Meade 2009 PMID 19444732 (33 % non-injecting vs 71 % injecting); range 0.10-0.30; -1 = PWID rate
 NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): annual probability, -ln(1-0.38) = 0.48 tests/PWID-yr from this route + ~0.14 from clinics = 0.62 vs NHBS 0.60 (B1 job 7098444). Was a fitted placeholder 0.4 from 2026-10-01
 

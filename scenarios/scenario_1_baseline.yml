@@ -13,7 +13,7 @@ care_seeking:
     ED:
       attrition_annual: 0.5
       intensity_counseling: 0.0
-      intensity_hiv_test: 0.53766
+      intensity_hiv_test: 0.49134
       intensity_moud: 0.15
       intensity_prep: 0.01746
       n_providers_ri: 2145
@@ -36,7 +36,7 @@ care_seeking:
     mental_health:
       attrition_annual: 0.39
       intensity_counseling: 0.0
-      intensity_hiv_test: 0.03862
+      intensity_hiv_test: 0.02905
       intensity_moud: 0.75
       intensity_prep: 0.0054
       n_providers_ri: 1928
@@ -59,7 +59,7 @@ care_seeking:
     primary_care:
       attrition_annual: 0.3
       intensity_counseling: 0.0
-      intensity_hiv_test: 0.1078
+      intensity_hiv_test: 0.09591
       intensity_moud: 0.75
       intensity_prep: 0.01242
       n_providers_ri: 1833
@@ -82,7 +82,7 @@ care_seeking:
     sud_treatment:
       attrition_annual: 0.6
       intensity_counseling: 0.0
-      intensity_hiv_test: 0.06355
+      intensity_hiv_test: 0.06264
       intensity_moud: 1.0
       intensity_prep: 0.00073
       n_providers_ri: 253

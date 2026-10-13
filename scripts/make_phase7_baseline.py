@@ -189,12 +189,16 @@ def overlay_care_layer(scenario):
     # by make_care_seeking_params.py from 2022 receipt, given who is eligible and
     # the acceptance), never fitted, so it is always taken from the source: since
     # 2026-10-07 it changes with the eligibility rule.
-    # The test-and-offer bundle and referral fields (2026-10-09 / 10-12) are
-    # inputs as well, set by the generator from the literature and from the
-    # measured B/I0, so today's source always wins for them too.
-    always = ("intensity_prep", "prep_bundle_prob", "prep_same_day_prob", "prep_deferred_return_prob",
-              "prep_referral_prob", "prep_referral_return_prob",
-              "prep_bundle_prob_lever", "prep_referral_prob_lever", "prep_bundle_lever_start_step")
+    # intensity_hiv_test is DERIVED too (solved from the APCD testing receipt less
+    # the engine's forced tests, 2026-10-12), and the 2026-10-12 correction never
+    # reached a run because it was not listed here (review 2026-10-13): every member
+    # kept the pre-correction value. The test-and-offer bundle and referral fields
+    # (2026-10-09 / 10-12) are inputs as well, set by the generator from the
+    # literature and from the measured B/I0, so today's source always wins for
+    # them too. Lever fields are arm-only and never in the source.
+    always = ("intensity_prep", "intensity_hiv_test",
+              "prep_bundle_prob", "prep_same_day_prob", "prep_deferred_return_prob",
+              "prep_referral_prob", "prep_referral_return_prob")
     for name, fields in settings_src.items():
         target = settings.setdefault(name, {})
         for k, v in fields.items():

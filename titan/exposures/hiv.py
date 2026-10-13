@@ -591,6 +591,11 @@ class HIV(base_exposure.BaseExposure):
 
         if self.agent.prep.active:  # type: ignore[attr-defined]
             self.agent.prep.progress(model, force=True)  # type: ignore[attr-defined]
+        # a deferred or referred PrEP start pending at conversion is void (2026-10-13)
+        prep = getattr(self.agent, "prep", None)
+        if prep is not None:
+            prep.pending_start, prep.pending_return_prob = None, 0.0
+            prep.pending_kind, prep.pending_setting = "", ""
 
     def diagnose(self, model: "model.TITAN"):
         """

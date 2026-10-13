@@ -137,10 +137,11 @@ def test_reach_effects_published_for_prep():
     a = make_fake_agent(params)
     a.care_seeking.init_agent(SimpleNamespace(pop_random=FakeRandom(0.0)), 0)
     model = make_fake_model(params, FakeRandom(0.0), FakeRandom(1.0), [a])
-    CareSeeking.update_pop(model)                      # reach drawn this step
-    assert a.care_reach == {"prep_discontinue_mult": 1.0, "prep_adherence_mult": 1.0,
-                            "prep_restart_prob": 0.0, "prep_monitoring_mult": 1.0}
-    CareSeeking.update_pop(model)                      # effects visible from the next step
+    assert not a.care_seeking.reached
+    CareSeeking.update_pop(model)                      # reach drawn this step: effects visible THIS step (2026-10-13; was the next)
+    assert a.care_seeking.reached == {"primary_care": True}
+    assert a.care_reach["prep_discontinue_mult"] == pytest.approx(0.6)
+    CareSeeking.update_pop(model)                      # and they persist
     assert a.care_reach["prep_discontinue_mult"] == pytest.approx(0.6)
     assert a.care_reach["prep_adherence_mult"] == pytest.approx(1.2)
     assert a.care_reach["prep_restart_prob"] == pytest.approx(0.02)

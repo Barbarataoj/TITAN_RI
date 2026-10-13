@@ -87,19 +87,19 @@ TIMELINE_STOP = 10_000        # beyond any horizon (stop_time is exclusive)
 # than W/I/acceptance. Values: docs/calibration_log/phase_7_chia_workflow_cashflow_2026-10-02.md
 # section 7.5 (reference AHF messenger PMID 41792418 with an OUD discount d on the
 # excess effect: central d = 0.65, low d = 0.5, high d = 1).
-def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78):
+def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78, visit=0.65):
     rr = 1.0 + d * (3.15 - 1.0)              # PrEP initiation among reached, AHF RR 3.15
     return {
         "reach_prob": reach_sms,
         "reach_retry_prob": 0.0,
-        "reach_visit_prob": 0.65,
+        "reach_visit_prob": visit,
         "reach_offer_prob_hiv_test": round(0.027 + d * (0.50 - 0.027), 4),
         # a prepared patient raises PrEP (share who ask 0.35) and a non-prescribing
         # provider acts on the request (efficacy 0.35 x OUD factor 0.78); the
         # AHF initiation effect above covers willing providers, this covers the rest
         "reach_offer_prob_prep": round(ask * eff_req * oud_req, 4),
         "reach_acceptance_mult_hiv_test": round((0.55 + d * 0.30) / 0.55, 4),
-        "reach_intensity_mult_prep": round(rr / 0.65, 4),      # per-visit multiplier so the per-patient-year effect is rr
+        "reach_intensity_mult_prep": round(rr / visit, 4),     # per-visit multiplier so the per-patient-year effect is rr (divisor = this variant's visit probability; was 0.65 for every variant, review 2026-10-13)
         "reach_acceptance_mult_prep": 1.0,
         "reach_prep_discontinue_mult": round(1.0 - d * (1.0 - 0.50), 4),   # AHF refill 57.0 vs 32.4 % -> h 0.50
         # adherence messaging (2026-10-09): a chatbot can do what PrEPmate's
@@ -142,8 +142,8 @@ STRATEGIES = {
         "label": "CHIA pre-visit chatbot + provider summary (patient-facing programme in primary care)",
         "program": True,
         "central": {"program": _chia(0.65, 0.15)},
-        "low": {"program": dict(_chia(0.50, 0.08, ask=0.30, eff_req=0.20, oud_req=0.70), reach_visit_prob=0.50, reach_prep_restart_prob=0.01)},
-        "high": {"program": dict(_chia(1.0, 0.23, ask=0.50, eff_req=0.50, oud_req=0.85), reach_visit_prob=0.80, reach_prep_restart_prob=0.03)},
+        "low": {"program": dict(_chia(0.50, 0.08, ask=0.30, eff_req=0.20, oud_req=0.70, visit=0.50), reach_prep_restart_prob=0.01)},
+        "high": {"program": dict(_chia(1.0, 0.23, ask=0.50, eff_req=0.50, oud_req=0.85, visit=0.80), reach_prep_restart_prob=0.03)},
         "sources": [
             "reference: AHF conversational messenger, 155,217 adults (PMID 41792418): engaged 23.4%; PrEP initiation 19.3 vs 6.1% (RR 3.15); refill after initiation 57.0 vs 32.4%; attendance 66.1 vs 53.9%",
             "OUD discount d on the excess effect (0.65; 0.5-1): phone/portal ceiling 36575145, 41617402; PrEP acceptance in an OUD bridge clinic 36383918; PWID discontinuation aHR 4.8 31436610; null digital support in stimulant users 36659873",
@@ -190,19 +190,19 @@ STRATEGIES = {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.67, "intensity_mult": 1.5},
             "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.65},
-            "bundle": {"prep_bundle_prob_lever": 0.8, "prep_referral_prob_lever": 0.15},
+            "bundle": {"prep_bundle_prob_lever": 0.8, "prep_referral_prob_lever_mult": 1.5},
         },
         "low": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.35, "intensity_mult": 1.2},
             "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.60},
-            "bundle": {"prep_bundle_prob_lever": 0.6, "prep_referral_prob_lever": 0.05},
+            "bundle": {"prep_bundle_prob_lever": 0.6, "prep_referral_prob_lever_mult": 1.3},
         },
         "high": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.9, "intensity_mult": 2.0},
             "prep": {"reach": 1.0, "willing_efficacy": 0.2, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.85},
-            "bundle": {"prep_bundle_prob_lever": 0.9, "prep_referral_prob_lever": 0.30},
+            "bundle": {"prep_bundle_prob_lever": 0.9, "prep_referral_prob_lever_mult": 2.6},
         },
         "sources": [
             "testing: EHR reminder x4 on receipt sustained 2 yr (24363958); BPA + incentive x5.1 (39214701); passive alert x1.9 (27378268); 70-80% offered under facilitation (23605307)",
@@ -401,9 +401,19 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
         # the base fields stay the status quo's so the arm is identical to it
         # before the start (2026-10-12)
         for k, v in levers.get("bundle", {}).items():
-            assert k.endswith("_lever"), f"bundle lever {k} must be a *_lever field"
-            _setting(scenario)[k] = v
-            notes.append(f"  {SETTING}.{k} = {v} (base {base.get(k[:-len('_lever')], 'unset')} before the start)")
+            if k.endswith("_lever_mult"):
+                # a multiplier on the status quo's value (the referral prompt: CDS x1.3-2.6,
+                # PMID 38412047), so a sensitivity that moves the base keeps the lever's
+                # meaning (review 2026-10-13; an absolute lever lowered referral when the
+                # base was raised)
+                field = k[:-len("_mult")]
+                base_v = float(base.get(field[:-len("_lever")], 0.0))
+                _setting(scenario)[field] = round(min(1.0, base_v * v), 4)
+                notes.append(f"  {SETTING}.{field} = {base_v} x {v} = {_setting(scenario)[field]}")
+            else:
+                assert k.endswith("_lever"), f"bundle lever {k} must be a *_lever field"
+                _setting(scenario)[k] = v
+                notes.append(f"  {SETTING}.{k} = {v} (base {base.get(k[:-len('_lever')], 'unset')} before the start)")
             changed = True
         if levers.get("bundle"):
             _setting(scenario)["prep_bundle_lever_start_step"] = -999 if static else int(start_step)

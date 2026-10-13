@@ -92,11 +92,14 @@ def _bundle_setup(make_model, make_agent, willing, prev=None, **setting):
               "reach_prep_bundle_prob": -1.0, "reach_prep_deferred_return_prob": -1.0, "reach_prep_same_day_prob": -1.0,
               "reach_prep_referral_prob": -1.0, "reach_prep_referral_return_prob": -1.0}
     reached = setting.pop("reached", False)
+    active = setting.pop("active", reached)
     fields.update(setting)
     model.params.care_seeking = ObjMap({"setting": {"primary_care": fields}})
-    # per-setting reach (care_seeking.reached), the only thing the bundle gates on;
-    # care_reach is the neutral multiplier dict every agent carries (2026-10-12)
+    # per-setting reach (care_seeking.reached) and the per-step active-visit flag
+    # (care_active), which is what the bundle gates on since 2026-10-13;
+    # care_reach is the neutral multiplier dict every agent carries
     a.care_seeking.reached = {"primary_care": True} if reached else {}
+    a.care_active = {"primary_care": bool(active)}
     a.care_reach = {"prep_discontinue_mult": 1.0, "prep_adherence_mult": 1.0, "prep_restart_prob": 0.0, "prep_monitoring_mult": 1.0}
     a.location.params.prep.target_model = ["pwid"]
     a.location.params.prep.start_time = 0
@@ -182,10 +185,30 @@ def test_bundle_floors_apply_only_to_an_agent_reached_in_that_setting(make_model
     b.care_seeking.reached = {"ED": True}
     b.hiv_testing.update_agent(model)
     assert not b.prep.bundle_offered_this_step
-    # reached in this setting: the floor applies
+    # reached in this setting but not an active visit this step: base values
+    model, d = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=0.0, reach_prep_bundle_prob=1.0, reached=True, active=False)
+    d.hiv_testing.update_agent(model)
+    assert not d.prep.bundle_offered_this_step
+    # reached and an active programme visit this step: the floor applies
     model, c = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=0.0, reach_prep_bundle_prob=1.0, reached=True)
     c.hiv_testing.update_agent(model)
     assert c.prep.active and c.prep.started_bundled_this_step == "same_day"
+    model.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_bundle_makes_no_offer_for_an_agent_on_prep_or_who_stopped_this_step(make_model, make_agent):
+    """2026-10-13: an agent already on PrEP, or who discontinued PrEP this step (the
+    monitoring-visit test is ordered for the user it is monitoring), gets no bundle and
+    no bundle draw; a second setting's test can still raise PrEP after a miss elsewhere."""
+    model, a = _bundle_setup(make_model, make_agent, willing=True, prep_bundle_prob=1.0)
+    a.prep.active = True
+    a.hiv_testing.update_agent(model)
+    assert a.hiv_testing.tests_this_step == 1 and not a.prep.bundle_offered_this_step
+    model, b = _bundle_setup(make_model, make_agent, willing=True, prev=model, prep_bundle_prob=1.0)
+    b.prep.stopped_this_step = True
+    b.hiv_testing.update_agent(model)
+    assert b.hiv_testing.tests_this_step == 1 and not b.prep.bundle_offered_this_step and not b.prep.active
     model.params.features.care_seeking = False
 
 

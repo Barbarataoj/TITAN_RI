@@ -651,3 +651,37 @@ def test_acceptance_multiplier_travels_with_the_offer_and_takes_the_max():
     CareSeeking.update_pop(model)
     assert a.care_offer_mult["hiv_test"] == 1.0
 
+
+
+@pytest.mark.unit
+def test_roll_visits_publishes_active_visits_and_same_step_reach_effects(make_model, make_agent):
+    """2026-10-13: care_active[setting] says whether this step's visit was an active
+    programme visit; care_reach carries the programme's multipliers from the reaching step."""
+    from titan.features import CareSeeking
+    from conftest import FakeRandom
+    model = make_model()
+    model.time = 140
+    model.params.features.care_seeking = False
+    a = make_agent(DU="Inj")
+    model.params.features.care_seeking = True
+    fields = {"visit_rate_annual": 12.0, "n_providers_ri": 10, "panel_skew": 1.0, "visit_heterogeneity_shape": 0.0,
+              "attrition_annual": 0.0, "p_willing_hiv_test": 0.0, "p_willing_prep": 0.0, "p_willing_moud": 0.0,
+              "p_willing_counseling": 0.0, "intensity_hiv_test": 0.0, "intensity_prep": 0.0, "intensity_moud": 0.0,
+              "intensity_counseling": 0.0, "visit_prob_after_overdose": 0.0, "pool_refresh_time": -9999,
+              "reach_prob": 1.0, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0, "reach_start_time": 100,
+              "reach_prep_adherence_mult": 1.5, "reach_prep_discontinue_mult": 1.0, "reach_prep_restart_prob": 0.0,
+              "reach_prep_monitoring_mult": 1.0}
+    care = ObjMap({"shared_trait_prob": 0.0, "setting": {"primary_care": fields}, "n_ri_oud": 500})
+    model.params.care_seeking = care
+    a.care_seeking.provider_id = {"primary_care": 0}
+    a.care_seeking.reached = {}; a.care_seeking.reach_rolled = {}
+    CareSeeking.providers = {"primary_care": [{s: {"willing": False, "intensity": 0.0} for s in ("hiv_test", "prep", "moud", "counseling")}]}
+    model.run_random = FakeRandom(0.0)
+    class NP:
+        def poisson(self, rate): return 1
+    model.np_random = NP()
+    a.care_seeking.roll_visits(care, 12, model)
+    assert a.care_active == {"primary_care": True}
+    assert a.care_seeking.reached == {"primary_care": True}
+    assert a.care_reach["prep_adherence_mult"] == 1.5      # same step, not the next
+    model.params.features.care_seeking = False

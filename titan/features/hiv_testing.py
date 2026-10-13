@@ -162,7 +162,14 @@ class HIVTesting(base_feature.BaseFeature):
         care = getattr(model.params, "care_seeking", None)
         if care is None:
             return
+        prep = getattr(self.agent, "prep", None)
+        # no conversation, and no draw, for an agent who cannot start: already on
+        # PrEP, no indication, or stopped PrEP this very step (a monitoring-visit
+        # test must not re-enrol the agent it was ordered for; 2026-10-13)
+        if prep is None or not prep.eligible(model.time) or getattr(prep, "stopped_this_step", False):
+            return
         cs = getattr(self.agent, "care_seeking", None)
+        active_by_setting = getattr(self.agent, "care_active", None) or {}
         for setting_name, offers in offers_by_setting.items():
             if not offers.get("hiv_test"):
                 continue
@@ -170,10 +177,13 @@ class HIVTesting(base_feature.BaseFeature):
                 setting = care.setting[setting_name]
             except (KeyError, AttributeError, TypeError):
                 continue
-            reached = False
+            # the programme's floors and overrides apply at an ACTIVE programme
+            # visit in this setting (reach rolled, per-visit engagement rolled),
+            # the same gate resolve_offers uses for the offer floors (2026-10-13;
+            # was: any agent ever reached in the setting)
+            reached = bool(active_by_setting.get(setting_name, False))
             willing = False
             if cs is not None:
-                reached = bool((getattr(cs, "reached", None) or {}).get(setting_name, False))
                 idx = (getattr(cs, "provider_id", None) or {}).get(setting_name)
                 pool = (getattr(type(cs), "providers", None) or {}).get(setting_name, [])
                 if idx is not None and idx < len(pool):
@@ -196,11 +206,10 @@ class HIVTesting(base_feature.BaseFeature):
             if p <= 0.0:
                 continue
             if model.run_random.random() >= p:
-                return
+                continue      # not raised at this setting's visit; another setting's test may still raise it
             mult = float(getattr(setting, "acceptance_mult_prep", 1.0))
             if reached:
                 mult *= float(getattr(setting, "reach_acceptance_mult_prep", 1.0))
-            prep = self.agent.prep  # type: ignore[attr-defined]
             if willing:
                 same_day = float(getattr(setting, "prep_same_day_prob", 1.0))
                 ret = float(getattr(setting, "prep_deferred_return_prob", 1.0))

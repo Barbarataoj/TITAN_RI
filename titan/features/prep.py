@@ -22,7 +22,7 @@ class Prep(base_feature.BaseFeature):
              # referred); per setting, test-linked and independent (regular
              # offer) starts, for the per-setting re-solve of the offer rate
              "prep_bundle_offers", "prep_new_bundled", "prep_new_same_day", "prep_new_deferred",
-             "prep_new_referred"] \
+             "prep_new_referred", "prep_new_restart"] \
             + [f"prep_new_bundled_{s}" for s in SETTINGS] \
             + [f"prep_new_independent_{s}" for s in SETTINGS]
     """
@@ -64,6 +64,8 @@ class Prep(base_feature.BaseFeature):
         self.started_bundled_this_step = ""   # "", "same_day", "deferred" or "referred"
         self.started_bundled_setting = ""     # the setting of the test behind a bundled start
         self.started_independent_setting = ""  # the setting of the regular offer behind an independent start
+        self.started_restart_this_step = False  # a programme re-start without a new offer (care_reach.prep_restart_prob)
+        self.stopped_this_step = False          # discontinued PrEP this step (no same-step re-enrolment through the bundle)
 
     @classmethod
     def init_class(cls, params: "ObjMap"):
@@ -120,25 +122,31 @@ class Prep(base_feature.BaseFeature):
         self.started_bundled_this_step = ""
         self.started_bundled_setting = ""
         self.started_independent_setting = ""
+        self.started_restart_this_step = False
+        self.stopped_this_step = False
         if (
             not self.agent.hiv.active  # type: ignore[attr-defined]
             and model.time >= self.agent.location.params.prep.start_time
         ):
             if self.active:
                 self.progress(model)
-            elif self.pending_start is not None and model.time >= self.pending_start:
-                # a deferred bundled start: the result visit one step after the
-                # negative test; the patient returns with pending_return_prob
-                returns = self.pending_return_prob
-                kind, setting_name = self.pending_kind or "deferred", self.pending_setting
-                self.pending_start, self.pending_return_prob = None, 0.0
-                self.pending_kind, self.pending_setting = "", ""
-                if self.eligible(model.time) and model.run_random.random() < returns:
-                    self.enroll(model.run_random, model.time)
-                    self.started_bundled_this_step = kind
-                    self.started_bundled_setting = setting_name
-            elif self.eligible(model.time):
-                self.initiate(model)
+            else:
+                if self.pending_start is not None and model.time >= self.pending_start:
+                    # a deferred or referred start: the result visit (or the
+                    # referral) one step after the negative test; the patient
+                    # returns with pending_return_prob
+                    returns = self.pending_return_prob
+                    kind, setting_name = self.pending_kind or "deferred", self.pending_setting
+                    self.pending_start, self.pending_return_prob = None, 0.0
+                    self.pending_kind, self.pending_setting = "", ""
+                    if self.eligible(model.time) and model.run_random.random() < returns:
+                        self.enroll(model.run_random, model.time)
+                        self.started_bundled_this_step = kind
+                        self.started_bundled_setting = setting_name
+                # a pending start that did not materialise does not cancel a
+                # regular offer made this step (2026-10-13; was an elif chain)
+                if not self.active and self.eligible(model.time):
+                    self.initiate(model)
 
     @classmethod
     def add_agent(cls, agent: "agent.Agent"):
@@ -177,6 +185,8 @@ class Prep(base_feature.BaseFeature):
                 stats[f"prep_new_bundled_{self.started_bundled_setting}"] += 1
         if self.started_independent_setting in self.SETTINGS:
             stats[f"prep_new_independent_{self.started_independent_setting}"] += 1
+        if self.started_restart_this_step:
+            stats["prep_new_restart"] += 1
         if self.active:
             stats["prep"] += 1
             if self.time == time:
@@ -326,6 +336,9 @@ class Prep(base_feature.BaseFeature):
             restart = getattr(self.agent, "care_reach", {}).get("prep_restart_prob", 0.0)
             if getattr(self, "ever", False) and restart > 0 and model.run_random.random() < restart:
                 self.enroll(model.run_random, model.time)
+                self.started_restart_this_step = True
+                if getattr(self.agent.location.params.prep, "test_at_start", False):
+                    self.force_test_this_step(getattr(self.agent.location.params.prep, "monitoring_setting", "primary_care"))
             return
         acceptance = getattr(self.agent.location.params.prep, "acceptance", 1.0)
         acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
@@ -339,21 +352,26 @@ class Prep(base_feature.BaseFeature):
                     break
             # every prescription follows a negative test (2026-10-12): a
             # guaranteed test this step, as a monitoring or injection visit
-            # carries one (care_seeking.roll_visits, prep.injection_visit)
+            # carries one (care_seeking.roll_visits, prep.give_injection)
             if getattr(self.agent.location.params.prep, "test_at_start", False):
-                self.force_test_this_step()
+                self.force_test_this_step(self.started_independent_setting)
 
-    def force_test_this_step(self):
+    def force_test_this_step(self, setting_name: str = ""):
         """A guaranteed HIV test at this step's visit: the offer flag with an
-        acceptance multiplier that makes the roll certain (hiv_testing runs after
-        prep within the step, care_seeking after both, so the flag is read this
-        step and reset at the next visit record)."""
+        acceptance multiplier that makes the roll certain, recorded against
+        `setting_name` so the setting's test-offer stats carry it like the
+        monitoring-visit test (2026-10-13). care_seeking rolls visits before the
+        agent-level updates and hiv_testing runs after prep within the step, so
+        the flag is read this step and reset at the next step's visit record."""
         offers = getattr(self.agent, "care_offer", None)
         if offers is not None:
             offers["hiv_test"] = True
             mult = getattr(self.agent, "care_offer_mult", None)
             if mult is not None:
                 mult["hiv_test"] = max(mult.get("hiv_test", 1.0), 1e6)
+            by_setting = getattr(self.agent, "care_offer_by_setting", None)
+            if setting_name and by_setting is not None:
+                by_setting.setdefault(setting_name, {s: False for s in ("hiv_test", "prep", "moud", "counseling")})["hiv_test"] = True
 
     def offer_after_negative_test(self, model: "model.TITAN", same_day_prob: float, return_prob: float,
                                   referral: bool = False, acceptance_mult: float = 1.0, setting_name: str = ""):
@@ -504,12 +522,7 @@ class Prep(base_feature.BaseFeature):
         if enc is not None:
             enc[setting] = enc.get(setting, 0) + 1
         if spec.test_at_injection:
-            offers = getattr(self.agent, "care_offer", None)
-            if offers is not None:
-                offers["hiv_test"] = True
-                mult = getattr(self.agent, "care_offer_mult", None)
-                if mult is not None:
-                    mult["hiv_test"] = max(mult.get("hiv_test", 1.0), 1e6)
+            self.force_test_this_step(setting)
 
     def progress(self, model: "model.TITAN", force: bool = False):
         """
@@ -598,6 +611,7 @@ class Prep(base_feature.BaseFeature):
         """
         Discontinue PrEP usage
         """
+        self.stopped_this_step = True
         self.active = False
         self.type = ""
         self.time = None

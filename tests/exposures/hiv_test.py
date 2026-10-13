@@ -745,3 +745,12 @@ def test_expose_attributes_the_hazard_to_the_source_care_status(make_model, make
     stats = defaultdict(int); p.hiv.set_stats(stats, 10)
     assert stats["hiv_hazard_src_dx_noart"] == pytest.approx(stats["hiv_hazard"])
     assert stats["hiv_hazard_avert_sup_dx_noart"] > 0
+
+
+@pytest.mark.unit
+def test_conversion_clears_a_pending_prep_start(make_model, make_agent):
+    model = make_model(); model.time = 12
+    p = make_agent()
+    p.prep.pending_start = 13; p.prep.pending_return_prob = 0.4; p.prep.pending_kind = "referred"; p.prep.pending_setting = "ED"
+    p.hiv.convert(model, "sex")
+    assert p.hiv.active and p.prep.pending_start is None and p.prep.pending_kind == "" and p.prep.pending_return_prob == 0.0

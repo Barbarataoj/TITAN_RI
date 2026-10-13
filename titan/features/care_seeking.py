@@ -570,6 +570,10 @@ class CareSeeking(base_feature.BaseFeature):
         self.agent.care_offer_mult = {service: 1.0 for service in SERVICES}
         self.agent.care_reach_visits = 0
         self.agent.prep_monitoring_visit = False
+        # which settings had an active programme visit THIS step (reach rolled and
+        # the per-visit engagement roll passed); hiv_testing gates the bundle and
+        # referral floors on it, as resolve_offers gates the offer floors (2026-10-13)
+        self.agent.care_active = {}
         # PrEP-side effects of the programme(s) that reached this agent,
         # consumed by titan/features/prep.py
         self.agent.care_reach = self.reach_effects(care_params)
@@ -602,6 +606,7 @@ class CareSeeking(base_feature.BaseFeature):
             # the setting's patient-facing programme: reach draw at the first
             # visit on/after its start, then an "active" visit roll
             active = self.roll_reach(setting, setting_name, model)
+            self.agent.care_active[setting_name] = bool(active)
             if active:
                 self.agent.care_reach_visits += 1
 
@@ -619,6 +624,10 @@ class CareSeeking(base_feature.BaseFeature):
                 self.agent.care_offer_mult["hiv_test"] = max(
                     self.agent.care_offer_mult.get("hiv_test", 1.0), 1e6
                 )
+        # recompute after the reach rolls: an agent reached at this step's visit
+        # gets the programme's PrEP-side multipliers from this step, not the next
+        # (2026-10-13)
+        self.agent.care_reach = self.reach_effects(care_params)
 
     def roll_reach(self, setting: "ObjMap", setting_name: str, model: "model.TITAN") -> bool:
         """

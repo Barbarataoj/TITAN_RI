@@ -808,8 +808,11 @@ def test_offer_after_negative_test_same_day_and_deferred(make_model, make_agent)
     assert not b.prep.active and b.prep.pending_start == 21 and b.prep.pending_return_prob == 0.4
     model.time = 21
     model.run_random = FakeRandom(0.6)            # does not return (0.6 >= 0.4)
+    b.location.params.features.care_seeking = True   # no regular offer this step either (2026-10-13 fall-through)
+    b.care_offer = {"hiv_test": False, "prep": False}; b.care_reach = {}
     b.prep.update_agent(model)
     assert not b.prep.active and b.prep.pending_start is None
+    b.location.params.features.care_seeking = False
     c = make_agent(DU="Inj")
     c.location.params.prep.target_model = ["pwid"]; c.location.params.prep.start_time = 0
     c.location.params.prep.acceptance = 0.5; c.care_offer_mult = {"prep": 1.0}
@@ -836,6 +839,48 @@ def test_offer_after_negative_test_same_day_and_deferred(make_model, make_agent)
     d.location.params.prep.target_model = ["pwid"]; d.location.params.prep.start_time = 0
     d.prep.offer_after_negative_test(model, 1.0, 1.0)
     assert not d.prep.bundle_offered_this_step and not d.prep.active
+
+
+@pytest.mark.unit
+def test_pending_start_that_fails_does_not_cancel_a_regular_offer(make_model, make_agent):
+    """2026-10-13: at the result step, a deferred start that does not materialise leaves
+    the regular PrEP offer of that step in force (was an elif chain that discarded it)."""
+    model = make_model()
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid"]; a.location.params.prep.start_time = 0
+    a.location.params.prep.acceptance = 1.0; a.location.params.features.care_seeking = True
+    a.care_offer = {"hiv_test": False, "prep": True}; a.care_offer_mult = {"prep": 1.0}
+    a.care_offer_by_setting = {"primary_care": {"hiv_test": False, "prep": True}}
+    a.care_reach = {}
+    Prep.counts[a.race] = 0
+    a.prep.pending_start = 21; a.prep.pending_return_prob = 0.4; a.prep.pending_kind = "deferred"; a.prep.pending_setting = "primary_care"
+    model.time = 21
+    model.run_random = FakeRandom(0.9)          # return roll fails (0.9 >= 0.4); regular offer accepted (0.9 < 1.0)
+    a.prep.update_agent(model)
+    assert a.prep.active and a.prep.pending_start is None
+    assert a.prep.started_bundled_this_step == "" and a.prep.started_independent_setting == "primary_care"
+    a.location.params.features.care_seeking = False
+
+
+@pytest.mark.unit
+def test_programme_restart_carries_a_test_and_its_own_stat(make_model, make_agent):
+    from collections import defaultdict
+    model = make_model(); model.time = 30
+    a = make_agent(DU="Inj")
+    a.location.params.prep.target_model = ["pwid"]; a.location.params.prep.start_time = 0
+    a.location.params.prep.test_at_start = True; a.location.params.features.care_seeking = True
+    a.care_offer = {"hiv_test": False, "prep": False}; a.care_offer_mult = {"hiv_test": 1.0, "prep": 1.0}
+    a.care_offer_by_setting = {}
+    a.care_reach = {"prep_restart_prob": 1.0}
+    a.prep.ever = True
+    Prep.counts[a.race] = 0
+    model.run_random = FakeRandom(0.1)
+    a.prep.initiate(model)
+    assert a.prep.active and a.prep.started_restart_this_step
+    assert a.care_offer["hiv_test"] is True and a.care_offer_by_setting["primary_care"]["hiv_test"] is True
+    stats = defaultdict(int); a.prep.set_stats(stats, 30)
+    assert stats["prep_new"] == 1 and stats["prep_new_restart"] == 1 and stats["prep_new_bundled"] == 0
+    a.location.params.prep.test_at_start = False; a.location.params.features.care_seeking = False
 
 
 @pytest.mark.unit
