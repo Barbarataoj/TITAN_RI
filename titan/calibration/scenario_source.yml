@@ -446,7 +446,7 @@ scenario:
         p_willing_moud: 0.07
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.49134
-        intensity_prep: 0.01746
+        intensity_prep: 0.01849
         intensity_moud: 0.15
         intensity_counseling: 0.0
         visit_prob_after_overdose: 1.0
@@ -469,7 +469,7 @@ scenario:
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.09591
-        intensity_prep: 0.01242
+        intensity_prep: 0.01282
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -492,7 +492,7 @@ scenario:
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.06264
-        intensity_prep: 0.00073
+        intensity_prep: 0.00089
         intensity_moud: 1.0
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -515,7 +515,7 @@ scenario:
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
         intensity_hiv_test: 0.02905
-        intensity_prep: 0.0054
+        intensity_prep: 0.00556
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0

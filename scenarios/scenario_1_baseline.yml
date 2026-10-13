@@ -15,7 +15,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.49134
       intensity_moud: 0.15
-      intensity_prep: 0.01746
+      intensity_prep: 0.01849
       n_providers_ri: 2145
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0558
@@ -38,7 +38,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.02905
       intensity_moud: 0.75
-      intensity_prep: 0.0054
+      intensity_prep: 0.00556
       n_providers_ri: 1928
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0268
@@ -61,7 +61,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.09591
       intensity_moud: 0.75
-      intensity_prep: 0.01242
+      intensity_prep: 0.01282
       n_providers_ri: 1833
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.2456
@@ -84,7 +84,7 @@ care_seeking:
       intensity_counseling: 0.0
       intensity_hiv_test: 0.06264
       intensity_moud: 1.0
-      intensity_prep: 0.00073
+      intensity_prep: 0.00089
       n_providers_ri: 253
       p_willing_counseling: 0.0
       p_willing_hiv_test: 0.0938
