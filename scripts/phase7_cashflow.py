@@ -103,6 +103,25 @@ def service_table(costs):
     return out, missing
 
 
+def navigation_cost_per_year(costs, reach_visits, reached_pm):
+    """Peer / patient navigation (2026-10-13): effort-based (navigator time per active
+    programme visit and per enrolled month) and caseload-based (enrolled person-years over
+    an active caseload per FTE), both with supervision overhead. Returns (effort cost,
+    caseload cost, effort FTE, caseload FTE, missing)."""
+    pc = costs["program_costs"]
+    keys = ("navigator_wage_per_hour", "navigator_productive_hours_per_fte", "navigator_supervision_overhead",
+            "navigator_minutes_per_active_visit", "navigator_minutes_per_enrolled_month", "navigator_active_caseload_per_fte")
+    vals = {k: _value(pc.get(k)) for k in keys}
+    missing = [k for k, v in vals.items() if v is None]
+    if missing:
+        return None, None, None, None, missing
+    hours = reach_visits * vals["navigator_minutes_per_active_visit"] / 60.0 + reached_pm * vals["navigator_minutes_per_enrolled_month"] / 60.0
+    fte_effort = hours / vals["navigator_productive_hours_per_fte"]
+    fte_caseload = (reached_pm / 12.0) / vals["navigator_active_caseload_per_fte"]
+    per_fte = vals["navigator_wage_per_hour"] * 2080.0 * (1.0 + vals["navigator_supervision_overhead"])
+    return fte_effort * per_fte, fte_caseload * per_fte, fte_effort, fte_caseload, []
+
+
 def program_cost_per_year(costs, reach_visits, reached_pm, invitations):
     pc = costs["program_costs"]
     fixed = _value(pc.get("chia_platform_per_site_year"))
@@ -159,7 +178,14 @@ def main():
                   "reach_visits_per_year": reach_visits, "reached_person_months_per_year": reached_pm}
         # clinic
         rev = sum(services[k]["clinic_revenue"] * counts[k] for k in services if services[k]["clinic_revenue"] is not None)
-        prog, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits)
+        if "navigation" in arm:
+            prog, prog_caseload, fte_e, fte_c, pmissing = navigation_cost_per_year(costs, reach_visits, reached_pm)
+            ledger["navigator_fte_effort"] = fte_e; ledger["navigator_fte_caseload"] = fte_c
+            ledger["program_cost_caseload_per_year"] = prog_caseload
+        elif "chia" in arm:
+            prog, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits)
+        else:
+            prog, pmissing = 0.0, []      # training / detailing and injectable-first: no priced programme cost yet
         ledger["clinic_revenue_per_year"] = rev
         ledger["program_cost_per_year"] = (prog * args.sites) if prog is not None else None
         ledger["clinic_net_per_year"] = rev - prog * args.sites if prog is not None else None
@@ -182,7 +208,7 @@ def main():
             ((prog or 0.0) * args.sites + pay) / infections if infections > 0 else None)
         # break-even reach: activity (and so revenue and variable cost) scales with
         # reached person-months; the platform cost is fixed per site
-        if prog is not None and reached_pm > 0:
+        if prog is not None and reached_pm > 0 and "chia" in arm:
             fixed = _value(costs["program_costs"]["chia_platform_per_site_year"]) * args.sites
             variable = prog * args.sites - fixed
             net_per_reached_pm = (rev - variable) / reached_pm
