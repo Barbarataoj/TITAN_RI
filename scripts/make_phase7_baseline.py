@@ -157,7 +157,7 @@ def overlay_care_layer(scenario):
     # them would otherwise keep "Allcomers", acceptance 0.60 and 0.96 / 0.76.
     overlay_keys = ("use_products", "products", "acceptance", "target_model",
                     "efficacy", "efficacy_injection", "reengagement_start_step",
-                    "reengagement_return_mult")
+                    "reengagement_return_mult", "test_at_start")
     for k, v in prep_src.items():
         if k.startswith("monitoring_") or k.startswith("discontinue_late_") or k in overlay_keys:
             prep[k] = v

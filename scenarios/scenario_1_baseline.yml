@@ -4676,6 +4676,7 @@ prep:
   - pwid
   - cdc_msm
   - cdc_women
+  test_at_start: true
   use_products: true
 syringe_services:
   timeline:
