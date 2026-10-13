@@ -64,22 +64,29 @@ axes:
 demographics:
   drug_type:
     constants:
+      # ART (2026-10-13; work record 2026-10-09 section 16, registry 7.11). Monthly
+      # values. Exits from the literature, entries solved so the model reproduces
+      # the CDC 2024 IDU continuum. enroll_0 covers time-since-diagnosis 0 AND 1:
+      # HAART updates before hiv_testing in each step, so a diagnosis is first seen
+      # by HAART at duration 1 and the old window [0, 1) never applied (verified by
+      # test). Was become 0.11, discontinue 0.04, prob 0.733, discontinue 0.05,
+      # enroll_1 0.177 (inherited TITAN values, churn 2-3x the evidence).
       haart:
         adherence:
-          become: 0.11
-          discontinue: 0.04
-          init: 0.733
-          prob: 0.733
+          become: 0.0499       # regain suppression on ART, solved (ART|dx 0.78, supp|dx 0.572 in-model, VS<=6mo 0.579)
+          discontinue: 0.0051  # lose suppression while on ART: total exit 0.030/mo with ART stop (16.7 %/6 mo), between ALIVE 25.6 %/6 mo (PMID 23770493) and CNICS 10 %/2 yr (PMID 37351454)
+          init: 0.733          # suppressed among those on ART at initialisation = 0.572 / 0.78
+          prob: 0.571          # suppressed at ART start, solved
         cap: 0.0
-        discontinue: 0.05
+        discontinue: 0.025     # ART stop / >90-day interruption: 26 %/yr, between insured PWH 18.8 %/yr (PMID 41627698) and ALIVE PWID lapse 19.1 %/6 mo
         enroll:
           enroll_0:
-            prob: 0.802
+            prob: 0.802        # linked within 1 month, IDU 80.2 % (CDC 2024 diagnoses)
             start: 0
-            stop: 1
+            stop: 2
           enroll_1:
-            prob: 0.177
-            start: 1
+            prob: 0.0886       # ART (re)start per month after the first, solved (ART|dx 0.78)
+            start: 2
             stop: 999
         init: 0.78
         reinit:

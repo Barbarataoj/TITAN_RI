@@ -200,6 +200,17 @@ def overlay_care_layer(scenario):
         for k, v in fields.items():
             if k not in target or k in always:
                 target[k] = v
+    # ART (2026-10-13): the HAART step probabilities are inputs (never fitted) and
+    # were re-derived from the literature with the first-month window fixed; a
+    # calibrated pick written before that carries the inherited values in every
+    # demographic cell, so today's source always wins.
+    haart_src = (((levels.get("drug_type", {}) or {}).get("constants", {}) or {}).get("haart"))
+    if haart_src:
+        for race_block in (scenario.get("demographics", {}) or {}).values():
+            for sex_block in (race_block.get("sex_type", {}) or {}).values():
+                for drug_block in (sex_block.get("drug_type", {}) or {}).values():
+                    if "haart" in drug_block:
+                        drug_block["haart"] = copy.deepcopy(haart_src)
     # Non-clinical testing for people who do not inject (2026-10-12): a source
     # scalar, not an anchored parameter (nonclinical_annual is), so carry it here.
     testing_src = src.get("hiv_testing", {}) or {}

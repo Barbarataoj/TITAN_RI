@@ -138,20 +138,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -194,20 +194,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -317,20 +317,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -373,20 +373,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -496,20 +496,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -552,20 +552,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -675,20 +675,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -731,20 +731,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -857,20 +857,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -913,20 +913,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1036,20 +1036,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1092,20 +1092,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1215,20 +1215,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1271,20 +1271,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1394,20 +1394,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1450,20 +1450,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1576,20 +1576,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1632,20 +1632,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1755,20 +1755,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1811,20 +1811,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1934,20 +1934,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -1990,20 +1990,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2113,20 +2113,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2169,20 +2169,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2295,20 +2295,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2351,20 +2351,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2474,20 +2474,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2530,20 +2530,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2653,20 +2653,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2709,20 +2709,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2832,20 +2832,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -2888,20 +2888,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3014,20 +3014,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3070,20 +3070,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3193,20 +3193,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3249,20 +3249,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3372,20 +3372,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3428,20 +3428,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3551,20 +3551,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3607,20 +3607,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3733,20 +3733,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3789,20 +3789,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3912,20 +3912,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -3968,20 +3968,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -4091,20 +4091,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -4147,20 +4147,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -4270,20 +4270,20 @@ demographics:
           Inj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
@@ -4326,20 +4326,20 @@ demographics:
           NonInj:
             haart:
               adherence:
-                become: 0.11
-                discontinue: 0.04
+                become: 0.0499
+                discontinue: 0.0051
                 init: 0.733
-                prob: 0.733
+                prob: 0.571
               cap: 0.0
-              discontinue: 0.05
+              discontinue: 0.025
               enroll:
                 enroll_0:
                   prob: 0.802
                   start: 0
-                  stop: 1
+                  stop: 2
                 enroll_1:
-                  prob: 0.177
-                  start: 1
+                  prob: 0.0886
+                  start: 2
                   stop: 999
               init: 0.78
               reinit:
