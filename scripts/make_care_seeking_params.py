@@ -260,7 +260,14 @@ PREP_DEFERRED_RETURN = {"ED": PREP_REFERRAL_RETURN["ED"], "primary_care": 0.35, 
 # offer converts more). Per setting, scale f_s by (I_ref_s - test-linked_s) / independent_s
 # observed: ED 0.891, PC 0.987, SUD 1.062, MH 0.940 -> c_s = 1 - f_s x scale:
 # ED 0.210, PC 0.390, SUD 0.605, MH 0.060 (iteration 1 was 0.113 / 0.382 / 0.628 / 0.0).
-PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.210, "primary_care": 0.390, "sud_treatment": 0.605, "mental_health": 0.060}
+# Fixed engine (review fixes d142b9c1: testing intensity carried, bundle floors per visit,
+# eligibility before any bundle draw), values on, 11 members x 8 x 40 at the full rate
+# (chain_fix_members_v3_2026-10-13, jobs 7350104-07, read-out 7350108): naive B/I0 ED 0.174
+# (SE 0.013), PC 0.380 (0.019), SUD 0.530 (0.068), MH 0.042 (0.006); statewide 0.232; pool
+# loss delta = 1.4810 / 1.4676 - 1 = 0.0091 (was 0.052 before the fixes). c_s = B/I0 - delta.
+# The iteration-2 overshoot scaling of the old engine is not reused; the receipt check of
+# round 4 decides whether one more iteration is needed.
+PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.165, "primary_care": 0.371, "sud_treatment": 0.521, "mental_health": 0.033}
 TEST_LINKED_OFF = {s: 0.0 for s in PREP_TEST_LINKED_PER_INDEPENDENT}   # the reference: full independent rate
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)

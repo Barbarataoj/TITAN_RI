@@ -17,8 +17,8 @@ for ((b=0; b<SHARDS; b++)); do
   echo $jid >> $S/jobs.txt
 done
 DEP=$(paste -sd: $S/jobs.txt)
-cp /oscar/scratch/jtao9/titan_phase7/ensemble_chain_2026-10-12/check/readout_base.py $S/check/
-cp /oscar/scratch/jtao9/titan_phase7/ensemble_chain_2026-10-12/check/readout.py $S/check/
+cp /oscar/scratch/jtao9/titan_phase7/ensemble_chain4_2026-10-13/check/readout_base.py $S/check/
+cp /oscar/scratch/jtao9/titan_phase7/ensemble_chain4_2026-10-13/check/readout.py $S/check/
 cat > $S/post.sbatch <<EOP
 #!/bin/bash
 #SBATCH -J post_$NAME
@@ -31,7 +31,7 @@ module purge; module load python/3.9; source /oscar/data/jtao9/envs/titan_env/bi
 cd /oscar/data/jtao9/TITAN_RI
 python scripts/phase7_contrast.py $S/out --baseline scenario_1_baseline --t-max 132 --split-members --workers 8 --out $S/contrasts_pre_2023.csv > $S/contrast_pre_stdout.txt 2>&1; echo "pre contrast exit \$?"
 python scripts/phase7_contrast.py $S/out --baseline scenario_1_baseline --t-min 133 --split-members --workers 8 --out $S/contrasts_2023_2031.csv > $S/contrast_post_stdout.txt 2>&1; echo "post contrast exit \$?"
-python $S/check/readout.py $S /oscar/scratch/jtao9/titan_phase7/chain_fix_members_on_2026-10-12; echo "readout exit \$?"
+python $S/check/readout.py $S /oscar/scratch/jtao9/titan_phase7/chain_fix_members_v3_2026-10-13; echo "readout exit \$?"
 EOP
 P=$(sbatch --parsable --dependency=afterok:$DEP $S/post.sbatch); echo $P > $S/post_job.txt
 echo "$NAME: shards $(paste -sd, $S/jobs.txt); post $P"
