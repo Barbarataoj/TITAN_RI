@@ -36,6 +36,16 @@ class HIV(base_exposure.BaseExposure):
         "hiv_hazard_background",
         "hiv_hazard_averted_prep",
         "hiv_hazard_averted_prep_inj",
+        # source-status attribution of the expected infections (2026-10-13):
+        # who the hazard came from, and how much of it the source's viral
+        # suppression (adherent ART) would remove
+        "hiv_hazard_src_undx",
+        "hiv_hazard_src_dx_noart",
+        "hiv_hazard_src_art_nonadh",
+        "hiv_hazard_src_art_adh",
+        "hiv_hazard_avert_sup_undx",
+        "hiv_hazard_avert_sup_dx_noart",
+        "hiv_hazard_avert_sup_art_nonadh",
     ]
     """
         HIV collects the following stats:
@@ -108,12 +118,16 @@ class HIV(base_exposure.BaseExposure):
         self._hazard_time: Optional[int] = None
         self._hazard: Dict[str, float] = {}
 
-    def record_hazard(self, time: int, route: str, p: float, averted: float = 0.0):
+    def record_hazard(self, time: int, route: str, p: float, averted: float = 0.0,
+                      source: str = "", avert_sup: float = 0.0):
         """
         Accumulate this step's expected infections for a susceptible agent:
         `p`, the conversion probability the engine rolls for one exposure, and
-        `averted`, the probability PrEP removed from that exposure. Pure
-        bookkeeping, no random draw.
+        `averted`, the probability PrEP removed from that exposure. `source`
+        (undx / dx_noart / art_nonadh / art_adh) attributes the hazard to the
+        HIV-positive partner's care status and `avert_sup` is the part of it
+        that the partner's viral suppression would have removed (2026-10-13).
+        Pure bookkeeping, no random draw.
         """
         if self._hazard_time != time:
             self._hazard_time = time
@@ -128,6 +142,20 @@ class HIV(base_exposure.BaseExposure):
             h["hiv_hazard_averted_prep"] = h.get("hiv_hazard_averted_prep", 0.0) + averted
             if route == "injection":
                 h["hiv_hazard_averted_prep_inj"] = h.get("hiv_hazard_averted_prep_inj", 0.0) + averted
+        if source:
+            h[f"hiv_hazard_src_{source}"] = h.get(f"hiv_hazard_src_{source}", 0.0) + p
+            if avert_sup and source != "art_adh":
+                h[f"hiv_hazard_avert_sup_{source}"] = h.get(f"hiv_hazard_avert_sup_{source}", 0.0) + avert_sup
+
+    def care_status(self) -> str:
+        """The HIV-positive agent's care status for the hazard attribution:
+        undx, dx_noart, art_nonadh or art_adh."""
+        if not self.dx:
+            return "undx"
+        haart = getattr(self.agent, "haart", None)
+        if haart is None or not getattr(haart, "active", False):
+            return "dx_noart"
+        return "art_adh" if getattr(haart, "adherent", False) else "art_nonadh"
 
     @classmethod
     def init_class(cls, params):
@@ -431,7 +459,15 @@ class HIV(base_exposure.BaseExposure):
                 model, interaction, partner, num_acts, skip_prep=True
             )
             averted = max(0.0, p_unprotected - p)
-        partner.hiv.record_hazard(model.time, interaction, p, averted)  # type: ignore[attr-defined]
+        # who the hazard came from, and what the source's suppression would remove
+        source = agent_.hiv.care_status()  # type: ignore[attr-defined]
+        avert_sup = 0.0
+        if source != "art_adh" and p > 0.0:
+            p_suppressed = agent_.hiv.get_transmission_probability(  # type: ignore[attr-defined]
+                model, interaction, partner, num_acts, force_suppressed=True
+            )
+            avert_sup = max(0.0, p - p_suppressed)
+        partner.hiv.record_hazard(model.time, interaction, p, averted, source=source, avert_sup=avert_sup)  # type: ignore[attr-defined]
 
         if model.run_random.random() < p:
             # if agent HIV+ partner becomes HIV+
@@ -444,12 +480,15 @@ class HIV(base_exposure.BaseExposure):
         partner: "agent.Agent",
         num_acts: int,
         skip_prep: bool = False,
+        force_suppressed: bool = False,
     ) -> float:
         """
         Determines the probability of an hiv transmission event from agent to partner based on
             interaction type and numer of acts. For sex acts, transmission probability is a
             function of the acquisition probability of the HIV- agent's sex role
-            and the HIV+ agent's haart adherence, acute status, and dx risk reduction
+            and the HIV+ agent's haart adherence, acute status, and dx risk reduction.
+            force_suppressed evaluates the HIV+ agent as if on adherent HAART
+            (the counterfactual for the hazard attribution; bookkeeping only).
 
         args:
             model: The running model
@@ -493,7 +532,10 @@ class HIV(base_exposure.BaseExposure):
         # feature specific risk adjustment
         for feature in model.features:
             agent_feature = getattr(self.agent, feature.name)
-            p *= agent_feature.get_transmission_risk_multiplier(self.time, interaction)
+            if force_suppressed and feature.name == "haart":
+                p *= agent_feature.get_transmission_risk_multiplier(self.time, interaction, adherent=True)
+            else:
+                p *= agent_feature.get_transmission_risk_multiplier(self.time, interaction)
 
             partner_feature = getattr(partner, feature.name)
             # the partner's protection at the CURRENT step (2026-10-02): this

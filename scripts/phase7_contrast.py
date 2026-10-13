@@ -79,6 +79,9 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
     # noise. _averted_prep is the part of the hazard PrEP removed (direct
     # protection only; onward transmission it prevents shows up in the hazard).
     for col, name in (("hiv_hazard", "hiv_hazard_pwid"), ("hiv_hazard_inj", "hiv_hazard_pwid_inj_route"),
+                      # source-status attribution (2026-10-13)
+                      *[(f"hiv_hazard_src_{k}", f"hiv_hazard_pwid_src_{k}") for k in ("undx", "dx_noart", "art_nonadh", "art_adh")],
+                      *[(f"hiv_hazard_avert_sup_{k}", f"hiv_hazard_pwid_avert_sup_{k}") for k in ("undx", "dx_noart", "art_nonadh")],
                       ("hiv_hazard_averted_prep", "hiv_averted_prep_pwid"),
                       ("hiv_hazard_averted_prep_inj", "hiv_averted_prep_pwid_inj_route")):
         if col in inj:
@@ -86,6 +89,10 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
     if "hiv_hazard" in df:
         out["hiv_hazard_all"] = by_run_all["hiv_hazard"].sum()
         out["hiv_averted_prep_all"] = by_run_all["hiv_hazard_averted_prep"].sum()
+        for col in [f"hiv_hazard_src_{k}" for k in ("undx", "dx_noart", "art_nonadh", "art_adh")] \
+                 + [f"hiv_hazard_avert_sup_{k}" for k in ("undx", "dx_noart", "art_nonadh")]:
+            if col in df:
+                out[col] = by_run_all[col].sum()
     # coverage: mean over steps of (moud_active / oud_active) per run
     cov = (df.groupby(["run_id", "t"])[["moud_active", "oud_active"]].sum())
     cov = (cov["moud_active"] / cov["oud_active"].replace(0, np.nan)).groupby("run_id").mean()
@@ -247,6 +254,10 @@ def main():
 
     outcomes = [c for c in ("hiv_new_pwid", "hiv_new_pwid_inj_route", "hiv_dx_new_pwid",
                             "hiv_hazard_pwid", "hiv_hazard_pwid_inj_route", "hiv_averted_prep_pwid",
+                            *[f"hiv_hazard_pwid_src_{k}" for k in ("undx", "dx_noart", "art_nonadh", "art_adh")],
+                            *[f"hiv_hazard_pwid_avert_sup_{k}" for k in ("undx", "dx_noart", "art_nonadh")],
+                            *[f"hiv_hazard_src_{k}" for k in ("undx", "dx_noart", "art_nonadh", "art_adh")],
+                            *[f"hiv_hazard_avert_sup_{k}" for k in ("undx", "dx_noart", "art_nonadh")],
                             "hiv_averted_prep_pwid_inj_route", "hiv_hazard_all", "hiv_averted_prep_all",
                             "overdose_deaths", "overdose_events", "moud_coverage",
                             "hiv_tests", "pc_visits", "pc_test_offers", "pc_prep_offers", "prep_starts",

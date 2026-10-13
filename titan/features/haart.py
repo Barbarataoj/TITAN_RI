@@ -143,20 +143,24 @@ class HAART(base_feature.BaseFeature):
             if self.adherent:
                 stats["haart_adherent"] += 1
 
-    def get_transmission_risk_multiplier(self, time: int, interaction_type: str):
+    def get_transmission_risk_multiplier(self, time: int, interaction_type: str, adherent=None):
         """
         Get a multiplier for how haart reduces hiv transmission risk based on interaction type and params.
 
-        By default, returns 1.0
+        By default, returns 1.0. `adherent` (True/False) evaluates the multiplier
+        as if the agent were on HAART in that adherence state, whatever the
+        actual state: the counterfactual used by the expected-infection
+        bookkeeping (2026-10-13), never by the roll.
 
         args:
             time: the current model time step
             interaction_type: The type of interaction where the agent could transmit HIV (e.g. 'sex', 'injection' - from [params.classes.interaction_types])
         """
         prob = 1.0
-        if self.active:
+        if adherent is not None or self.active:
             params = self.agent.location.params
-            adherence = "adherent" if self.adherent else "non_adherent"
+            state = self.adherent if adherent is None else bool(adherent)
+            adherence = "adherent" if state else "non_adherent"
             if interaction_type == "injection":
                 prob = params.partnership.injection.transmission.haart_scaling[
                     adherence

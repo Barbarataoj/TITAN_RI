@@ -695,3 +695,53 @@ def test_background_exposure_records_its_hazard(make_model, make_agent):
     a.hiv.update_agent(model)
     assert a.hiv._hazard.get("hiv_hazard_background", 0.0) == pytest.approx(p_bg)
     assert a.hiv._hazard.get("hiv_hazard", 0.0) == pytest.approx(p_bg)
+
+
+@pytest.mark.unit
+def test_expose_attributes_the_hazard_to_the_source_care_status(make_model, make_agent):
+    """The hazard is attributed to the HIV-positive partner's care status (undiagnosed,
+    diagnosed untreated, ART non-adherent, ART adherent) and, for the three unsuppressed
+    states, the part the source's viral suppression would remove is recorded (2026-10-13).
+    The roll is unchanged."""
+    model = make_model()
+    model.run_random = FakeRandom(1.1)        # never converts
+    model.time = 7
+    a = make_agent(); p = make_agent()
+    a.partners["Sex"] = set(); p.partners["Sex"] = set()
+    rel = Relationship(a, p, 10, bond_type="Sex")
+    a.hiv.active = True
+    # undiagnosed source
+    a.hiv.dx = False; a.haart.active = False; a.haart.adherent = False
+    HIV.expose(model, "sex", rel, 10)
+    p_roll = a.hiv.get_transmission_probability(model, "sex", p, 10)
+    p_sup = a.hiv.get_transmission_probability(model, "sex", p, 10, force_suppressed=True)
+    assert p_sup < p_roll
+    assert p.hiv._hazard["hiv_hazard_src_undx"] == pytest.approx(p_roll)
+    assert p.hiv._hazard["hiv_hazard_avert_sup_undx"] == pytest.approx(p_roll - p_sup)
+    assert "hiv_hazard_src_art_adh" not in p.hiv._hazard
+    # diagnosed, on ART, non-adherent: full hazard, suppression would remove most of it
+    model.time = 8
+    a.hiv.dx = True; a.haart.active = True; a.haart.adherent = False
+    HIV.expose(model, "sex", rel, 10)
+    p_roll = a.hiv.get_transmission_probability(model, "sex", p, 10)
+    p_sup = a.hiv.get_transmission_probability(model, "sex", p, 10, force_suppressed=True)
+    assert p.hiv._hazard["hiv_hazard"] == pytest.approx(p_roll)
+    assert p.hiv._hazard["hiv_hazard_src_art_nonadh"] == pytest.approx(p_roll)
+    assert p.hiv._hazard["hiv_hazard_avert_sup_art_nonadh"] == pytest.approx(p_roll - p_sup)
+    # adherent: attributed, nothing avertable by suppression; the forced counterfactual equals the roll
+    model.time = 9
+    a.haart.adherent = True
+    HIV.expose(model, "sex", rel, 10)
+    p_roll = a.hiv.get_transmission_probability(model, "sex", p, 10)
+    assert a.hiv.get_transmission_probability(model, "sex", p, 10, force_suppressed=True) == pytest.approx(p_roll)
+    assert p.hiv._hazard["hiv_hazard_src_art_adh"] == pytest.approx(p_roll)
+    assert "hiv_hazard_avert_sup_art_adh" not in p.hiv._hazard
+    # diagnosed, not on ART
+    model.time = 10
+    a.haart.active = False; a.haart.adherent = False
+    HIV.expose(model, "sex", rel, 10)
+    assert p.hiv._hazard["hiv_hazard_src_dx_noart"] == pytest.approx(p.hiv._hazard["hiv_hazard"])
+    from collections import defaultdict
+    stats = defaultdict(int); p.hiv.set_stats(stats, 10)
+    assert stats["hiv_hazard_src_dx_noart"] == pytest.approx(stats["hiv_hazard"])
+    assert stats["hiv_hazard_avert_sup_dx_noart"] > 0
