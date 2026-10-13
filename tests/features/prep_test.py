@@ -892,3 +892,30 @@ def test_injectable_first_for_people_who_inject(make_agent):
     # not yet started, or not injecting: unchanged
     assert Prep.draw_product(products, FakeRandom(0.5), 100, drug_type="Inj", prep_params=pp) == "oral"
     assert Prep.draw_product(products, FakeRandom(0.5), 200, drug_type="NonInj", prep_params=pp) == "oral"
+
+
+@pytest.mark.unit
+def test_start_after_a_regular_offer_forces_a_test_when_switched_on(make_model, make_agent):
+    """prep.test_at_start (2026-10-12): a PrEP start after a regular offer carries a
+    guaranteed HIV test this step (offer flag + certain acceptance); off = nothing."""
+    model = make_model()
+    model.time = 20
+    for on in (False, True):
+        a = make_agent(DU="Inj")
+        a.location.params.prep.target_model = ["pwid"]
+        a.location.params.prep.start_time = 0
+        a.location.params.prep.acceptance = 1.0
+        a.location.params.prep.test_at_start = on
+        a.location.params.features.care_seeking = True
+        a.care_offer = {"hiv_test": False, "prep": True}
+        a.care_offer_mult = {"hiv_test": 1.0, "prep": 1.0}
+        a.care_offer_by_setting = {"primary_care": {"hiv_test": False, "prep": True}}
+        a.care_reach = {}
+        Prep.counts[a.race] = 0
+        model.run_random = FakeRandom(0.1)
+        a.prep.initiate(model)
+        assert a.prep.active
+        assert a.care_offer["hiv_test"] is on
+        assert (a.care_offer_mult["hiv_test"] >= 1e6) is on
+        a.location.params.features.care_seeking = False
+        a.location.params.prep.test_at_start = False

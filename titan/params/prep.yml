@@ -276,3 +276,11 @@ prep:
     default: primary_care
     description: "The care_seeking setting in which PrEP monitoring visits take place."
     type: str
+  test_at_start:
+    default: false
+    description: |
+      A PrEP start after a regular (not test-linked) offer carries a guaranteed
+      HIV test at that visit: in practice every PrEP prescription follows a
+      negative test. Off = the start is counted without a test (the engine
+      before 2026-10-12). Test-linked starts already follow a test.
+    type: boolean

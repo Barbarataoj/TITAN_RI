@@ -650,3 +650,4 @@ def test_acceptance_multiplier_travels_with_the_offer_and_takes_the_max():
     model.run_random = FakeRandom(1.1)
     CareSeeking.update_pop(model)
     assert a.care_offer_mult["hiv_test"] == 1.0
+

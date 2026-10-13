@@ -337,6 +337,23 @@ class Prep(base_feature.BaseFeature):
                 if offers.get("prep"):
                     self.started_independent_setting = setting_name
                     break
+            # every prescription follows a negative test (2026-10-12): a
+            # guaranteed test this step, as a monitoring or injection visit
+            # carries one (care_seeking.roll_visits, prep.injection_visit)
+            if getattr(self.agent.location.params.prep, "test_at_start", False):
+                self.force_test_this_step()
+
+    def force_test_this_step(self):
+        """A guaranteed HIV test at this step's visit: the offer flag with an
+        acceptance multiplier that makes the roll certain (hiv_testing runs after
+        prep within the step, care_seeking after both, so the flag is read this
+        step and reset at the next visit record)."""
+        offers = getattr(self.agent, "care_offer", None)
+        if offers is not None:
+            offers["hiv_test"] = True
+            mult = getattr(self.agent, "care_offer_mult", None)
+            if mult is not None:
+                mult["hiv_test"] = max(mult.get("hiv_test", 1.0), 1e6)
 
     def offer_after_negative_test(self, model: "model.TITAN", same_day_prob: float, return_prob: float,
                                   referral: bool = False, acceptance_mult: float = 1.0, setting_name: str = ""):

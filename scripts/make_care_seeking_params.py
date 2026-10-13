@@ -254,13 +254,33 @@ PREP_DEFERRED_RETURN = {"ED": PREP_REFERRAL_RETURN["ED"], "primary_care": 0.35, 
 # SE 0.04-0.10 against 0.02-0.03 here). Mental health rounds to 0 (its few test-linked
 # starts are offset by its pool loss). Bundle-only values were ED 0.121 / PC 0.231 /
 # SUD 0.401 / MH 0.025 (jobs 7326917-20).
-PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.113, "primary_care": 0.382, "sud_treatment": 0.628, "mental_health": 0.0}
+# Iteration 2 (ensemble_chain_2026-10-12 receipt check, 11 members x 8 x 40): with the
+# constants above the status quo's 2022 starts were 4.5 % above the no-bundle reference
+# (z 1.9): the pool nonlinearity (fewer independent starts leave a fuller pool, so each
+# offer converts more). Per setting, scale f_s by (I_ref_s - test-linked_s) / independent_s
+# observed: ED 0.891, PC 0.987, SUD 1.062, MH 0.940 -> c_s = 1 - f_s x scale:
+# ED 0.210, PC 0.390, SUD 0.605, MH 0.060 (iteration 1 was 0.113 / 0.382 / 0.628 / 0.0).
+PREP_TEST_LINKED_PER_INDEPENDENT = {"ED": 0.210, "primary_care": 0.390, "sud_treatment": 0.605, "mental_health": 0.060}
 TEST_LINKED_OFF = {s: 0.0 for s in PREP_TEST_LINKED_PER_INDEPENDENT}   # the reference: full independent rate
 PREP_LATE_AFTER = 6                     # steps (months) on PrEP before the late-phase hazard applies
 PREP_LATE_MULT = 0.4                    # late-phase discontinuation hazard / early-phase (0.3-0.5)
 PREP_MONITORING_INTERVAL = 3            # steps (months) between PrEP monitoring visits (CDC guideline: HIV test every 3 months)
 PREP_MONITORING_ATTENDANCE = 0.60       # unsupported attendance (0.55-0.70; registry/CHIA note 7.4)
 MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke run 2026-10-01: od_err passes above ~0.75)
+# Forced tests: the engine carries a guaranteed HIV test at every attended oral-PrEP
+# monitoring visit (care_seeking.roll_visits, since 2026-10-02) and, with
+# prep.test_at_start (2026-10-12), at every PrEP start after a regular offer. The APCD
+# receipt already contains those tests (a PrEP user's quarterly test and the
+# pre-prescription test are claims), so the per-visit offer rate is solved against the
+# receipt LESS the forced tests, or they are counted twice (the monitoring tests were,
+# by about 2 % of all tests, until 2026-10-12). MEASURED on ensemble_chain_2026-10-12's status quo, 2022
+# (job 7335004 and the receipt check 7329866), per cohort person-year (499 agents):
+# attended oral monitoring visits 3.834 per run-year, all in prep.monitoring_setting
+# (primary_care) -> 0.00768; independent starts ED 0.346 / PC 0.362 / SUD 0.028 /
+# MH 0.437 per run-year -> 0.00069 / 0.00073 / 0.00006 / 0.00087. Converted to the
+# setting's patient-year denominator with COHORT_2022 / n_denominator_hiv_negative.
+# Re-measure when PrEP volume or monitoring inputs change.
+FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00768 + 0.00073, "sud_treatment": 0.00006, "mental_health": 0.00087}
 NONCLINICAL_TESTING_NONINJ = 0.20        # 2026-10-12 (Jun): past-year testing ~27 % with the clinic route; Ahrens 2023 PMID 36594172 (Medicaid MOUD initiators, 11 states: HIV test within 90 days 20 % 2016 -> 25 % 2019), Meade 2009 PMID 19444732 (33 % non-injecting vs 71 % injecting); range 0.10-0.30; -1 = PWID rate
 NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): annual probability, -ln(1-0.38) = 0.48 tests/PWID-yr from this route + ~0.14 from clinics = 0.62 vs NHBS 0.60 (B1 job 7098444). Was a fitted placeholder 0.4 from 2026-10-01
 
@@ -435,14 +455,16 @@ def derive(verbose=True, test_linked=None):
         row = j3[(j3.year == YEAR) & (j3.setting == s)].iloc[0]
         p_test_claims = row.lab_test / row.n_denominator_hiv_negative
         p_test = p_test_claims if s == "ED" else p_test_claims * test_factor
+        forced = FORCED_TESTS_PER_COHORT_PY[s] * COHORT_2022 / row.n_denominator_hiv_negative
+        p_test_offer = max(0.0, p_test - forced)      # the engine's forced tests supply the rest
         p_prep = row.prep_or_pep / row.n_denominator_hiv_negative
-        i_test, ok_t = solve_intensity(w_test, ACCEPT_HIV_TEST, p_test, d)
+        i_test, ok_t = solve_intensity(w_test, ACCEPT_HIV_TEST, p_test_offer, d)
         p_prep_residual = p_prep * (1.0 - test_linked[s])       # the bundle and referral supply the rest (B/I0 per setting)
         i_prep, ok_p = solve_intensity(w_prep, ACCEPT_PREP, p_prep_residual / PREP_INDICATED_SHARE[s], d)
         say(f"receipt {YEAR}: HIV test {int(row.lab_test)}/{int(row.n_denominator_hiv_negative)} = {p_test_claims:.4f} same-claim"
             + ("" if s == "ED" else f" x {test_factor:.2f} = {p_test:.4f} corrected")
             + f", PrEP/PEP {int(row.prep_or_pep)} = {p_prep:.4f}  [APCD job3a]")
-        say(f"intensity_hiv_test: solve {w_test:.3f} * E[1-(1-I*{ACCEPT_HIV_TEST})^n] = {p_test:.4f} -> I = {i_test:.4f}{'' if ok_t else '  UNREACHABLE, capped at 1'}")
+        say(f"intensity_hiv_test: solve {w_test:.3f} * E[1-(1-I*{ACCEPT_HIV_TEST})^n] = {p_test:.4f} - forced tests {forced:.4f} (monitoring + pre-prescription, engine) = {p_test_offer:.4f} -> I = {i_test:.4f}{'' if ok_t else '  UNREACHABLE, capped at 1'}")
         say(f"intensity_prep:     solve {w_prep:.3f} * E[1-(1-I*{ACCEPT_PREP})^n] = {p_prep:.4f} x (1 - test-linked B/I0 {test_linked[s]}) / indicated share {PREP_INDICATED_SHARE[s]:.3f} = {p_prep_residual / PREP_INDICATED_SHARE[s]:.4f} -> I = {i_prep:.4f}{'' if ok_p else '  UNREACHABLE, capped at 1'}")
         say(f"test-and-offer bundle: P(PrEP raised | negative test) {PREP_BUNDLE_PROB_WILLING} at prescribing providers, same-day {PREP_SAME_DAY[s]}, deferred return {PREP_DEFERRED_RETURN[s]}; referral at non-prescribers {PREP_REFERRAL_PROB}, return {PREP_REFERRAL_RETURN[s]}")
         say(f"intensity_moud = {INTENSITY_MOUD[s]}  [{INTENSITY_MOUD_SOURCE[s]}]")
@@ -511,6 +533,7 @@ SCALARS = [
     ("prep", "monitoring_interval_steps", PREP_MONITORING_INTERVAL, "guideline PrEP monitoring every 3 months: a primary-care visit with an HIV test (2026-10-02)"),
     ("prep", "monitoring_attendance", PREP_MONITORING_ATTENDANCE, "share of due monitoring visits attended, unsupported: RI PrEP clinic 53-68% retained at 6 months (PMID 27302837), chatbot non-users 54% (41792418)"),
     ("prep", "monitoring_setting", "primary_care", "where PrEP monitoring happens"),
+    ("prep", "test_at_start", "true", "every PrEP start after a regular offer carries a test that visit (a prescription follows a negative test; 2026-10-12)"),
     ("prep", "discontinue_late_after_steps", PREP_LATE_AFTER, "months on PrEP after which the discontinuation hazard drops (persistence curves are front-loaded; CHIA note 7.4)"),
     ("prep", "discontinue_late_mult", PREP_LATE_MULT, "late-phase hazard as a share of the early one: general 0.08 -> 0.03/month (PMID 33527117), PWID 0.30 -> 0.14 (40222706, 31436610) -> 0.4 (0.3-0.5)"),
 ]

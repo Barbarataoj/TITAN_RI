@@ -438,8 +438,8 @@ scenario:
         p_willing_prep: 0.1432
         p_willing_moud: 0.07
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.53766
-        intensity_prep: 0.01968
+        intensity_hiv_test: 0.49134
+        intensity_prep: 0.01746
         intensity_moud: 0.15
         intensity_counseling: 0.0
         visit_prob_after_overdose: 1.0
@@ -461,8 +461,8 @@ scenario:
         p_willing_prep: 0.0794
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.1078
-        intensity_prep: 0.01259
+        intensity_hiv_test: 0.08569
+        intensity_prep: 0.01242
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -484,8 +484,8 @@ scenario:
         p_willing_prep: 0.125
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.06355
-        intensity_prep: 0.00069
+        intensity_hiv_test: 0.06264
+        intensity_prep: 0.00073
         intensity_moud: 1.0
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -507,8 +507,8 @@ scenario:
         p_willing_prep: 0.109
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.03862
-        intensity_prep: 0.00576
+        intensity_hiv_test: 0.02905
+        intensity_prep: 0.0054
         intensity_moud: 0.75
         intensity_counseling: 0.0
         visit_prob_after_overdose: 0.0
@@ -726,6 +726,7 @@ scenario:
           adherent: 0.03
           non_adherent: 1.0
   prep:
+    test_at_start: true  # care_seeking layer (scripts/make_care_seeking_params.py): every PrEP start after a regular offer carries a test that visit (a prescription follows a negative test; 2026-10-12)
     # PrEP products (2026-10-02). Status-quo product mix with the secular
     # rise of long-acting PrEP (DECISION for Jun: keep the trend in the
     # baseline, or run an oral-only baseline as a sensitivity). Steps: 121 =
