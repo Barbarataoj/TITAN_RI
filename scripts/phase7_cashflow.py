@@ -122,18 +122,23 @@ def navigation_cost_per_year(costs, reach_visits, reached_pm):
     return fte_effort * per_fte, fte_caseload * per_fte, fte_effort, fte_caseload, []
 
 
-def program_cost_per_year(costs, reach_visits, reached_pm, invitations):
-    """CHIA: returns (fixed platform cost PER SITE-YEAR, variable staff cost STATEWIDE, missing).
-    The variable part is derived from statewide reach visits and invitations, so only the
-    fixed part is multiplied by the number of sites (``--sites``)."""
+def program_cost_per_year(costs, reach_visits, reached_pm, invitations, price_per_chat=None):
+    """CHIA: returns (fixed platform cost PER SITE-YEAR, variable cost STATEWIDE, missing).
+    The variable part is the usage charge (a flat price per completed chat, one chat per
+    active CHIA visit; 2026-10-13: no set-up or licence fee, the clinic pays by use) plus the
+    clinic's own staff time, all derived from statewide reach visits and invitations, so only
+    the fixed part is multiplied by the number of sites (``--sites``). ``price_per_chat``
+    overrides the cost file's ``chia_price_per_chat`` (low / central / high scenarios)."""
     pc = costs["program_costs"]
     fixed = _value(pc.get("chia_platform_per_site_year"))
+    chat = price_per_chat if price_per_chat is not None else _value(pc.get("chia_price_per_chat"))
     ma = _value(pc.get("ma_wage_per_hour")); prov = _value(pc.get("provider_wage_per_hour"))
-    missing = [k for k, v in (("chia_platform_per_site_year", fixed), ("ma_wage_per_hour", ma),
-                              ("provider_wage_per_hour", prov)) if v is None]
+    missing = [k for k, v in (("chia_platform_per_site_year", fixed), ("chia_price_per_chat", chat),
+                              ("ma_wage_per_hour", ma), ("provider_wage_per_hour", prov)) if v is None]
     if missing:
         return None, None, missing
-    variable = (invitations * _value(pc["ma_minutes_per_invitation"]) / 60.0 * ma
+    variable = (reach_visits * chat
+                + invitations * _value(pc["ma_minutes_per_invitation"]) / 60.0 * ma
                 + reach_visits * _value(pc["provider_minutes_per_reach_visit"]) / 60.0 * prov)
     return fixed, variable, []
 
@@ -145,6 +150,8 @@ def main():
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--arm", default=None, help="price one arm only")
     ap.add_argument("--sites", type=int, default=1, help="number of clinics the platform cost is counted for")
+    ap.add_argument("--chia-price-per-chat", type=float, default=None,
+                    help="override the cost file's chia_price_per_chat (USD per completed chat)")
     args = ap.parse_args()
 
     costs = yaml.safe_load(open(args.costs))
@@ -189,7 +196,13 @@ def main():
             ledger["navigator_fte_effort"] = fte_e; ledger["navigator_fte_caseload"] = fte_c
             ledger["program_cost_caseload_per_year"] = prog_caseload
         elif "chia" in arm:
-            fixed_site, variable, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits)
+            fixed_site, variable, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits,
+                                                                    price_per_chat=args.chia_price_per_chat)
+            chat_price = (args.chia_price_per_chat if args.chia_price_per_chat is not None
+                          else _value(costs["program_costs"].get("chia_price_per_chat")))
+            ledger["chia_chats_per_year"] = reach_visits
+            ledger["chia_price_per_chat"] = chat_price
+            ledger["chia_usage_cost_per_year"] = reach_visits * chat_price if chat_price is not None else None
             if fixed_site is None:
                 prog = None
             else:
