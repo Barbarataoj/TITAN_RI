@@ -123,3 +123,40 @@ def test_sites_scales_only_the_fixed_chia_platform_cost(tmp_path, costs):
     # cost per infection averted is gross: programme cost plus payer activity cost
     assert s1.loc[chia, "cost_per_infection_averted_clinic_and_payer"] == pytest.approx(
         (s1.loc[chia, "program_cost_per_year"] + s1.loc[chia, "payer_activity_cost_per_year"]) / averted)
+
+
+def test_ehr_and_training_programme_costs(costs):
+    pc = costs["program_costs"]
+    fixed, variable, missing = cf.ehr_program_cost_per_year(costs, extra_offers=10000.0, years=9.0, sites=2)
+    assert missing == []
+    assert fixed == pytest.approx((cf._value(pc["ehr_build_one_time"]) / 9.0 + cf._value(pc["ehr_maintenance_per_year"])) * 2)
+    assert variable == pytest.approx(10000.0 * (cf._value(pc["ehr_ma_minutes_per_offer"]) / 60.0 * cf._value(pc["ma_wage_per_hour"])
+                                                + cf._value(pc["ehr_provider_minutes_per_offer"]) / 60.0 * cf._value(pc["provider_wage_per_hour"])))
+    cost, n, missing = cf.training_program_cost_per_year(costs, years=9.0)
+    assert missing == [] and n == cf._value(pc["clinicians_statewide"])
+    assert cost == pytest.approx(n * (cf._value(pc["detailing_cost_per_clinician_year"]) + cf._value(pc["training_cost_per_clinician"]) / 9.0))
+
+
+def test_ehr_cost_scales_with_extra_offers_and_sites(tmp_path, costs):
+    costs_path = tmp_path / "costs.yml"
+    yaml.safe_dump(costs, open(costs_path, "w"))
+    rows = []
+    for arm, offers, hazard in (("pc2_ehr_opt_out_test", 90000.0, -3.6), ("pc1_training_detailing_test", 20000.0, -0.5)):
+        for outcome, v in (("pc_test_offers", offers), ("hiv_hazard_pwid", hazard)):
+            rows.append({"arm": arm, "outcome": outcome, "diff_mean_statewide": v, "horizon_years": 9.0})
+    contrasts = tmp_path / "contrasts.csv"
+    pd.DataFrame(rows).to_csv(contrasts, index=False)
+    s1 = _run(contrasts, costs_path, tmp_path / "s1.csv", 1)
+    s3 = _run(contrasts, costs_path, tmp_path / "s3.csv", 3)
+    pc = costs["program_costs"]
+    ehr, tr = "pc2_ehr_opt_out_test", "pc1_training_detailing_test"
+    assert s1.loc[ehr, "ehr_extra_offers_per_year"] == pytest.approx(10000.0)
+    per_offer = (cf._value(pc["ehr_ma_minutes_per_offer"]) / 60.0 * cf._value(pc["ma_wage_per_hour"])
+                 + cf._value(pc["ehr_provider_minutes_per_offer"]) / 60.0 * cf._value(pc["provider_wage_per_hour"]))
+    fixed1 = cf._value(pc["ehr_build_one_time"]) / 9.0 + cf._value(pc["ehr_maintenance_per_year"])
+    assert s1.loc[ehr, "program_cost_per_year"] == pytest.approx(fixed1 + 10000.0 * per_offer)
+    assert s3.loc[ehr, "program_cost_per_year"] - s1.loc[ehr, "program_cost_per_year"] == pytest.approx(2 * fixed1)
+    assert s1.loc[tr, "program_cost_per_year"] == pytest.approx(s3.loc[tr, "program_cost_per_year"])
+    assert s1.loc[tr, "program_cost_per_year"] == pytest.approx(
+        cf._value(pc["clinicians_statewide"]) * (cf._value(pc["detailing_cost_per_clinician_year"]) + cf._value(pc["training_cost_per_clinician"]) / 9.0))
+

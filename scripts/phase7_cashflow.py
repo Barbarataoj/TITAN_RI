@@ -143,6 +143,36 @@ def program_cost_per_year(costs, reach_visits, reached_pm, invitations, price_pe
     return fixed, variable, []
 
 
+def ehr_program_cost_per_year(costs, extra_offers, years, sites=1):
+    """pc2: (fixed per year = build amortised over the horizon x EHR instances + maintenance,
+    variable = staff time on the extra opt-out offers, missing)."""
+    pc = costs["program_costs"]
+    build = _value(pc.get("ehr_build_one_time")); maint = _value(pc.get("ehr_maintenance_per_year"))
+    ma_min = _value(pc.get("ehr_ma_minutes_per_offer")); prov_min = _value(pc.get("ehr_provider_minutes_per_offer"))
+    ma = _value(pc.get("ma_wage_per_hour")); prov = _value(pc.get("provider_wage_per_hour"))
+    missing = [k for k, v in (("ehr_build_one_time", build), ("ehr_maintenance_per_year", maint),
+                              ("ehr_ma_minutes_per_offer", ma_min), ("ehr_provider_minutes_per_offer", prov_min),
+                              ("ma_wage_per_hour", ma), ("provider_wage_per_hour", prov)) if v is None]
+    if missing:
+        return None, None, missing
+    fixed = (build / years + maint) * sites
+    variable = extra_offers * (ma_min / 60.0 * ma + prov_min / 60.0 * prov)
+    return fixed, variable, []
+
+
+def training_program_cost_per_year(costs, years):
+    """pc1: detailing every year plus one-time training amortised over the horizon, per clinician,
+    times the statewide clinician count; returns (cost per year, clinicians, missing)."""
+    pc = costs["program_costs"]
+    det = _value(pc.get("detailing_cost_per_clinician_year")); tr = _value(pc.get("training_cost_per_clinician"))
+    n = _value(pc.get("clinicians_statewide"))
+    missing = [k for k, v in (("detailing_cost_per_clinician_year", det), ("training_cost_per_clinician", tr),
+                              ("clinicians_statewide", n)) if v is None]
+    if missing:
+        return None, None, missing
+    return n * (det + tr / years), n, []
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--contrasts", required=True, type=Path)
@@ -208,8 +238,18 @@ def main():
             else:
                 fixed_statewide = fixed_site * args.sites
                 prog = fixed_statewide + variable
+        elif "ehr" in arm:
+            extra_offers = diff_statewide("pc_test_offers") / years
+            fixed_statewide, variable, pmissing = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
+            ledger["ehr_extra_offers_per_year"] = extra_offers
+            ledger["ehr_fixed_cost_per_year"] = fixed_statewide
+            prog = None if fixed_statewide is None else fixed_statewide + variable
+            fixed_statewide = fixed_statewide or 0.0
+        elif "training" in arm:
+            prog, n_clin, pmissing = training_program_cost_per_year(costs, years)
+            ledger["clinicians_statewide"] = n_clin
         else:
-            prog, pmissing = 0.0, []      # training / detailing and injectable-first: no priced programme cost yet
+            prog, pmissing = 0.0, []      # injectable-first: no priced programme cost (a prescribing rule, not a programme)
         ledger["clinic_revenue_per_year"] = rev
         ledger["program_cost_per_year"] = prog
         ledger["clinic_net_per_year"] = rev - prog if prog is not None else None
