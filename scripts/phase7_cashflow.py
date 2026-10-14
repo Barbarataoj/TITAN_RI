@@ -143,6 +143,23 @@ def program_cost_per_year(costs, reach_visits, reached_pm, invitations, price_pe
     return fixed, variable, []
 
 
+def chain_clinical_time_cost(costs, extra_tests, extra_discussions, extra_dx):
+    """Clinician / MA time on the chain an arm sets off (2026-10-14): result delivery on extra
+    tests, the PrEP conversation on extra test-and-offer discussions, post-test counselling and
+    linkage on extra new diagnoses. Returns (cost per year, missing)."""
+    pc = costs["program_costs"]
+    ma = _value(pc.get("ma_wage_per_hour")); prov = _value(pc.get("provider_wage_per_hour"))
+    neg = _value(pc.get("ma_minutes_per_negative_result")); disc = _value(pc.get("prep_discussion_minutes_clinician"))
+    link = _value(pc.get("linkage_minutes_per_new_diagnosis"))
+    missing = [k for k, v in (("ma_wage_per_hour", ma), ("provider_wage_per_hour", prov),
+                              ("ma_minutes_per_negative_result", neg), ("prep_discussion_minutes_clinician", disc),
+                              ("linkage_minutes_per_new_diagnosis", link)) if v is None]
+    if missing:
+        return None, missing
+    return (max(extra_tests, 0.0) * neg / 60.0 * ma + max(extra_discussions, 0.0) * disc / 60.0 * prov
+            + max(extra_dx, 0.0) * link / 60.0 * prov), []
+
+
 def ehr_program_cost_per_year(costs, extra_offers, years, sites=1):
     """pc2: (fixed per year = build amortised over the horizon x EHR instances + maintenance,
     variable = staff time on the extra opt-out offers, missing)."""
@@ -238,16 +255,28 @@ def main():
             else:
                 fixed_statewide = fixed_site * args.sites
                 prog = fixed_statewide + variable
-        elif "ehr" in arm:
-            extra_offers = diff_statewide("pc_test_offers") / years
-            fixed_statewide, variable, pmissing = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
-            ledger["ehr_extra_offers_per_year"] = extra_offers
-            ledger["ehr_fixed_cost_per_year"] = fixed_statewide
-            prog = None if fixed_statewide is None else fixed_statewide + variable
-            fixed_statewide = fixed_statewide or 0.0
-        elif "training" in arm:
-            prog, n_clin, pmissing = training_program_cost_per_year(costs, years)
-            ledger["clinicians_statewide"] = n_clin
+        elif "ehr" in arm or "training" in arm:
+            # clinician-delivered chain: result delivery, PrEP discussion, linkage on the extra events
+            extra_tests = diff_statewide("hiv_tests") / years
+            extra_disc = diff_statewide("prep_bundle_offers") / years
+            extra_dx = diff_statewide("hiv_dx_new_pwid") / years
+            chain_cost, cmissing = chain_clinical_time_cost(costs, extra_tests, extra_disc, extra_dx)
+            ledger["extra_tests_per_year"] = extra_tests
+            ledger["extra_prep_discussions_per_year"] = extra_disc
+            ledger["extra_new_diagnoses_per_year"] = extra_dx
+            ledger["chain_clinical_time_cost_per_year"] = chain_cost
+            if "ehr" in arm:
+                extra_offers = diff_statewide("pc_test_offers") / years
+                fixed_statewide, variable, pmissing = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
+                ledger["ehr_extra_offers_per_year"] = extra_offers
+                ledger["ehr_fixed_cost_per_year"] = fixed_statewide
+                prog = None if fixed_statewide is None or chain_cost is None else fixed_statewide + variable + chain_cost
+                fixed_statewide = fixed_statewide or 0.0
+            else:
+                prog, n_clin, pmissing = training_program_cost_per_year(costs, years)
+                ledger["clinicians_statewide"] = n_clin
+                prog = None if prog is None or chain_cost is None else prog + chain_cost
+            pmissing = pmissing + cmissing
         else:
             prog, pmissing = 0.0, []      # injectable-first: no priced programme cost (a prescribing rule, not a programme)
         ledger["clinic_revenue_per_year"] = rev

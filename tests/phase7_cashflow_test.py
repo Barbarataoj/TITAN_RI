@@ -142,7 +142,8 @@ def test_ehr_cost_scales_with_extra_offers_and_sites(tmp_path, costs):
     yaml.safe_dump(costs, open(costs_path, "w"))
     rows = []
     for arm, offers, hazard in (("pc2_ehr_opt_out_test", 90000.0, -3.6), ("pc1_training_detailing_test", 20000.0, -0.5)):
-        for outcome, v in (("pc_test_offers", offers), ("hiv_hazard_pwid", hazard)):
+        for outcome, v in (("pc_test_offers", offers), ("hiv_hazard_pwid", hazard), ("hiv_tests", 0.0),
+                           ("prep_bundle_offers", 0.0), ("hiv_dx_new_pwid", 0.0)):
             rows.append({"arm": arm, "outcome": outcome, "diff_mean_statewide": v, "horizon_years": 9.0})
     contrasts = tmp_path / "contrasts.csv"
     pd.DataFrame(rows).to_csv(contrasts, index=False)
@@ -159,4 +160,17 @@ def test_ehr_cost_scales_with_extra_offers_and_sites(tmp_path, costs):
     assert s1.loc[tr, "program_cost_per_year"] == pytest.approx(s3.loc[tr, "program_cost_per_year"])
     assert s1.loc[tr, "program_cost_per_year"] == pytest.approx(
         cf._value(pc["clinicians_statewide"]) * (cf._value(pc["detailing_cost_per_clinician_year"]) + cf._value(pc["training_cost_per_clinician"]) / 9.0))
+
+
+def test_chain_clinical_time_on_extra_events(costs):
+    pc = costs["program_costs"]
+    cost, missing = cf.chain_clinical_time_cost(costs, extra_tests=6000.0, extra_discussions=500.0, extra_dx=2.0)
+    assert missing == []
+    expected = (6000.0 * cf._value(pc["ma_minutes_per_negative_result"]) / 60.0 * cf._value(pc["ma_wage_per_hour"])
+                + 500.0 * cf._value(pc["prep_discussion_minutes_clinician"]) / 60.0 * cf._value(pc["provider_wage_per_hour"])
+                + 2.0 * cf._value(pc["linkage_minutes_per_new_diagnosis"]) / 60.0 * cf._value(pc["provider_wage_per_hour"]))
+    assert cost == pytest.approx(expected)
+    # fewer events than the status quo cost nothing (no negative time)
+    cost0, _ = cf.chain_clinical_time_cost(costs, -100.0, -5.0, -1.0)
+    assert cost0 == 0.0
 
