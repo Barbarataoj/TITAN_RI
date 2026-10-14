@@ -123,16 +123,19 @@ def navigation_cost_per_year(costs, reach_visits, reached_pm):
 
 
 def program_cost_per_year(costs, reach_visits, reached_pm, invitations):
+    """CHIA: returns (fixed platform cost PER SITE-YEAR, variable staff cost STATEWIDE, missing).
+    The variable part is derived from statewide reach visits and invitations, so only the
+    fixed part is multiplied by the number of sites (``--sites``)."""
     pc = costs["program_costs"]
     fixed = _value(pc.get("chia_platform_per_site_year"))
     ma = _value(pc.get("ma_wage_per_hour")); prov = _value(pc.get("provider_wage_per_hour"))
     missing = [k for k, v in (("chia_platform_per_site_year", fixed), ("ma_wage_per_hour", ma),
                               ("provider_wage_per_hour", prov)) if v is None]
     if missing:
-        return None, missing
+        return None, None, missing
     variable = (invitations * _value(pc["ma_minutes_per_invitation"]) / 60.0 * ma
                 + reach_visits * _value(pc["provider_minutes_per_reach_visit"]) / 60.0 * prov)
-    return fixed + variable, []
+    return fixed, variable, []
 
 
 def main():
@@ -178,17 +181,25 @@ def main():
                   "reach_visits_per_year": reach_visits, "reached_person_months_per_year": reached_pm}
         # clinic
         rev = sum(services[k]["clinic_revenue"] * counts[k] for k in services if services[k]["clinic_revenue"] is not None)
+        # programme cost is STATEWIDE per year; ``--sites`` scales only the fixed per-site
+        # platform cost of CHIA (navigation and the variable staff costs are already statewide)
+        fixed_statewide = 0.0
         if "navigation" in arm:
             prog, prog_caseload, fte_e, fte_c, pmissing = navigation_cost_per_year(costs, reach_visits, reached_pm)
             ledger["navigator_fte_effort"] = fte_e; ledger["navigator_fte_caseload"] = fte_c
             ledger["program_cost_caseload_per_year"] = prog_caseload
         elif "chia" in arm:
-            prog, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits)
+            fixed_site, variable, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits)
+            if fixed_site is None:
+                prog = None
+            else:
+                fixed_statewide = fixed_site * args.sites
+                prog = fixed_statewide + variable
         else:
             prog, pmissing = 0.0, []      # training / detailing and injectable-first: no priced programme cost yet
         ledger["clinic_revenue_per_year"] = rev
-        ledger["program_cost_per_year"] = (prog * args.sites) if prog is not None else None
-        ledger["clinic_net_per_year"] = rev - prog * args.sites if prog is not None else None
+        ledger["program_cost_per_year"] = prog
+        ledger["clinic_net_per_year"] = rev - prog if prog is not None else None
         # payer
         pay = sum(services[k]["payer_cost"] * counts[k] for k in services if services[k]["payer_cost"] is not None)
         hv = costs["health_values"].get("lifetime_hiv_treatment_cost") or {}
@@ -204,13 +215,15 @@ def main():
         # societal
         qaly = _value(costs["health_values"].get("qaly_per_infection_averted"))
         ledger["qalys_gained_per_year"] = infections * qaly if qaly is not None else None
+        # gross: programme cost plus payer activity cost per PWID infection averted; the
+        # HIV-treatment offset and clinic revenue are reported separately, not netted here
         ledger["cost_per_infection_averted_clinic_and_payer"] = (
-            ((prog or 0.0) * args.sites + pay) / infections if infections > 0 else None)
+            ((prog or 0.0) + pay) / infections if infections > 0 else None)
         # break-even reach: activity (and so revenue and variable cost) scales with
         # reached person-months; the platform cost is fixed per site
         if prog is not None and reached_pm > 0 and "chia" in arm:
-            fixed = _value(costs["program_costs"]["chia_platform_per_site_year"]) * args.sites
-            variable = prog * args.sites - fixed
+            fixed = fixed_statewide
+            variable = prog - fixed
             net_per_reached_pm = (rev - variable) / reached_pm
             ledger["breakeven_reached_person_months_per_year"] = (
                 fixed / net_per_reached_pm if net_per_reached_pm > 0 else None)
