@@ -160,6 +160,17 @@ def chain_clinical_time_cost(costs, extra_tests, extra_discussions, extra_dx):
             + max(extra_dx, 0.0) * link / 60.0 * prov), []
 
 
+def injectable_admin_cost(costs, extra_injections):
+    """Clinic administrative time per extra long-acting injection (prior authorisation,
+    benefits, scheduling; Fenway 2023); returns (cost per year, missing)."""
+    pc = costs["program_costs"]
+    mins = _value(pc.get("injectable_admin_minutes_per_injection")); prov = _value(pc.get("provider_wage_per_hour"))
+    missing = [k for k, v in (("injectable_admin_minutes_per_injection", mins), ("provider_wage_per_hour", prov)) if v is None]
+    if missing:
+        return None, missing
+    return max(extra_injections, 0.0) * mins / 60.0 * prov, []
+
+
 def ehr_program_cost_per_year(costs, extra_offers, years, sites=1):
     """pc2: (fixed per year = build amortised over the horizon x EHR instances + maintenance,
     variable = staff time on the extra opt-out offers, missing)."""
@@ -238,6 +249,25 @@ def main():
         # programme cost is STATEWIDE per year; ``--sites`` scales only the fixed per-site
         # platform cost of CHIA (navigation and the variable staff costs are already statewide)
         fixed_statewide = 0.0
+        # 2026-10-15 (Jun: the same test for every arm): the clinician-delivered steps of the
+        # chain every arm sets off are priced on the extra events in EVERY arm — result delivery,
+        # the PrEP conversation, post-test counselling and linkage — plus the administrative time
+        # of extra long-acting injections. For navigation and CHIA this is conservative: part of
+        # the conversation is the navigator's / the chatbot's, already costed, and the clinician
+        # still has to prescribe.
+        extra_tests = diff_statewide("hiv_tests") / years
+        extra_disc = diff_statewide("prep_bundle_offers") / years
+        extra_dx = diff_statewide("hiv_dx_new_pwid") / years
+        extra_inj = diff_statewide("prep_injections") / years
+        chain_cost, cmissing = chain_clinical_time_cost(costs, extra_tests, extra_disc, extra_dx)
+        inj_cost, imissing = injectable_admin_cost(costs, extra_inj)
+        ledger["extra_tests_per_year"] = extra_tests
+        ledger["extra_prep_discussions_per_year"] = extra_disc
+        ledger["extra_new_diagnoses_per_year"] = extra_dx
+        ledger["extra_injections_per_year"] = extra_inj
+        ledger["chain_clinical_time_cost_per_year"] = chain_cost
+        ledger["injectable_admin_cost_per_year"] = inj_cost
+        common = (chain_cost or 0.0) + (inj_cost or 0.0)
         if "navigation" in arm:
             prog, prog_caseload, fte_e, fte_c, pmissing = navigation_cost_per_year(costs, reach_visits, reached_pm)
             ledger["navigator_fte_effort"] = fte_e; ledger["navigator_fte_caseload"] = fte_c
@@ -255,30 +285,21 @@ def main():
             else:
                 fixed_statewide = fixed_site * args.sites
                 prog = fixed_statewide + variable
-        elif "ehr" in arm or "training" in arm:
-            # clinician-delivered chain: result delivery, PrEP discussion, linkage on the extra events
-            extra_tests = diff_statewide("hiv_tests") / years
-            extra_disc = diff_statewide("prep_bundle_offers") / years
-            extra_dx = diff_statewide("hiv_dx_new_pwid") / years
-            chain_cost, cmissing = chain_clinical_time_cost(costs, extra_tests, extra_disc, extra_dx)
-            ledger["extra_tests_per_year"] = extra_tests
-            ledger["extra_prep_discussions_per_year"] = extra_disc
-            ledger["extra_new_diagnoses_per_year"] = extra_dx
-            ledger["chain_clinical_time_cost_per_year"] = chain_cost
-            if "ehr" in arm:
-                extra_offers = diff_statewide("pc_test_offers") / years
-                fixed_statewide, variable, pmissing = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
-                ledger["ehr_extra_offers_per_year"] = extra_offers
-                ledger["ehr_fixed_cost_per_year"] = fixed_statewide
-                prog = None if fixed_statewide is None or chain_cost is None else fixed_statewide + variable + chain_cost
-                fixed_statewide = fixed_statewide or 0.0
-            else:
-                prog, n_clin, pmissing = training_program_cost_per_year(costs, years)
-                ledger["clinicians_statewide"] = n_clin
-                prog = None if prog is None or chain_cost is None else prog + chain_cost
-            pmissing = pmissing + cmissing
+        elif "ehr" in arm:
+            extra_offers = diff_statewide("pc_test_offers") / years
+            fixed_statewide, variable, pmissing = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
+            ledger["ehr_extra_offers_per_year"] = extra_offers
+            ledger["ehr_fixed_cost_per_year"] = fixed_statewide
+            prog = None if fixed_statewide is None else fixed_statewide + variable
+            fixed_statewide = fixed_statewide or 0.0
+        elif "training" in arm:
+            prog, n_clin, pmissing = training_program_cost_per_year(costs, years)
+            ledger["clinicians_statewide"] = n_clin
         else:
-            prog, pmissing = 0.0, []      # injectable-first: no priced programme cost (a prescribing rule, not a programme)
+            prog, pmissing = 0.0, []      # injectable-first: a prescribing rule; only the chain and injection time below
+        if prog is not None:
+            prog += common
+        pmissing = pmissing + cmissing + imissing
         ledger["clinic_revenue_per_year"] = rev
         ledger["program_cost_per_year"] = prog
         ledger["clinic_net_per_year"] = rev - prog if prog is not None else None

@@ -73,7 +73,8 @@ def _contrasts(path):
     rows = []
     for arm, visits, pm, hazard in (("pc3_navigation_test", 9000.0, 27000.0, -0.9),
                                     ("pc4_chia_test", 3600.0, 18000.0, -1.8)):
-        for outcome, v in (("reach_visits", visits), ("reached_person_months", pm), ("hiv_hazard_pwid", hazard)):
+        for outcome, v in (("reach_visits", visits), ("reached_person_months", pm), ("hiv_hazard_pwid", hazard),
+                           ("hiv_tests", 0.0), ("prep_bundle_offers", 0.0), ("hiv_dx_new_pwid", 0.0), ("prep_injections", 0.0)):
             rows.append({"arm": arm, "outcome": outcome, "diff_mean_statewide": v, "horizon_years": 9.0})
     pd.DataFrame(rows).to_csv(path, index=False)
 
@@ -143,7 +144,7 @@ def test_ehr_cost_scales_with_extra_offers_and_sites(tmp_path, costs):
     rows = []
     for arm, offers, hazard in (("pc2_ehr_opt_out_test", 90000.0, -3.6), ("pc1_training_detailing_test", 20000.0, -0.5)):
         for outcome, v in (("pc_test_offers", offers), ("hiv_hazard_pwid", hazard), ("hiv_tests", 0.0),
-                           ("prep_bundle_offers", 0.0), ("hiv_dx_new_pwid", 0.0)):
+                           ("prep_bundle_offers", 0.0), ("hiv_dx_new_pwid", 0.0), ("prep_injections", 0.0)):
             rows.append({"arm": arm, "outcome": outcome, "diff_mean_statewide": v, "horizon_years": 9.0})
     contrasts = tmp_path / "contrasts.csv"
     pd.DataFrame(rows).to_csv(contrasts, index=False)
@@ -173,4 +174,28 @@ def test_chain_clinical_time_on_extra_events(costs):
     # fewer events than the status quo cost nothing (no negative time)
     cost0, _ = cf.chain_clinical_time_cost(costs, -100.0, -5.0, -1.0)
     assert cost0 == 0.0
+
+
+def test_chain_time_and_injection_admin_apply_to_every_arm(tmp_path, costs):
+    costs_path = tmp_path / "costs.yml"
+    yaml.safe_dump(costs, open(costs_path, "w"))
+    rows = []
+    for arm in ("pc6_injectable_first_test", "pc4_chia_test", "pc3_navigation_test"):
+        for outcome, v in (("hiv_hazard_pwid", -0.9), ("hiv_tests", 9000.0), ("prep_bundle_offers", 900.0),
+                           ("hiv_dx_new_pwid", 0.0), ("prep_injections", 450.0), ("reach_visits", 0.0), ("reached_person_months", 0.0)):
+            rows.append({"arm": arm, "outcome": outcome, "diff_mean_statewide": v, "horizon_years": 9.0})
+    contrasts = tmp_path / "contrasts.csv"
+    pd.DataFrame(rows).to_csv(contrasts, index=False)
+    out = _run(contrasts, costs_path, tmp_path / "o.csv", 1)
+    pc = costs["program_costs"]
+    chain = (1000.0 * cf._value(pc["ma_minutes_per_negative_result"]) / 60.0 * cf._value(pc["ma_wage_per_hour"])
+             + 100.0 * cf._value(pc["prep_discussion_minutes_clinician"]) / 60.0 * cf._value(pc["provider_wage_per_hour"]))
+    inj = 50.0 * cf._value(pc["injectable_admin_minutes_per_injection"]) / 60.0 * cf._value(pc["provider_wage_per_hour"])
+    for arm in ("pc6_injectable_first_test", "pc4_chia_test", "pc3_navigation_test"):
+        assert out.loc[arm, "chain_clinical_time_cost_per_year"] == pytest.approx(chain)
+        assert out.loc[arm, "injectable_admin_cost_per_year"] == pytest.approx(inj)
+    assert out.loc["pc6_injectable_first_test", "program_cost_per_year"] == pytest.approx(chain + inj)
+    # navigation and CHIA keep their own programme cost on top of the chain time
+    assert out.loc["pc4_chia_test", "program_cost_per_year"] == pytest.approx(chain + inj + cf._value(pc["chia_platform_per_site_year"]))
+    assert out.loc["pc3_navigation_test", "program_cost_per_year"] == pytest.approx(chain + inj)
 
