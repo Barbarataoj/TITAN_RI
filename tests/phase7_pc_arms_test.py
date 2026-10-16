@@ -70,7 +70,10 @@ def test_dated_ehr_arm_uses_timeline_scalars_and_pool_refresh():
     # since 2026-10-09 the PrEP lever of this arm is the test-and-offer bundle,
     # not an independent per-visit multiplier
     assert "pc_prep_intensity" not in tl
-    assert pc["prep_bundle_prob_lever"] == 0.8 and pc["prep_bundle_lever_start_step"] == 133
+    # 2026-10-16: the primary pc2 carries no PrEP lever at all; the dated bundle lever lives in pc2b
+    assert "prep_bundle_prob_lever" not in pc and "prep_bundle_lever_start_step" not in pc
+    pcb = arms["pc2b_ehr_prep_cds_central.yml"][0]["care_seeking"]["setting"]["primary_care"]
+    assert pcb["prep_bundle_prob_lever"] == 0.8 and pcb["prep_bundle_lever_start_step"] == 133
     assert pc["prep_bundle_prob"] == baseline()["care_seeking"]["setting"]["primary_care"]["prep_bundle_prob"]   # base untouched
     assert "pc_prep_willing" not in tl           # efficacy 0 for PrEP willingness in this arm
     assert tl["pc_hiv_test_acceptance"]["parameter"] == "care_seeking|setting|primary_care|acceptance_mult_hiv_test"
@@ -96,7 +99,8 @@ def test_navigation_arm_is_a_staffed_programme_in_primary_care():
     assert pc["reach_prob"] == 0.25 and pc["reach_start_time"] == gen.DEFAULT_START_STEP
     assert pc["reach_acceptance_mult_hiv_test"] == pytest.approx(0.83 / 0.55)
     assert pc["reach_acceptance_mult_prep"] == pytest.approx(0.75 / b["prep"]["acceptance"])
-    assert pc["reach_prep_same_day_prob"] == 1.0 and pc["reach_prep_deferred_return_prob"] == 0.8
+    assert "reach_prep_same_day_prob" not in pc and "reach_prep_bundle_prob" not in pc   # 2026-10-16: not credited to the navigator
+    assert pc["reach_prep_deferred_return_prob"] == 0.8
     assert pc["reach_prep_adherence_mult"] == pytest.approx(1.26)
     assert s["prep"]["reengagement_return_mult"] == pytest.approx(1 + 1.9 * 0.25)
     assert s["prep"]["reengagement_start_step"] == gen.DEFAULT_START_STEP
@@ -138,7 +142,8 @@ def test_chia_programme_arm_sets_reach_fields_only_in_primary_care():
     assert pc["reach_prob"] == pytest.approx(0.15)
     assert pc["reach_visit_prob"] == pytest.approx(0.65)
     assert pc["reach_offer_prob_hiv_test"] == pytest.approx(0.027 + 0.65 * (0.50 - 0.027), abs=1e-3)
-    assert pc["reach_offer_prob_prep"] == pytest.approx(0.35 * 0.35 * 0.78, abs=1e-3)
+    assert pc["reach_offer_prob_prep"] == -1                                              # 2026-10-16: a non-prescriber refers
+    assert arms["pc4b_chia_converting_requests_central.yml"][0]["care_seeking"]["setting"]["primary_care"]["reach_offer_prob_prep"] == pytest.approx(0.35 * 0.35 * 0.78, abs=1e-3)
     assert pc["reach_intensity_mult_prep"] == pytest.approx((1 + 0.65 * 2.15) / 0.65, abs=1e-3)
     assert pc["reach_prep_discontinue_mult"] == pytest.approx(1 - 0.65 * 0.5, abs=1e-3)
     # W, I and acceptance of primary care untouched; other settings untouched; no timeline
@@ -159,18 +164,28 @@ def test_chia_programme_arm_sets_reach_fields_only_in_primary_care():
 def test_ehr_arm_sets_the_bundle_and_injectable_first_is_a_prep_arm():
     b = baseline()
     arms = gen.build_arms(b)
-    s, notes = arms["pc2_ehr_opt_out_central.yml"]
+    # 2026-10-16: the primary pc2 is the testing package only - no bundle / referral lever
+    # fields; the PrEP CDS prompt lives in the credited arm pc2b_ehr_prep_cds
+    primary = arms["pc2_ehr_opt_out_central.yml"][0]["care_seeking"]["setting"]["primary_care"]
+    assert "prep_bundle_prob_lever" not in primary and "prep_referral_prob_lever" not in primary and "prep_bundle_lever_start_step" not in primary
+    low_tl = gen.build_arms(b, variant="low")["pc2_ehr_opt_out_low.yml"][0]["timeline_scaling"]["timeline"]
+    assert low_tl["pc_hiv_test_acceptance"]["scalar"] == pytest.approx(0.45 / 0.55)                                # RI ED drug-misusing patients 38-45 %
+    ro = gen.build_arms(b, variant="reminder_only")
+    assert list(ro) == ["pc2_ehr_opt_out_reminder_only.yml"]                                                        # the variant exists for pc2 only
+    ro_tl = ro["pc2_ehr_opt_out_reminder_only.yml"][0]["timeline_scaling"]["timeline"]
+    assert "pc_hiv_test_acceptance" not in ro_tl and ro_tl["pc_hiv_test_intensity"]["scalar"] == pytest.approx(1.1)   # acceptance unchanged
+    s, notes = arms["pc2b_ehr_prep_cds_central.yml"]
     pc = s["care_seeking"]["setting"]["primary_care"]
     # 2026-10-12: dated lever fields; the base bundle and referral values stay the
     # status quo's; non-prescribers refer (prep_referral_prob_lever), never prescribe
     assert pc["prep_bundle_prob_lever"] == 0.8 and pc["prep_referral_prob_lever"] == pytest.approx(0.10 * 1.5)   # a multiplier on the base (2026-10-13)
-    assert gen.build_arms(b, variant="high")["pc2_ehr_opt_out_high.yml"][0]["care_seeking"]["setting"]["primary_care"]["prep_referral_prob_lever"] == pytest.approx(0.26)
+    assert gen.build_arms(b, variant="high")["pc2b_ehr_prep_cds_high.yml"][0]["care_seeking"]["setting"]["primary_care"]["prep_referral_prob_lever"] == pytest.approx(0.26)
     assert pc["prep_bundle_lever_start_step"] == gen.DEFAULT_START_STEP
     base_pc = b["care_seeking"]["setting"]["primary_care"]
     assert pc["prep_bundle_prob"] == base_pc["prep_bundle_prob"] and pc["prep_referral_prob"] == base_pc["prep_referral_prob"]
     assert "prep_bundle_prob_unwilling" not in pc and "prep_bundle_start_step" not in pc
     assert "pc_prep_intensity" not in (s.get("timeline_scaling") or {}).get("timeline", {})   # the CDS lever is the bundle now
-    static, _ = gen.build_arms(b, static=True)["pc2_ehr_opt_out_central_static.yml"]
+    static, _ = gen.build_arms(b, static=True)["pc2b_ehr_prep_cds_central_static.yml"]
     assert static["care_seeking"]["setting"]["primary_care"]["prep_bundle_lever_start_step"] == -999
     nav, _ = arms["pc3_navigation_same_day_central.yml"]
     npc = nav["care_seeking"]["setting"]["primary_care"]

@@ -15,6 +15,17 @@ value. This script turns a strategy specification into scenario YAMLs and
 prints the arithmetic, so the methods section and the arm files cannot drift
 apart (`--check`).
 
+DEFINITIONS CHANGED 2026-10-16
+------------------------------
+After Jun's chain test (work record 2026-10-09 sections 19.9-19.11) each arm credits only
+what the strategy itself delivers: pc2 is the testing package (the PrEP CDS prompt is the
+credited sensitivity pc2b_ehr_prep_cds); pc3 no longer credits the prescriber's bundle
+probability or same-day start; pc4 routes the prepared patient's request at a
+non-prescriber to a referral (the converting version is pc4b_chia_converting_requests).
+Archives before 2026-10-16 (round 4 and earlier) hold the credited versions under the
+names pc2_ehr_opt_out / pc3_navigation_same_day / pc4_chia; the strategy-only archive of
+2026-10-15 holds the present definitions under the same names.
+
 THE THREE LEVERS
 ----------------
   W  `p_willing_<service>`   share of providers who deliver the service at all.
@@ -87,7 +98,7 @@ TIMELINE_STOP = 10_000        # beyond any horizon (stop_time is exclusive)
 # than W/I/acceptance. Values: docs/calibration_log/phase_7_chia_workflow_cashflow_2026-10-02.md
 # section 7.5 (reference AHF messenger PMID 41792418 with an OUD discount d on the
 # excess effect: central d = 0.65, low d = 0.5, high d = 1).
-def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78, visit=0.65):
+def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78, visit=0.65, converting=False):
     rr = 1.0 + d * (3.15 - 1.0)              # PrEP initiation among reached, AHF RR 3.15
     return {
         "reach_prob": reach_sms,
@@ -97,7 +108,11 @@ def _chia(d, reach_sms, ask=0.35, eff_req=0.35, oud_req=0.78, visit=0.65):
         # a prepared patient raises PrEP (share who ask 0.35) and a non-prescribing
         # provider acts on the request (efficacy 0.35 x OUD factor 0.78); the
         # AHF initiation effect above covers willing providers, this covers the rest
-        "reach_offer_prob_prep": round(ask * eff_req * oud_req, 4),
+        # 2026-10-16 (Jun's chain test, record 19.10-19.11): a non-prescribing provider
+        # does not prescribe because the prepared patient asks; the request is a
+        # referral (reach_prep_referral_prob below). The credited version
+        # (pc4b_chia_converting_requests) keeps the old per-visit offer floor.
+        "reach_offer_prob_prep": round(ask * eff_req * oud_req, 4) if converting else -1,
         "reach_acceptance_mult_hiv_test": round((0.55 + d * 0.30) / 0.55, 4),
         "reach_intensity_mult_prep": round(rr / visit, 4),     # per-visit multiplier so the per-patient-year effect is rr (divisor = this variant's visit probability; was 0.65 for every variant, review 2026-10-13)
         "reach_acceptance_mult_prep": 1.0,
@@ -139,7 +154,7 @@ REENGAGEMENT_MULT = {"central": 2.9, "low": 2.0, "high": 5.1}
 
 STRATEGIES = {
     "pc4_chia": {
-        "label": "CHIA pre-visit chatbot + provider summary (patient-facing programme in primary care)",
+        "label": "CHIA pre-visit chatbot + provider summary (patient-facing programme in primary care; a non-prescriber refers)",
         "program": True,
         "central": {"program": _chia(0.65, 0.15)},
         "low": {"program": dict(_chia(0.50, 0.08, ask=0.30, eff_req=0.20, oud_req=0.70, visit=0.50), reach_prep_restart_prob=0.01)},
@@ -150,6 +165,17 @@ STRATEGIES = {
             "testing links: patient-screen CDS acknowledged 82% / ordered 47% (39572251); computer counseling + rapid test 97% tested (23837807); engagement priors 42081747, 41219954",
             "PrEP offer floor: 47% of chatbot users initiated the prevention conversation (42712342) -> ask 0.35 (0.30-0.50); patient request converts non-prescribers e 0.35 (0.20-0.50): Kravitz 15855433, patient-initiated CME 31% (33735209), 94% of VA PrEP conversations patient-initiated (31705471); OUD factor 0.78 (27896552, 36964426)",
         ],
+    },
+    "pc4b_chia_converting_requests": {
+        # The round-4 definition (2026-10-02 to 2026-10-15): the prepared patient's request
+        # gets a non-prescribing provider to prescribe (reach_offer_prob_prep). Kept as the
+        # credited sensitivity; the primary pc4 routes that request to a referral.
+        "label": "CHIA where patient requests convert non-prescribers (credited version, round 4)",
+        "program": True,
+        "central": {"program": _chia(0.65, 0.15, converting=True)},
+        "low": {"program": dict(_chia(0.50, 0.08, ask=0.30, eff_req=0.20, oud_req=0.70, visit=0.50, converting=True), reach_prep_restart_prob=0.01)},
+        "high": {"program": dict(_chia(1.0, 0.23, ask=0.50, eff_req=0.50, oud_req=0.85, visit=0.80, converting=True), reach_prep_restart_prob=0.03)},
+        "sources": ["as pc4; non-prescriber conversion: patient request RCT (Kravitz 15855433, prescribers of antidepressants), patient-initiated CME 31% (33735209), 94% of VA PrEP conversations patient-initiated (31705471) - none shows a non-prescriber of PrEP prescribing"],
     },
     "pc1_training_detailing": {
         "label": "Provider training + academic detailing, ongoing programme (W lever)",
@@ -175,17 +201,53 @@ STRATEGIES = {
         ],
     },
     "pc2_ehr_opt_out": {
-        "label": "EHR reminder + opt-out default + MA/nurse standing orders (I lever, W to the reach)",
-        # PrEP since 2026-10-09: the clinical-decision-support prompt acts at the
-        # visit where the test comes back negative (the test-and-offer bundle),
-        # not as an independent per-visit multiplier. Prescribing providers raise
-        # PrEP more often (0.5 -> 0.8); the prompt gets some non-prescribers to
-        # refer (2026-10-12: a referral, never a same-day start, status-quo
-        # referral probability -> 0.15; the patient then attends elsewhere with
-        # the setting's prep_referral_return_prob). CDS x1.3 overall / x2.6
-        # among willing (38412047), x4.5 from a near-zero base (40376113),
-        # passive BPA null (35225082). Lever fields are dated by
-        # prep_bundle_lever_start_step; the base fields stay the status quo's.
+        "label": "EHR reminder + opt-out default + MA/nurse standing orders (testing package only; I lever, W to the reach)",
+        # 2026-10-16 (Jun: the prompt moves the test, not the conversation after it;
+        # record 19.9-19.11): the primary arm carries the testing package only. The
+        # PrEP clinical-decision-support prompt at the negative-test visit is the
+        # credited sensitivity pc2b_ehr_prep_cds. Acceptance range widened to the
+        # OUD-specific evidence (2026-10-16): Rhode Island ED patients who misuse
+        # drugs accepted an offered rapid HIV/HCV test 38-45 % (Merchant 2015,
+        # 26036465; InVITED 25125271); on-site rapid testing in drug-treatment
+        # programmes ~80 % (CTN-0032, Metsch 2012, 22515871). The reminder_only
+        # variant is the unfacilitated prompt: VA primary-care reminder RCT null
+        # (19625582); VA SUD clinics 1-24 % tested at six months (23155100).
+        "central": {
+            "hiv_test": {"reach": 1.0, "willing_efficacy": 0.67, "intensity_mult": 1.5},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
+            "acceptance": {"hiv_test": 0.65},
+        },
+        "low": {
+            "hiv_test": {"reach": 1.0, "willing_efficacy": 0.35, "intensity_mult": 1.2},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
+            "acceptance": {"hiv_test": 0.45},
+        },
+        "high": {
+            "hiv_test": {"reach": 1.0, "willing_efficacy": 0.9, "intensity_mult": 2.0},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.2, "intensity_mult": 1.0},
+            "acceptance": {"hiv_test": 0.85},
+        },
+        "reminder_only": {
+            "hiv_test": {"reach": 1.0, "willing_efficacy": 0.1, "intensity_mult": 1.1},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
+            "acceptance": {},
+        },
+        "sources": [
+            "testing: EHR reminder x4 on receipt sustained 2 yr (24363958); BPA + incentive x5.1 (39214701); passive alert x1.9 (27378268); 70-80% offered under facilitation (23605307)",
+            "testing acceptance: opt-out 0.60-0.66 vs opt-in 0.38 (26786744, 31365316); nurse standing orders 0.85 (18421508); OUD-specific: RI ED drug-misusing patients 38-45% (26036465, 25125271), on-site rapid testing in drug treatment ~80% (22515871)",
+            "unfacilitated reminder: VA primary care RCT null (19625582); VA SUD clinics 1-24% (23155100)",
+            "no published evaluation of an EHR-prompted opt-out HIV test for patients with OUD in primary care (docs/literature/2026-10/ehr_opt_out_testing_in_oud_settings_2026-10-15.md)",
+        ],
+    },
+    "pc2b_ehr_prep_cds": {
+        "label": "EHR reminder + opt-out + PrEP CDS prompt at the negative-test visit (credited version, round 4)",
+        # The round-4 definition: PrEP since 2026-10-09 the clinical-decision-support
+        # prompt acts at the visit where the test comes back negative (the test-and-
+        # offer bundle). Prescribing providers raise PrEP more often (0.5 -> 0.8); the
+        # prompt gets some non-prescribers to refer (a referral, never a same-day
+        # start). CDS x1.3 overall / x2.6 among willing (38412047), x4.5 from a
+        # near-zero base (40376113), passive BPA null (35225082). Lever fields are
+        # dated by prep_bundle_lever_start_step; the base fields stay the status quo's.
         "central": {
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.67, "intensity_mult": 1.5},
             "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
@@ -205,9 +267,7 @@ STRATEGIES = {
             "bundle": {"prep_bundle_prob_lever": 0.9, "prep_referral_prob_lever_mult": 2.6},
         },
         "sources": [
-            "testing: EHR reminder x4 on receipt sustained 2 yr (24363958); BPA + incentive x5.1 (39214701); passive alert x1.9 (27378268); 70-80% offered under facilitation (23605307)",
-            "testing acceptance: opt-out 0.60-0.66 vs opt-in 0.38 (26786744, 31365316); nurse standing orders 0.85 (18421508)",
-            "PrEP: CDS I x1.3 overall, x2.6 among willing providers (38412047); x4.5 from a near-zero base (40376113); passive BPA null (35225082)",
+            "as pc2; PrEP: CDS I x1.3 overall, x2.6 among willing providers (38412047); x4.5 from a near-zero base (40376113); passive BPA null (35225082)",
         ],
     },
     "pc3_navigation_same_day": {
@@ -219,11 +279,15 @@ STRATEGIES = {
         # re-engages missed injectable doses (the 2026-10-08 outreach arm, folded
         # in here at the reviewer's request). Workload is read from the model:
         # reached person-months, tests, starts, injection visits, re-engagements.
-        "label": "Peer navigation: same-day testing / PrEP start, warm handoff, adherence support, re-engagement (patient-facing programme)",
+        "label": "Peer navigation: accompanied testing, warm handoff, adherence support, re-engagement (patient-facing programme)",
+        # 2026-10-16: the prescriber's bundle probability and same-day start are no
+        # longer credited to the navigator (record 19.10-19.11: they carried nothing);
+        # the navigator's own work - enrolment, accompanied testing, patient
+        # acceptance, deferred-return and warm-handoff follow-up, adherence and
+        # monitoring support, re-engagement - stays.
         "program": True,
         "central": {
             "program": {"reach_prob": 0.25, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
-                        "reach_prep_bundle_prob": 0.8, "reach_prep_same_day_prob": 1.0,
                         "reach_prep_deferred_return_prob": 0.8, "reach_prep_adherence_mult": 1.26,
                         "reach_prep_monitoring_mult": 1.21, "reach_prep_restart_prob": 0.015,
                         # 2026-10-12: at a non-prescriber the prepared patient gets a
@@ -236,7 +300,6 @@ STRATEGIES = {
         },
         "low": {
             "program": {"reach_prob": 0.15, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
-                        "reach_prep_bundle_prob": 0.6, "reach_prep_same_day_prob": 0.8,
                         "reach_prep_deferred_return_prob": 0.6, "reach_prep_adherence_mult": 1.0,
                         "reach_prep_monitoring_mult": 1.1, "reach_prep_restart_prob": 0.01,
                         "reach_prep_referral_prob": 0.6, "reach_prep_referral_return_prob": 0.60},
@@ -245,7 +308,6 @@ STRATEGIES = {
         },
         "high": {
             "program": {"reach_prob": 0.40, "reach_retry_prob": 0.0, "reach_visit_prob": 1.0,
-                        "reach_prep_bundle_prob": 0.9, "reach_prep_same_day_prob": 1.0,
                         "reach_prep_deferred_return_prob": 0.9, "reach_prep_adherence_mult": 1.6,
                         "reach_prep_monitoring_mult": 1.3, "reach_prep_restart_prob": 0.03,
                         "reach_prep_referral_prob": 0.9, "reach_prep_referral_return_prob": 0.80},
@@ -291,6 +353,8 @@ def build_arms(baseline, start_step=DEFAULT_START_STEP, static=False, variant="c
     """Return {filename: (scenario dict, arithmetic lines)}. Pure."""
     out = {}
     for key, spec in (strategies or STRATEGIES).items():
+        if variant not in spec:
+            continue                      # e.g. reminder_only exists for pc2 only
         levers = spec[variant]
         scenario = copy.deepcopy(baseline)
         base = _setting(baseline)
