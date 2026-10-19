@@ -88,7 +88,7 @@ ACCEPTANCE_PATH = {"hiv_test": ("hiv_testing", "acceptance"),
 # A patient-side component is expressed as the setting's acceptance multiplier
 # (care_seeking.setting.primary_care.acceptance_mult_<service>), so the global
 # acceptance scalar -- and every other setting's offers -- stay as calibrated.
-DEFAULT_START_STEP = 133      # 2023-01: calibration = steps 1-132 = 2012-2022
+DEFAULT_START_STEP = 181      # 2027-01 (decided 2026-10-19: strategies start after the EBQI panels; was 133 = 2023-01). Calibration = steps 1-132 = 2012-2022; horizon 2027-2036 = steps 181-300
 TIMELINE_STOP = 10_000        # beyond any horizon (stop_time is exclusive)
 
 # Each strategy: per service {reach, willing_efficacy, intensity_mult}, acceptance

@@ -312,9 +312,17 @@ def main():
             base_year, target = hv.get("year"), costs.get("analysis_year")
             if base_year in cpi and target in cpi:
                 hiv_cost = hiv_cost * float(cpi[target]) / float(cpi[base_year])   # inflate to the analysis year
+        # present value over the horizon at the cost file's discount rate (flat per-year flows, so the
+        # cost per infection averted is unchanged by discounting; the totals are what a budget sees)
+        r = float(costs.get("discount_rate", 0.0) or 0.0)
+        pv = sum((1.0 + r) ** -y for y in range(int(round(years))))
+        ledger["pv_factor"] = pv
+        ledger["program_cost_pv"] = prog * pv if prog is not None else None
+        ledger["infections_averted_pv"] = infections * pv
         ledger["payer_activity_cost_per_year"] = pay
         ledger["hiv_treatment_cost_averted_per_year"] = infections * hiv_cost if hiv_cost is not None else None
         ledger["payer_net_per_year"] = (infections * hiv_cost - pay) if hiv_cost is not None else None
+        ledger["payer_net_pv"] = ledger["payer_net_per_year"] * pv if ledger["payer_net_per_year"] is not None else None
         # societal
         qaly = _value(costs["health_values"].get("qaly_per_infection_averted"))
         ledger["qalys_gained_per_year"] = infections * qaly if qaly is not None else None

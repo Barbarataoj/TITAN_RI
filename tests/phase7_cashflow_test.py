@@ -199,3 +199,15 @@ def test_chain_time_and_injection_admin_apply_to_every_arm(tmp_path, costs):
     assert out.loc["pc4_chia_test", "program_cost_per_year"] == pytest.approx(chain + inj + cf._value(pc["chia_platform_per_site_year"]))
     assert out.loc["pc3_navigation_test", "program_cost_per_year"] == pytest.approx(chain + inj)
 
+
+def test_present_value_columns_use_the_cost_file_discount_rate(tmp_path, costs):
+    costs_path = tmp_path / "costs.yml"
+    yaml.safe_dump(costs, open(costs_path, "w"))
+    contrasts = tmp_path / "contrasts.csv"
+    _contrasts(contrasts)
+    out = _run(contrasts, costs_path, tmp_path / "o.csv", 1)
+    r = float(costs["discount_rate"]); pv = sum((1 + r) ** -y for y in range(9))
+    assert out.loc["pc4_chia_test", "pv_factor"] == pytest.approx(pv)
+    assert out.loc["pc4_chia_test", "program_cost_pv"] == pytest.approx(out.loc["pc4_chia_test", "program_cost_per_year"] * pv)
+    assert out.loc["pc4_chia_test", "payer_net_pv"] == pytest.approx(out.loc["pc4_chia_test", "payer_net_per_year"] * pv)
+

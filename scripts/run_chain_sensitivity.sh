@@ -29,8 +29,8 @@ cat > $S/post.sbatch <<EOP
 #SBATCH -e $S/logs/post_%j.err
 module purge; module load python/3.9; source /oscar/data/jtao9/envs/titan_env/bin/activate
 cd /oscar/data/jtao9/TITAN_RI
-python scripts/phase7_contrast.py $S/out --baseline scenario_1_baseline --t-max 132 --split-members --workers 8 --out $S/contrasts_pre_2023.csv > $S/contrast_pre_stdout.txt 2>&1; echo "pre contrast exit \$?"
-python scripts/phase7_contrast.py $S/out --baseline scenario_1_baseline --t-min 133 --split-members --workers 8 --out $S/contrasts_2023_2031.csv > $S/contrast_post_stdout.txt 2>&1; echo "post contrast exit \$?"
+python scripts/phase7_contrast.py $S/out --baseline scenario_1_baseline --t-max 180 --split-members --workers 8 --out $S/contrasts_pre_2023.csv > $S/contrast_pre_stdout.txt 2>&1; echo "pre contrast exit \$?"
+python scripts/phase7_contrast.py $S/out --baseline scenario_1_baseline --t-min 181 --split-members --workers 8 --out $S/contrasts_2023_2031.csv > $S/contrast_post_stdout.txt 2>&1; echo "post contrast exit \$?"
 python $S/check/readout.py $S /oscar/scratch/jtao9/titan_phase7/chain_fix_members_v3_2026-10-13; echo "readout exit \$?"
 EOP
 P=$(sbatch --parsable --dependency=afterok:$DEP $S/post.sbatch); echo $P > $S/post_job.txt
