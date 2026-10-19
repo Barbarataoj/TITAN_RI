@@ -440,7 +440,7 @@ calibration:
     # RIDOH 1.26 / 1.46 / 1.40, nonfatal within 1 %, no systematic shift in any
     # objective. Applied after the anchors in objective() and the canonical
     # writer, and in make_phase7_baseline.build().
-    lethality_index: hold2024
+    lethality_index: hold2025   # 2026-10-19: RIDOH 2025 deaths (preliminary) added; was hold2024
     # The fatal check is read over the scoring window. With the index on it is
     # fatal_rate_annual times RIDOH's 2021-2022 death count over 2019's:
     # 0.015 x (375 + 359) / 2 / 256 = 0.0215, tolerance 0.003 x 1.434 = 0.0043.

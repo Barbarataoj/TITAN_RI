@@ -23,7 +23,7 @@ def _scalars(entries, year):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("projection", ["hold2024", "hold2024_all", "peak", "pre2020"])
+@pytest.mark.parametrize("projection", ["hold2025", "hold2024", "hold2024_all", "peak", "pre2020"])
 def test_deaths_scale_by_k_and_nonfatal_by_one(projection):
     entries = L.lethality_entries(F0, projection)
     for year, k in L.k_path(projection).items():
@@ -77,7 +77,7 @@ def test_projection_from_calib():
     assert L.projection_from_calib({"calibration": {"overdose": {"lethality_index": "peak"}}}) == "peak"
     with pytest.raises(ValueError):
         L.projection_from_calib({"calibration": {"overdose": {"lethality_index": "bogus"}}})
-    assert L.projection_from_calib(load_yaml(CALIB_YAML)) == "hold2024"
+    assert L.projection_from_calib(load_yaml(CALIB_YAML)) == "hold2025"   # 2026-10-19: RIDOH 2025 (preliminary) added
 
 
 @pytest.mark.unit
@@ -89,7 +89,9 @@ def test_phase7_baseline_carries_the_index():
     calibrated = load_yaml(REPO / "calibrated_scenario_best.yml")
     base = mpb.build(calibrated, calib, steps=240)
     tl = base["timeline_scaling"]["timeline"]
-    assert len([k for k in tl if k.startswith(L.PREFIX)]) == 15
+    assert len([k for k in tl if k.startswith(L.PREFIX)]) == 18        # 2020-2025 x 3 entries (hold2025)
+    last = max(e["start_time"] for k, e in tl.items() if k.startswith(L.PREFIX))
+    assert last == L.start_step(2025)                                   # the 2025 value is the one held
     assert any(k.startswith("moud_acceptance_ratio_") for k in tl)  # the fitted trend survives
     off = mpb.build(calibrated, calib, steps=240, lethality_projection="none")
     assert not [k for k in off["timeline_scaling"]["timeline"] if k.startswith(L.PREFIX)]

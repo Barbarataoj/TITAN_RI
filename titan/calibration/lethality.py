@@ -57,7 +57,9 @@ from about 85 % to 69 % in one year. On all accidental overdose deaths (329 vs
 
 PROJECTION (2025 onward), `overdose.lethality_index` in calibration_targets.yml
 or the script's --projection:
-    hold2024      (default) k stays at its 2024 value (0.96), about the pre-2020
+    hold2025      (default since 2026-10-19) k follows RIDOH through 2025 (0.67,
+                  preliminary) and stays there;
+    hold2024      k stays at its 2024 value (0.96), about the pre-2020
                   level, on opioid-involved deaths;
     hold2024_all  the same history, but 2024 on all accidental overdose deaths
                   (k 1.15; see the 2024 caveat);
@@ -78,12 +80,17 @@ FIRST_YEAR = 2012
 
 # RIDOH opioid-involved deaths relative to 2019 (323, 375, 359, 345, 228 over 256)
 # divided by the model's own no-index ratio (0.991, 0.950, 0.929; 0.93 from 2023).
-K_DATA = {2020: 1.27, 2021: 1.54, 2022: 1.51, 2023: 1.45, 2024: 0.96}
+K_DATA = {2020: 1.27, 2021: 1.54, 2022: 1.51, 2023: 1.45, 2024: 0.96, 2025: 0.67}
+# 2025 (added 2026-10-19, PRELIMINARY): RIDOH reported 219 accidental overdose deaths in 2025
+# (governor's release, January 2026; 329 in 2024), 73 % involving opioids -> about 160
+# opioid-involved deaths, 160 / 256 = 0.625 over the model's 0.93 = 0.67. The January 2026
+# task-force slides (data to June 2025) show opioid-involved deaths down 29 % on the first half
+# of 2024, which gives the same figure. Revise when RIDOH publishes the full-year count.
 # All accidental overdose deaths, 2024: 329 / 308 = 1.068, over 0.93.
 K_2024_ALL = 1.15
 K_PEAK = 1.52
 PREFIX = "lethality_"
-PROJECTIONS = ("hold2024", "hold2024_all", "peak", "pre2020", "none")
+PROJECTIONS = ("hold2025", "hold2024", "hold2024_all", "peak", "pre2020", "none")
 
 
 def start_step(year):
@@ -96,7 +103,9 @@ def k_path(projection):
     if projection == "none":
         return {}
     path = {y: K_DATA[y] for y in (2020, 2021, 2022)}
-    if projection == "hold2024":
+    if projection == "hold2025":
+        path.update({2023: K_DATA[2023], 2024: K_DATA[2024], 2025: K_DATA[2025]})
+    elif projection == "hold2024":
         path.update({2023: K_DATA[2023], 2024: K_DATA[2024]})
     elif projection == "hold2024_all":
         path.update({2023: K_DATA[2023], 2024: K_2024_ALL})
@@ -109,7 +118,7 @@ def k_path(projection):
     return path
 
 
-def lethality_entries(f0, projection="hold2024"):
+def lethality_entries(f0, projection="hold2025"):
     """
     The timeline_scaling entries for one projection.
 
