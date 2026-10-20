@@ -44,7 +44,7 @@ Two ways to run an arm:
   --static       the changed values are in the scenario from the start,
                  burn-in included (comparative statics, the design the 2026-10-01
                  ensemble used). No engine support needed.
-  dated (default, --start-step 133 = 2023-01)
+  dated (default, --start-step 181 = 2027-01)
                  the scenario carries timeline_scaling entries that multiply the
                  parameters at the start step, and
                  `care_seeking.setting.primary_care.pool_refresh_time` set to the
@@ -223,8 +223,12 @@ STRATEGIES = {
             "acceptance": {"hiv_test": 0.45},
         },
         "high": {
+            # 2026-10-20 (code review): the primary arm is the testing package at every effect
+            # size; the PrEP willingness gain (0.2) belongs to the credited pc2b_ehr_prep_cds
+            # only. Until this fix the high variant carried it, so the dev-set "high" row for the
+            # EHR arm (sensitivities_primary, 2023-2031) is not a testing-only sensitivity.
             "hiv_test": {"reach": 1.0, "willing_efficacy": 0.9, "intensity_mult": 2.0},
-            "prep": {"reach": 1.0, "willing_efficacy": 0.2, "intensity_mult": 1.0},
+            "prep": {"reach": 1.0, "willing_efficacy": 0.0, "intensity_mult": 1.0},
             "acceptance": {"hiv_test": 0.85},
         },
         "reminder_only": {

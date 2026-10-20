@@ -9,7 +9,7 @@ written before that, e.g. a pass list being re-scored.
 
 Usage:
     python scripts/make_lethality_index.py --in-dir <trial ymls> --out-dir <dir>
-        [--projection hold2024|hold2024_all|peak|pre2020|none] [--glob 'trial_*.yml']
+        [--projection hold2025|hold2024|hold2024_all|peak|pre2020|none] [--glob 'trial_*.yml']
 """
 import argparse
 import sys
@@ -26,7 +26,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--in-dir", required=True)
     ap.add_argument("--out-dir", required=True)
-    ap.add_argument("--projection", default="hold2024", choices=PROJECTIONS)
+    ap.add_argument("--projection", default="hold2025", choices=PROJECTIONS)
     ap.add_argument("--glob", default="trial_*.yml")
     args = ap.parse_args()
     out = Path(args.out_dir)

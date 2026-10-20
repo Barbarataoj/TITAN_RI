@@ -268,37 +268,44 @@ def main():
         ledger["chain_clinical_time_cost_per_year"] = chain_cost
         ledger["injectable_admin_cost_per_year"] = inj_cost
         common = (chain_cost or 0.0) + (inj_cost or 0.0)
+        # programme cost by strategy; a combined arm (pc24: EHR + CHIA) carries every component its
+        # name matches (2026-10-20 code review: it had been priced as CHIA alone), so the branches
+        # accumulate into `parts` rather than choosing one
+        parts, pmissing = [], []
         if "navigation" in arm:
-            prog, prog_caseload, fte_e, fte_c, pmissing = navigation_cost_per_year(costs, reach_visits, reached_pm)
+            prog_n, prog_caseload, fte_e, fte_c, pm_n = navigation_cost_per_year(costs, reach_visits, reached_pm)
             ledger["navigator_fte_effort"] = fte_e; ledger["navigator_fte_caseload"] = fte_c
-            ledger["program_cost_caseload_per_year"] = prog_caseload
-        elif "chia" in arm:
-            fixed_site, variable, pmissing = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits,
-                                                                    price_per_chat=args.chia_price_per_chat)
+            # the caseload (upper-bound) costing carries the same chain and injection time as the effort costing
+            ledger["program_cost_caseload_per_year"] = prog_caseload + common if prog_caseload is not None else None
+            parts.append(prog_n); pmissing += pm_n
+        if "chia" in arm:
+            fixed_site, variable, pmissing_c = program_cost_per_year(costs, reach_visits, reached_pm, reach_visits,
+                                                                      price_per_chat=args.chia_price_per_chat)
             chat_price = (args.chia_price_per_chat if args.chia_price_per_chat is not None
                           else _value(costs["program_costs"].get("chia_price_per_chat")))
             ledger["chia_chats_per_year"] = reach_visits
             ledger["chia_price_per_chat"] = chat_price
             ledger["chia_usage_cost_per_year"] = reach_visits * chat_price if chat_price is not None else None
             if fixed_site is None:
-                prog = None
+                parts.append(None)
             else:
-                fixed_statewide = fixed_site * args.sites
-                prog = fixed_statewide + variable
-        elif "ehr" in arm:
+                fixed_statewide += fixed_site * args.sites
+                parts.append(fixed_site * args.sites + variable)
+            pmissing += pmissing_c
+        if "ehr" in arm:
             extra_offers = diff_statewide("pc_test_offers") / years
-            fixed_statewide, variable, pmissing = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
+            fixed_e, variable_e, pm_e = ehr_program_cost_per_year(costs, extra_offers, years, args.sites)
             ledger["ehr_extra_offers_per_year"] = extra_offers
-            ledger["ehr_fixed_cost_per_year"] = fixed_statewide
-            prog = None if fixed_statewide is None else fixed_statewide + variable
-            fixed_statewide = fixed_statewide or 0.0
-        elif "training" in arm:
-            prog, n_clin, pmissing = training_program_cost_per_year(costs, years)
+            ledger["ehr_fixed_cost_per_year"] = fixed_e
+            parts.append(None if fixed_e is None else fixed_e + variable_e)
+            fixed_statewide += fixed_e or 0.0
+            pmissing += pm_e
+        if "training" in arm:
+            prog_t, n_clin, pm_t = training_program_cost_per_year(costs, years)
             ledger["clinicians_statewide"] = n_clin
-        else:
-            prog, pmissing = 0.0, []      # injectable-first: a prescribing rule; only the chain and injection time below
-        if prog is not None:
-            prog += common
+            parts.append(prog_t); pmissing += pm_t
+        # injectable-first (no branch): a prescribing rule; only the chain and injection time below
+        prog = None if any(x is None for x in parts) else sum(parts) + common
         pmissing = pmissing + cmissing + imissing
         ledger["clinic_revenue_per_year"] = rev
         ledger["program_cost_per_year"] = prog
