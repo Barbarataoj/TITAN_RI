@@ -161,7 +161,7 @@ def projection_from_calib(calib):
     return projection
 
 
-def apply_lethality(scenario, projection="hold2024"):
+def apply_lethality(scenario, projection="hold2025"):
     """
     Replace any lethality entries in a scenario with those of `projection`.
 

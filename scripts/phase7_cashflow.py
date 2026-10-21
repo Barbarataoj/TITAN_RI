@@ -257,7 +257,11 @@ def main():
         # still has to prescribe.
         extra_tests = diff_statewide("hiv_tests") / years
         extra_disc = diff_statewide("prep_bundle_offers") / years
-        extra_dx = diff_statewide("hiv_dx_new_pwid") / years
+        # linkage time is priced on every extra diagnosis in the cohort; contrast files written before
+        # 2026-10-21 carry only the injecting subset, which is then used and flagged in `linkage_basis`
+        dx_basis = "hiv_dx_new" if "hiv_dx_new" in t.index else "hiv_dx_new_pwid"
+        extra_dx = diff_statewide(dx_basis) / years
+        ledger["linkage_basis"] = dx_basis
         extra_inj = diff_statewide("prep_injections") / years
         chain_cost, cmissing = chain_clinical_time_cost(costs, extra_tests, extra_disc, extra_dx)
         inj_cost, imissing = injectable_admin_cost(costs, extra_inj)

@@ -71,6 +71,9 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
         "hiv_new_pwid": by_run_inj["hiv_new"].sum(),
         "hiv_new_pwid_inj_route": by_run_inj["hiv_new_inj"].sum() if "hiv_new_inj" in inj else np.nan,
         "hiv_dx_new_pwid": by_run_inj["hiv_dx_new"].sum() if "hiv_dx_new" in inj else np.nan,
+        # whole-cohort new diagnoses (2026-10-21, code review): the linkage time an arm's extra
+        # diagnoses cost is incurred for every patient diagnosed, not only those who inject
+        "hiv_dx_new": by_run_all["hiv_dx_new"].sum() if "hiv_dx_new" in df else np.nan,
         "overdose_deaths": by_run_all["overdose_deaths"].sum(),
         "overdose_events": by_run_all["overdose_events"].sum(),
     })
@@ -252,7 +255,7 @@ def main():
     with Pool(args.workers) as pool:
         reps = pd.concat(pool.map(_one, [(d, args.t_min, args.t_max) for d in dirs]))
 
-    outcomes = [c for c in ("hiv_new_pwid", "hiv_new_pwid_inj_route", "hiv_dx_new_pwid",
+    outcomes = [c for c in ("hiv_new_pwid", "hiv_new_pwid_inj_route", "hiv_dx_new_pwid", "hiv_dx_new",
                             "hiv_hazard_pwid", "hiv_hazard_pwid_inj_route", "hiv_averted_prep_pwid",
                             *[f"hiv_hazard_pwid_src_{k}" for k in ("undx", "dx_noart", "art_nonadh", "art_adh")],
                             *[f"hiv_hazard_pwid_avert_sup_{k}" for k in ("undx", "dx_noart", "art_nonadh")],
