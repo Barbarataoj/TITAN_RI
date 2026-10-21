@@ -19,6 +19,7 @@ for f in fig1_model_schematic fig2_status_quo fig3_effects fig4_chain fig5_sensi
 cp $M/tables/table_*.csv $M/tables/table_*.md "$OUT/03_tables/"
 # 4. supplement
 cp $M/supplement_validation_odd_2026-10-21.md "$OUT/04_supplement/" 2>/dev/null || cp $M/supplement_validation_odd_2026-10-20.md "$OUT/04_supplement/"
+cp $M/supplementary_methods_2026-10-21.md "$OUT/04_supplement/supplementary_methods.md"
 cp docs/MODEL_VALIDATION.md "$OUT/04_supplement/model_validation_notes.md"
 cp docs/phase7_unit_costs.yml "$OUT/04_supplement/unit_costs.yml"
 mkdir -p "$OUT/04_supplement/scale_check_500_agents"; cp $M/figures/scale_check_N500_2027/*.png "$OUT/04_supplement/scale_check_500_agents/"; cp $M/tables/scale_check_N500_2027/*.md "$OUT/04_supplement/scale_check_500_agents/"
@@ -29,6 +30,7 @@ cp $M/non_pubmed_references_2026-10-21.yml "$OUT/05_references/non_pubmed_refere
 cp $M/non_pubmed_sources_2026-10-14.md "$OUT/05_references/non_pubmed_sources_inventory.md"
 # 6. notes for the writers
 cp $M/questions_for_mofan_2026-10-21.md "$OUT/06_notes/"
+cp $M/audit_figures_tables_methods_2026-10-21.md "$OUT/06_notes/"
 cp $M/MATERIALS.md "$OUT/06_notes/materials_map.md"
 cp $M/results_package_2026-10-14.md "$OUT/06_notes/results_package_dev_set_2026-10-14_superseded.md"
 cp $M/draft_2026-10-16_v2.md "$OUT/06_notes/draft_v2_before_citation_markup.md"
@@ -51,13 +53,17 @@ tables and figures comes from that archive or its `sensitivities/` folder; the 5
 - `03_tables/` — every table as CSV and Markdown: effects, chain, cash flow, sensitivity, attribution, arms
   (strategy specifications with sources = Table S2), unit costs (S3), members (calibrated settings, S6 in the
   old numbering), parameters (S1, 178 inputs with source and status), status quo by year.
-- `04_supplement/` — validation table (ISPOR–SMDM types), AdViSHE checklist, ODD outline and the reported-checks
-  table (`supplement_validation_odd_*.md`); the model validation notes; unit-cost file; the 500-agent scale-check
+- `04_supplement/` — **Supplementary Methods** (`supplementary_methods.md`: how the model was built, fitted and run —
+  the engine, each added module with its values, data and scale, calibration objectives and gates, the ensemble
+  design and estimator, strategies, cost ledgers, sensitivities, validation, software and archive paths); the
+  validation table (ISPOR–SMDM types), AdViSHE checklist, ODD outline and the reported-checks table
+  (`supplement_validation_odd_*.md`); the model validation notes; unit-cost file; the 500-agent scale-check
   figures and tables.
 - `05_references/` — PubMed metadata for the cited sources (full author lists), the project-wide PMID inventory,
   the non-PubMed references (RIDOH, CDC, APCD, TITAN repository, ODD) with items marked "to confirm" for URL and
   access date, and the non-PubMed source inventory.
-- `06_notes/` — two data questions for the claims analyst; the materials map; the superseded development-set
+- `06_notes/` — the detail check of figures, tables and Methods (`audit_figures_tables_methods_2026-10-21.md`: what
+  was verified, what was fixed, what the writers still need to add); two data questions for the claims analyst; the materials map; the superseded development-set
   results package (2023–2031 at 500 agents; do not quote); the pre-markup draft.
 
 ## Status and open items
