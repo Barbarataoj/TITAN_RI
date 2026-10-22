@@ -8,8 +8,8 @@ cd /oscar/data/jtao9/TITAN_RI
 OUT=${1:-docs/manuscript/package_2026-10-21}; rm -rf "$OUT"; mkdir -p "$OUT"/{01_manuscript,02_figures,03_tables,04_supplement,05_references,06_notes}
 M=docs/manuscript
 # 1. manuscript: numbered text + reference list
-python analysis/build_references.py $M/draft_2026-10-21_v3.md "$OUT/01_manuscript/manuscript_numbered.md" "$OUT/01_manuscript/references.md"
-cp $M/draft_2026-10-21_v3.md "$OUT/01_manuscript/manuscript_with_citation_keys.md"
+python analysis/build_references.py $M/draft_2026-10-21_v4.md "$OUT/01_manuscript/manuscript_numbered.md" "$OUT/01_manuscript/references.md"
+cp $M/draft_2026-10-21_v4.md "$OUT/01_manuscript/manuscript_with_citation_keys.md"
 cp $M/tables/table1_main.md "$OUT/01_manuscript/table1.md"; cp $M/tables/table1_main.csv "$OUT/01_manuscript/table1.csv"
 cp $M/figures/CAPTIONS.md "$OUT/01_manuscript/figure_captions.md"
 # 2. figures (main: 1, 2, 3, 6->4; supplement: 4, 5, 7, 8)
@@ -20,6 +20,7 @@ cp $M/tables/table_*.csv $M/tables/table_*.md "$OUT/03_tables/"
 # 4. supplement
 cp $M/supplement_validation_odd_2026-10-21.md "$OUT/04_supplement/" 2>/dev/null || cp $M/supplement_validation_odd_2026-10-20.md "$OUT/04_supplement/"
 cp $M/supplementary_methods_2026-10-21.md "$OUT/04_supplement/supplementary_methods.md"
+cp $M/supplementary_table_s0_additions_2026-10-21.md "$OUT/04_supplement/supplementary_table_s0_additions.md"
 cp docs/MODEL_VALIDATION.md "$OUT/04_supplement/model_validation_notes.md"
 cp docs/phase7_unit_costs.yml "$OUT/04_supplement/unit_costs.yml"
 mkdir -p "$OUT/04_supplement/scale_check_500_agents"; cp $M/figures/scale_check_N500_2027/*.png "$OUT/04_supplement/scale_check_500_agents/"; cp $M/tables/scale_check_N500_2027/*.md "$OUT/04_supplement/scale_check_500_agents/"
@@ -34,6 +35,7 @@ cp $M/audit_figures_tables_methods_2026-10-21.md "$OUT/06_notes/"
 cp $M/MATERIALS.md "$OUT/06_notes/materials_map.md"
 cp $M/results_package_2026-10-14.md "$OUT/06_notes/results_package_dev_set_2026-10-14_superseded.md"
 cp $M/draft_2026-10-16_v2.md "$OUT/06_notes/draft_v2_before_citation_markup.md"
+cp $M/draft_2026-10-21_v3.md "$OUT/06_notes/draft_v3_before_readability_pass.md"
 cat > "$OUT/00_README.md" <<'EOR'
 # Manuscript package — HIV prevention strategies in primary care for people with opioid use disorder, Rhode Island (TITAN-RI)
 
