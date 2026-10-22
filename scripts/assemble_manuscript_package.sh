@@ -54,8 +54,8 @@ tables and figures comes from that archive or its `sensitivities/` folder; the 5
   fig3 (effects), fig6 (attribution, intended as Figure 4). Supplement: fig4 (chain), fig5 (sensitivity),
   fig7 (cash flow), fig8 (projection against 2023–2025).
 - `03_tables/` — every table as CSV and Markdown: effects, chain, cash flow, sensitivity, attribution, arms
-  (strategy specifications with sources = Table S2), unit costs (S3), members (calibrated settings, S6 in the
-  old numbering), parameters (S1, 178 inputs with source and status), status quo by year.
+  (strategy specifications with sources = Table S2), unit costs (S3), members (the eleven calibrated settings with
+  their fitted values and bounds = S6), parameters (S1, 182 inputs with source and status), status quo by year.
 - `04_supplement/` — **Supplementary Methods** (`supplementary_methods.md`: how the model was built, fitted and run —
   the engine, each added component with its values, data and scale, calibration objectives and gates, the ensemble
   design and estimator, strategies, cost ledgers, sensitivities, validation, software and archive paths);
