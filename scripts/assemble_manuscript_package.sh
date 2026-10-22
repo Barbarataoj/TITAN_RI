@@ -44,8 +44,9 @@ horizon 2027–2036; `calibration_archive/phase7_chain4_2026-10-13/strategy_only
 tables and figures comes from that archive or its `sensitivities/` folder; the 500-agent round is the scale check.
 
 ## What is where
-- `01_manuscript/manuscript_numbered.md` — full draft (abstract, introduction, methods, results, discussion) with
-  numbered citations; `references.md` is the matching numbered list (Vancouver style; up to six authors then et al.).
+- `01_manuscript/manuscript_numbered.md` — the manuscript to read: abstract through conclusion, in plain language,
+  with numbered citations and nothing from the build process (no file paths, code names or internal notes);
+  `references.md` is the matching numbered list (Vancouver style; up to six authors then et al.).
   `manuscript_with_citation_keys.md` is the same text with the citation keys visible (`[@PMID]`, `[@NP:key]`) for
   editing; re-run `analysis/build_references.py` after changes. `table1.md/csv` is Table 1; `figure_captions.md`
   holds the legends for every figure.
@@ -56,11 +57,15 @@ tables and figures comes from that archive or its `sensitivities/` folder; the 5
   (strategy specifications with sources = Table S2), unit costs (S3), members (calibrated settings, S6 in the
   old numbering), parameters (S1, 178 inputs with source and status), status quo by year.
 - `04_supplement/` — **Supplementary Methods** (`supplementary_methods.md`: how the model was built, fitted and run —
-  the engine, each added module with its values, data and scale, calibration objectives and gates, the ensemble
-  design and estimator, strategies, cost ledgers, sensitivities, validation, software and archive paths); the
-  validation table (ISPOR–SMDM types), AdViSHE checklist, ODD outline and the reported-checks table
+  the engine, each added component with its values, data and scale, calibration objectives and gates, the ensemble
+  design and estimator, strategies, cost ledgers, sensitivities, validation, software and archive paths);
+  `supplementary_table_s0_additions.md` (what was added to TITAN, one row per component, with its code name for
+  reproducibility); the validation table, AdViSHE checklist, ODD outline and reported checks
   (`supplement_validation_odd_*.md`); the model validation notes; unit-cost file; the 500-agent scale-check
-  figures and tables.
+  figures and tables. Supplementary table numbering used throughout: S0 what was added, S1 parameters, S2 strategy
+  levers, S3 unit costs, S4 chain, S5 sensitivity, S6 calibrated settings, S7 cash flow, S8 validation by type,
+  S9 AdViSHE, S10 reported checks; supplementary figures keep the main figure numbers (S4 chain, S5 sensitivity,
+  S7 cash flow, S8 forward check).
 - `05_references/` — PubMed metadata for the cited sources (full author lists), the project-wide PMID inventory,
   the non-PubMed references (RIDOH, CDC, APCD, TITAN repository, ODD) with items marked "to confirm" for URL and
   access date, and the non-PubMed source inventory.
@@ -69,8 +74,10 @@ tables and figures comes from that archive or its `sensitivities/` folder; the 5
   results package (2023–2031 at 500 agents; do not quote); the pre-markup draft.
 
 ## Status and open items
-- Results, figures and tables are final for the primary analysis; the draft is readable but not yet trimmed to a
-  journal word limit (main text about 6,500 words) and has no title page, author list or funding statement.
+- Results, figures and tables are final for the primary analysis. The manuscript text had a readability pass and a
+  number-by-number check on 2026-10-21 (`06_notes/audit_figures_tables_methods_2026-10-21.md`); it is not yet trimmed
+  to a journal word limit (main text about 6,100 words) and has no title page, author list or funding statement.
+  `06_notes/` keeps the two earlier drafts for comparison.
 - Citations: 60-odd sources are keyed in the text; some Methods statements rely on the parameter table (S1) for
   their sources rather than an inline citation — writers may promote those as the journal requires.
 - Non-PubMed references need URLs and access dates confirmed (`non_pubmed_references.yml`).
