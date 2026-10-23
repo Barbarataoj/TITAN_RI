@@ -751,3 +751,315 @@ warm_start:
       high_risk.partner_scale: 2
       trend.moud_acceptance_ratio: 1.831082
       trend.moud_discontinue_ratio: 0.705128
+
+  # ---- 2026-10-23: whole-cohort footing (work record §19.31). The eleven care_refit3 members verbatim and
+  # re-footed (HIV scalars x1.8 for the scale change 49.83 -> 27.41; non-injector overdose base x2.2 for the
+  # remission agents now in that denominator); every value clipped to today's box.
+  - label: member_14_footing_active
+    source: "ensemble member 14 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_14_refooted
+    source: "member 14 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.5420254915863287
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 4.334739508737835
+      calibration.injection.act: 1.0759749197974666
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_15_footing_active
+    source: "ensemble member 15 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3959551182942853
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.6651133598214968
+      high_risk.partner_scale: 1
+      trend.moud_acceptance_ratio: 1.08304766
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_15_refooted
+    source: "member 15 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3959551182942853
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      calibration.background.msm_inj_mult: 4.334739508737835
+      calibration.injection.act: 1.1972040476786943
+      high_risk.partner_scale: 1
+      trend.moud_acceptance_ratio: 1.08304766
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_17_footing_active
+    source: "ensemble member 17 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.2797658290956996
+      oud_state.transitions.relapse_rate_per_year: 0.37094243881639843
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.096354
+      moud.injection_scale.active: 0.6533580472037825
+      moud.acceptance: 0.546125136056422
+      calibration.background.msm_inj_mult: 4.727601775324846
+      calibration.injection.act: 0.3700229040529555
+      high_risk.partner_scale: 7
+      trend.moud_acceptance_ratio: 1.09025901
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_17_refooted
+    source: "member 17 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.2797658290956996
+      oud_state.transitions.relapse_rate_per_year: 0.37094243881639843
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.2119788
+      moud.injection_scale.active: 0.6533580472037825
+      moud.acceptance: 0.546125136056422
+      calibration.background.msm_inj_mult: 8.509683195584723
+      calibration.injection.act: 0.6660412272953199
+      high_risk.partner_scale: 7
+      trend.moud_acceptance_ratio: 1.09025901
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_18_footing_active
+    source: "ensemble member 18 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3513527194315872
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      calibration.background.msm_inj_mult: 6.176483517295874
+      calibration.injection.act: 0.482948750229849
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.08304766
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_18_refooted
+    source: "member 18 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3513527194315872
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      calibration.background.msm_inj_mult: 11.117670331132572
+      calibration.injection.act: 0.8693077504137282
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.08304766
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_20_footing_active
+    source: "ensemble member 20 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3015343595292205
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.237162
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.7274219691816987
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_20_refooted
+    source: "member 20 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3015343595292205
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.237162
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.7274219691816987
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 4.334739508737835
+      calibration.injection.act: 1.0759749197974666
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_24_footing_active
+    source: "ensemble member 24 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.5334825533604036
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_24_refooted
+    source: "member 24 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.5334825533604036
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 4.334739508737835
+      calibration.injection.act: 1.0759749197974666
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_25_footing_active
+    source: "ensemble member 25 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.237162
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 2.408188615965464
+      calibration.injection.act: 0.5977638443319259
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_25_refooted
+    source: "member 25 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29003763226349855
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.237162
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 4.334739508737835
+      calibration.injection.act: 1.0759749197974666
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_26_footing_active
+    source: "ensemble member 26 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.088345
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.38952039485655554
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_26_refooted
+    source: "member 26 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.19435900000000003
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5322189122750579
+      calibration.background.msm_inj_mult: 13.258366332827958
+      calibration.injection.act: 0.7011367107418
+      high_risk.partner_scale: 3
+      trend.moud_acceptance_ratio: 1.09428376
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_30_footing_active
+    source: "ensemble member 30 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.237162
+      overdose.base_prob_noninj: 0.084972
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.3700229040529555
+      high_risk.partner_scale: 1
+      trend.moud_acceptance_ratio: 1.08304766
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_30_refooted
+    source: "member 30 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.3375048178029313
+      oud_state.transitions.relapse_rate_per_year: 0.44471407282059977
+      overdose.base_prob_inj: 0.237162
+      overdose.base_prob_noninj: 0.18693840000000003
+      moud.injection_scale.active: 0.7058697726026063
+      moud.acceptance: 0.5720934147140171
+      calibration.background.msm_inj_mult: 13.258366332827958
+      calibration.injection.act: 0.6660412272953199
+      high_risk.partner_scale: 1
+      trend.moud_acceptance_ratio: 1.08304766
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_32_footing_active
+    source: "ensemble member 32 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29648476505751487
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.088345
+      moud.injection_scale.active: 0.5870914190170253
+      moud.acceptance: 0.546125136056422
+      calibration.background.msm_inj_mult: 7.36575907379331
+      calibration.injection.act: 0.38952039485655554
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.09025901
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_32_refooted
+    source: "member 32 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.29648476505751487
+      oud_state.transitions.relapse_rate_per_year: 0.3561455244799637
+      overdose.base_prob_inj: 0.21027
+      overdose.base_prob_noninj: 0.19435900000000003
+      moud.injection_scale.active: 0.5870914190170253
+      moud.acceptance: 0.546125136056422
+      calibration.background.msm_inj_mult: 13.258366332827958
+      calibration.injection.act: 0.7011367107418
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.09025901
+      trend.moud_discontinue_ratio: 0.95131423
+  - label: member_996_footing_active
+    source: "ensemble member 996 of care_refit3 (fit on the active footing), verbatim"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.30589053554319834
+      oud_state.transitions.relapse_rate_per_year: 0.4478459326820789
+      overdose.base_prob_inj: 0.24120433985574502
+      overdose.base_prob_noninj: 0.09125994032236824
+      moud.injection_scale.active: 0.4533265629833621
+      moud.acceptance: 0.7474508528575781
+      calibration.background.msm_inj_mult: 5.014411514965771
+      calibration.injection.act: 0.6059438212051654
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.06721583
+      trend.moud_discontinue_ratio: 0.95519369
+  - label: member_996_refooted
+    source: "member 996 with the injection and MSM-outside scalars x1.8 and the non-injector overdose base x2.2 (the whole-cohort footing diagnostic, work record §19.31)"
+    params:
+      oud_state.transitions.remission_rate_per_year: 0.30589053554319834
+      oud_state.transitions.relapse_rate_per_year: 0.4478459326820789
+      overdose.base_prob_inj: 0.24120433985574502
+      overdose.base_prob_noninj: 0.20077186870921016
+      moud.injection_scale.active: 0.4533265629833621
+      moud.acceptance: 0.7474508528575781
+      calibration.background.msm_inj_mult: 9.025940726938389
+      calibration.injection.act: 1.090698878169298
+      high_risk.partner_scale: 2
+      trend.moud_acceptance_ratio: 1.06721583
+      trend.moud_discontinue_ratio: 0.95519369

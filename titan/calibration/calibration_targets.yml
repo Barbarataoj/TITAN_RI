@@ -1,5 +1,10 @@
 calibration:
   mode: "oud_hiv_trajectory"
+  # Which agents the 13,704 F11-diagnosed cohort maps to (one owner; optuna_calibration.cohort_footing()):
+  # "all" = the whole simulated cohort, active use and remission (decided 2026-10-23, work record §19.31);
+  # "active" = the footing of every fit before that date (13,704 = active agents), kept only to rescore
+  # the archived rounds. TITAN_COHORT_FOOTING overrides this value.
+  cohort_footing: all
 
   # --------------------------------------------
   # Population & time horizon
@@ -786,9 +791,14 @@ calibration:
     # RI_parameters_citations.md #7). That is a wider population than oud_active
     # and would put the scale at 126x, i.e. 2.5x every model count. Using it would
     # be defensible only if the model's compartment were redefined to match it.
+    # COHORT FOOTING, decided 2026-10-23 (Jun; work record §19.31): the 13,704 are the WHOLE simulated
+    # cohort -- active use and remission alike -- because people maintained on buprenorphine in
+    # remission carry F11 codes every year and are in the count. Scale = 13,704 / population size
+    # (27.41 at 500, 6.85 at 2,000). MOUD coverage = everyone on MOUD / all agents; overdose rates per
+    # agent-year. The switch itself is `calibration.cohort_footing` at the top of this file.
     population_scale:
-      ri_active_oud: 13704
-      source: "APCD #39, T3 average, distinct members with any F11.* dx in year Y"
+      ri_active_oud: 13704   # key name kept for the loaders; it is the whole F11-diagnosed cohort
+      source: "APCD #39, T3 average, distinct members with any F11.* dx in year Y (whole cohort)"
 
   # --------------------------------------------
   # VALIDATION TARGETS -- NOT SCORED
@@ -1202,7 +1212,9 @@ calibration:
 
     - path: "overdose.base_prob_noninj"
       lower: 0.03      # 2026-09-29; refit box 2026-08-11 was [0.0562739, 0.0786008]; prior [0.005, 0.08]
-      upper: 0.16
+      upper: 0.30      # 2026-10-23: whole-cohort footing puts remission agents (all NonInj, never overdosing) in the
+                       # denominator, so the base among active non-injectors must be ~2.2x the old fit (0.085 -> ~0.19);
+                       # box widened from 0.16 so that value is inside it (work record §19.31 diagnostic)
 
     # overdose.fatal_frac was REMOVED here 2026-09-29 (box was [0.175536,
     # 0.210156]). It is DERIVED from the overdose targets by

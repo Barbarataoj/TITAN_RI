@@ -75,7 +75,7 @@ targets:
     checked: 2026-09-29
   hiv.population_scale.ri_active_oud:
     kind: data
-    source: "RI_parameter_verification_APCD.md row 39, T3 average 13,704"
+    source: "RI_parameter_verification_APCD.md row 39, T3 average 13,704 — the WHOLE F11-diagnosed cohort (active use and remission), footing 'all' since 2026-10-23 (work record §19.31); scale = 13,704 / population size"
     data_vintage: apcd_august_draft
     confirmed_by: "validated cohort (job3b n_cohort) 2021-2022 mean 13,553, 1.1 % apart"
     checked: 2026-10-06

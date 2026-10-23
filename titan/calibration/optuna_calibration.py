@@ -595,7 +595,10 @@ def derived_fatal_frac(calib):
     """
     c = calib["calibration"]
     od = c["overdose"]
-    share = float(c["injecting"]["injecting_pct"])
+    share = float(c["injecting"]["injecting_pct"])          # injecting share among people in active use
+    if cohort_footing() == "all":
+        # the targets are per cohort member-year; injectors are the active share x the injecting share
+        share = share * float(c["oud_baseline"]["oud_active"])
     fatal = float(od["fatal_rate_annual"])
     nonfatal = (share * float(od["nonfatal_rate_inj_annual"])
                 + (1.0 - share) * float(od["nonfatal_rate_noninj_annual"]))
@@ -1263,9 +1266,15 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
         start = first_post_burn + y * steps_per_year
         end   = start + steps_per_year - 1
         win = grp.loc[(grp.index >= start) & (grp.index <= end)]
-        denom = win["oud_active"].sum()
+        if cohort_footing() == "all":
+            # whole-cohort footing: everyone on MOUD over every agent (remission agents included)
+            denom = win["oud_active"].sum() + win.get("oud_remission", pd.Series([0])).sum()
+            num = float(win.get("moud", pd.Series([0])).sum())
+        else:
+            denom = win["oud_active"].sum()
+            num = float(win.get("moud_active", pd.Series([0])).sum())
         if denom > 0:
-            moud_traj.append(float(win.get("moud_active", pd.Series([0])).sum()) / denom)
+            moud_traj.append(num / denom)
         else:
             moud_traj.append(0.0)
     stats["moud_uptake_series"] = np.array(moud_traj)
@@ -1296,9 +1305,10 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     # left the nonfatal objectives on a different denominator from fatal_od_rate.
     # The report is already stratified by drug_type, so oud_active gives the
     # correct per-stratum denominator directly.
-    py_inj    = fy_inj["oud_active"].sum()    / steps_per_year
-    py_noninj = fy_noninj["oud_active"].sum() / steps_per_year
-    py_active = fy_all["oud_active"].sum() / steps_per_year
+    py_col = "agents" if cohort_footing() == "all" else "oud_active"   # whole-cohort footing: per agent-year
+    py_inj    = fy_inj[py_col].sum()    / steps_per_year
+    py_noninj = fy_noninj[py_col].sum() / steps_per_year
+    py_active = fy_all[py_col].sum() / steps_per_year
 
     fatal_total = fy_all.get("overdose_deaths", pd.Series([0])).sum()
     if py_active > 0:
@@ -1373,12 +1383,13 @@ def _od_rates_by_run(win, steps_per_year):
     applied run by run. Returned as arrays keyed `<stat>_by_run`; a run with no
     person-time in a stratum contributes NaN, which od_error() drops.
     """
-    needed = {"run_id", "drug_type", "oud_active", "overdose_events"}
+    py_col = "agents" if cohort_footing() == "all" else "oud_active"
+    needed = {"run_id", "drug_type", py_col, "overdose_events"}
     if not needed.issubset(win.columns) or win.empty:
         return {}
     by = win.groupby(["run_id", "drug_type"])
     events = by["overdose_events"].sum().unstack(fill_value=0.0)
-    active = by["oud_active"].sum().unstack(fill_value=0.0)
+    active = by[py_col].sum().unstack(fill_value=0.0)
     runs = active.index
 
     def column(frame, name):
@@ -1834,6 +1845,22 @@ def od_error(stats, targets, bias_correct=True):
         comps.append(sq)
     return float(max(0.0, float(np.mean(comps))))
 
+def cohort_footing():
+    """Which agents the 13,704 F11-diagnosed cohort maps to: 'all' (the whole simulated cohort, active
+    use and remission; the definition since 2026-10-23, work record §19.31, one owner:
+    calibration_targets.yml `calibration.cohort_footing`) or 'active' (the footing of every fit before
+    that date, kept so the archived rounds can be rescored). TITAN_COHORT_FOOTING overrides the file."""
+    v = os.environ.get("TITAN_COHORT_FOOTING", "").strip().lower()
+    if not v:
+        try:
+            v = str(load_yaml(CALIB_YAML)["calibration"].get("cohort_footing", "all")).strip().lower()
+        except Exception:
+            v = "all"
+    if v not in ("active", "all"):
+        raise ValueError(f"cohort footing must be 'active' or 'all', got {v!r}")
+    return v
+
+
 def build_targets(calib):
     """
     Build the targets dict multi_error() reads, from the parsed
@@ -1857,7 +1884,15 @@ def build_targets(calib):
     # figure.
     active_frac = calib["oud_baseline"]["oud_active"]
     pop_size = calib["population"]["size"]
-    pop_scale = hiv["population_scale"]["ri_active_oud"] / (active_frac * pop_size)
+    # COHORT FOOTING (2026-10-23, work record §19.31). "active" (default, the footing every fit to
+    # date used): the 13,704 F11-diagnosed members are the ACTIVE agents, scale = 13,704 / (0.55 N).
+    # "all" (Jun's definition under test): the 13,704 are the WHOLE cohort, scale = 13,704 / N; the
+    # MOUD and overdose denominators switch to all agents in parse_basic_report. Set
+    # TITAN_COHORT_FOOTING=all to score on the new footing; nothing else changes.
+    if cohort_footing() == "all":
+        pop_scale = hiv["population_scale"]["ri_active_oud"] / pop_size
+    else:
+        pop_scale = hiv["population_scale"]["ri_active_oud"] / (active_frac * pop_size)
 
     scored_starts = hiv.get("ridoh_scored_window_starts")
     idu_scored, idu_unscored = split_scored_windows(ridoh["windows"], scored_starts)
