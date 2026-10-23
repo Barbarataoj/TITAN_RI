@@ -50,7 +50,8 @@ tables and figures comes from that archive or its `sensitivities/` folder; the 5
   `manuscript_with_citation_keys.md` is the same text with the citation keys visible (`[@PMID]`, `[@NP:key]`) for
   editing; re-run `analysis/build_references.py` after changes. `table1.md/csv` is Table 1; `figure_captions.md`
   holds the legends for every figure.
-- `02_figures/` — PNG (300 dpi) and PDF. Main text: fig1 (model and strategies), fig2 (status quo 2012–2036),
+- `02_figures/` — PNG (300 dpi) and PDF. Main text: fig1 (model and strategies), fig2 (status quo 2012–2036 in A–D and, in
+  E–F, cumulative infections averted and extra PrEP starts by strategy over 2027–2036),
   fig3 (effects), fig6 (attribution, intended as Figure 4). Supplement: fig4 (chain), fig5 (sensitivity),
   fig7 (cash flow), fig8 (projection against 2023–2025).
 - `03_tables/` — every table as CSV and Markdown: effects, chain, cash flow, sensitivity, attribution, arms
