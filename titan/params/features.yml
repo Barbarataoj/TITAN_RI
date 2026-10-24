@@ -79,3 +79,8 @@ features:
     default: false
     description: "Whether agents seek care in clinical settings (primary care, emergency department, substance use treatment, mental health) and are attached to providers who may or may not offer HIV prevention services."
     type: boolean
+  insurance:
+    default: false
+    description: "Whether insurance status is agent state: a share of agents is uninsured, visits care less, accepts MOUD and PrEP less often and is not billed to a payer; insured-only counts are reported for the claims-footed calibration targets (2026-10-24)."
+    type: boolean
+

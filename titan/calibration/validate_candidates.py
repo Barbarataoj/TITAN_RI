@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from titan.calibration.optuna_calibration import (
+    targets_for_run,
     concat_reports,
     hiv_err_all_windows,
     scoring_t_max,
@@ -289,7 +290,7 @@ VALIDATION += _unscored_window_checks()
 def unscored_window_means(stats, targets):
     """Model window means, statewide cases/yr, for every unscored RIDOH window."""
     out = {}
-    first_year, scale = targets["first_year"], targets["pop_scale"]
+    first_year, scale = targets["first_year"], targets_for_run(targets, stats)["pop_scale"]
     for tag, skey, wkey in (
         ("idu", "idu_dx_counts_per_year", "ridoh_windows_unscored"),
         ("pwid", "pwid_dx_counts_per_year", "ridoh_pwid_windows_unscored"),
@@ -415,7 +416,7 @@ def build_row(trial, seed, stats, targets, errs=None):
     ):
         series = stats.get(key)
         row[col] = (
-            float(np.mean(series)) * targets["pop_scale"]
+            float(np.mean(series)) * targets_for_run(targets, stats)["pop_scale"]
             if series is not None and len(series)
             else float("nan")
         )

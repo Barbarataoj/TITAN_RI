@@ -992,8 +992,27 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     last = grp.loc[last_t]
     total = last["agents"]
 
-    stats = {}
-    if total > 0:
+    # INSURED FOOTING (2026-10-24, work record §19.34). A run with the insurance feature on reports
+    # every stat by insured_state as well (outputs.classes insured_states), so the claims-footed
+    # quantities (OUD state shares, MOUD coverage, overdose rates) are measured on the insured rows
+    # only -- who the APCD cohort is -- while the RIDOH-footed HIV counts stay on all rows and are put
+    # statewide with run_pop_scale. Only defined on the whole-cohort footing: a stratified report
+    # scored on the archived 'active' footing is refused rather than silently mis-scaled.
+    ins = insured_footing(df)
+    if ins and cohort_footing() != "all":
+        raise RuntimeError("a report stratified by insured_state can only be scored on the whole-cohort footing; "
+                           "TITAN_COHORT_FOOTING=active is for the pre-2026-10-23 archives, which have no uninsured agents")
+    claims = df[df["insured_state"] == "insured"] if ins else df
+    grp_c = claims.groupby("t").sum(numeric_only=True) if ins else grp
+    last_c = grp_c.loc[last_t] if last_t in grp_c.index else None
+
+    stats = {"insured_footing": bool(ins)}
+    if ins and last_c is not None and last_c["agents"] > 0:
+        total_i = last_c["agents"]
+        stats["oud_active"]    = last_c.get("oud_active", 0) / total_i
+        stats["oud_remission"] = last_c.get("oud_remission", 0) / total_i
+        stats["oud_none"]      = last_c.get("oud_none", 0) / total_i
+    elif total > 0:
         stats["oud_active"]    = last.get("oud_active", 0) / total
         stats["oud_remission"] = last.get("oud_remission", 0) / total
         stats["oud_none"]      = last.get("oud_none", 0) / total
@@ -1023,6 +1042,9 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     pb_agents = post_burn["agents"].sum()
     if pb_agents > 0:
         stats["incar_share"] = float(post_burn.get("incar", 0).sum() / pb_agents)
+        if ins:
+            # the run's own insured share; run_pop_scale divides the statewide scale by it
+            stats["insured_frac"] = float(claims[claims["t"] >= 1]["agents"].sum() / pb_agents)
 
     pb_dx = post_burn["hiv_dx"].sum()
     if pb_dx > 0:
@@ -1265,9 +1287,9 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     for y in range(n_years):
         start = first_post_burn + y * steps_per_year
         end   = start + steps_per_year - 1
-        win = grp.loc[(grp.index >= start) & (grp.index <= end)]
+        win = grp_c.loc[(grp_c.index >= start) & (grp_c.index <= end)]     # the insured rows when the feature is on
         if cohort_footing() == "all":
-            # whole-cohort footing: everyone on MOUD over every agent (remission agents included)
+            # whole-cohort footing: everyone on MOUD over every agent with OUD (remission agents included)
             denom = win["oud_active"].sum() + win.get("oud_remission", pd.Series([0])).sum()
             num = float(win.get("moud", pd.Series([0])).sum())
         else:
@@ -1286,14 +1308,17 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     # Over the last OD_SCORING_YEARS model years, the APCD T3 window the targets
     # average over. Final-year-only until 2026-09-29.
     final_year_t = grp.index[grp.index > last_t - OD_SCORING_YEARS * steps_per_year]
-    fy_inj    = df[(df["drug_type"] == "Inj")    & (df["t"].isin(final_year_t))]
-    fy_noninj = df[(df["drug_type"] == "NonInj") & (df["t"].isin(final_year_t))]
-    fy_all    = grp.loc[final_year_t]
+    # the claims-footed rows (insured rows when the feature is on; every row otherwise) ...
+    fy_inj    = claims[(claims["drug_type"] == "Inj")    & (claims["t"].isin(final_year_t))]
+    fy_noninj = claims[(claims["drug_type"] == "NonInj") & (claims["t"].isin(final_year_t))]
+    fy_all    = grp_c.loc[grp_c.index.isin(final_year_t)]
+    fy_all_rows = grp.loc[final_year_t]         # ... and every row, for the fatal check's statewide numerator
 
     # Per-replicate rates over the same window, for od_error()'s noise
     # correction. Only meaningful with two or more replicates.
     if "run_id" in df.columns and df["run_id"].nunique() >= 2:
-        stats.update(_od_rates_by_run(df[df["t"].isin(final_year_t)], steps_per_year))
+        stats.update(_od_rates_by_run(claims[claims["t"].isin(final_year_t)], steps_per_year,
+                                      win_all=df[df["t"].isin(final_year_t)]))
 
     # Denominators must be ACTIVE-OUD person-years within each stratum, not all
     # agent person-years. Overdose events are gated on has_oud
@@ -1305,12 +1330,17 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     # left the nonfatal objectives on a different denominator from fatal_od_rate.
     # The report is already stratified by drug_type, so oud_active gives the
     # correct per-stratum denominator directly.
+    # Insured footing (2026-10-24): fy_* hold the insured rows when the feature is on, so the
+    # claims-footed nonfatal rates (APCD #17/#18) are insured events less insured deaths per insured
+    # agent-year. The fatal CHECK keeps RIDOH's statewide numerator over the 13,704-member
+    # denominator -- every death (fy_all_rows) over insured agent-years -- which is how
+    # fatal_rate_annual itself was built (RIDOH deaths / APCD members).
     py_col = "agents" if cohort_footing() == "all" else "oud_active"   # whole-cohort footing: per agent-year
     py_inj    = fy_inj[py_col].sum()    / steps_per_year
     py_noninj = fy_noninj[py_col].sum() / steps_per_year
     py_active = fy_all[py_col].sum() / steps_per_year
 
-    fatal_total = fy_all.get("overdose_deaths", pd.Series([0])).sum()
+    fatal_total = fy_all_rows.get("overdose_deaths", pd.Series([0])).sum()
     if py_active > 0:
         stats["fatal_od_rate"] = float(fatal_total) / py_active
 
@@ -1321,7 +1351,7 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     events_inj    = float(fy_inj.get("overdose_events", pd.Series([0])).sum())
     events_noninj = float(fy_noninj.get("overdose_events", pd.Series([0])).sum())
     events_total  = events_inj + events_noninj
-    fatal_f = float(fatal_total)
+    fatal_f = float(fy_all.get("overdose_deaths", pd.Series([0])).sum())
 
     # Post-overdose linkage (2026-10-01). Survivors split by MOUD status at the
     # event, and restarts within one step of it, pooled over the scored window.
@@ -1375,12 +1405,15 @@ def _annual_counts_by_run(df_sub, col, first_post_burn, n_years, steps_per_year)
     return out
 
 
-def _od_rates_by_run(win, steps_per_year):
+def _od_rates_by_run(win, steps_per_year, win_all=None):
     """Per-replicate overdose rates over the scoring window.
 
-    Same arithmetic as the pooled rates in parse_basic_report -- active-OUD
-    person-years per stratum, deaths apportioned across strata by event share --
-    applied run by run. Returned as arrays keyed `<stat>_by_run`; a run with no
+    Same arithmetic as the pooled rates in parse_basic_report -- person-years per
+    stratum on the current footing, deaths apportioned across strata by event
+    share -- applied run by run. `win` holds the rows the claims-footed rates are
+    measured on (the insured rows when the insurance feature is on), `win_all`
+    every row of the same window for the fatal check's statewide numerator
+    (defaults to `win`). Returned as arrays keyed `<stat>_by_run`; a run with no
     person-time in a stratum contributes NaN, which od_error() drops.
     """
     py_col = "agents" if cohort_footing() == "all" else "oud_active"
@@ -1401,16 +1434,19 @@ def _od_rates_by_run(win, steps_per_year):
     py_inj = column(active, "Inj") / steps_per_year
     py_non = column(active, "NonInj") / steps_per_year
     py_all = active.sum(axis=1).reindex(runs).fillna(0.0).to_numpy(dtype=float) / steps_per_year
-    if "overdose_deaths" in win.columns:
-        deaths = win.groupby("run_id")["overdose_deaths"].sum()
-        deaths = deaths.reindex(runs).fillna(0.0).to_numpy(dtype=float)
-    else:
-        deaths = np.zeros(len(runs))
+    def deaths_per_run(frame):
+        if "overdose_deaths" in frame.columns:
+            d = frame.groupby("run_id")["overdose_deaths"].sum()
+            return d.reindex(runs).fillna(0.0).to_numpy(dtype=float)
+        return np.zeros(len(runs))
+
+    deaths = deaths_per_run(win if win_all is None else win_all)   # every death: the fatal check's statewide numerator
+    deaths_claims = deaths_per_run(win)                            # the deaths inside the claims-footed events
 
     total = e_inj + e_non
     safe_total = np.where(total > 0, total, 1.0)
-    f_inj = np.where(total > 0, deaths * e_inj / safe_total, 0.0)
-    f_non = np.where(total > 0, deaths * e_non / safe_total, 0.0)
+    f_inj = np.where(total > 0, deaths_claims * e_inj / safe_total, 0.0)
+    f_non = np.where(total > 0, deaths_claims * e_non / safe_total, 0.0)
 
     def rate(events_, fatal_, py):
         safe = np.where(py > 0, py, 1.0)
@@ -1796,7 +1832,7 @@ def hiv_err_all_windows(stats, targets, bias_correct=True):
     and every ensemble member -- the change was made after the trials were
     seen, and reporting both is the safeguard. Not used for pass/fail.
     """
-    t = dict(targets)
+    t = dict(targets_for_run(targets, stats))       # same per-run statewide scale as multi_error (§19.34)
     t["ridoh_windows"] = list(targets["ridoh_windows"]) + list(targets.get("ridoh_windows_unscored", []))
     t["ridoh_pwid_windows"] = (list(targets["ridoh_pwid_windows"])
                                + list(targets.get("ridoh_pwid_windows_unscored", [])))
@@ -1861,6 +1897,45 @@ def cohort_footing():
     return v
 
 
+def insured_footing(df):
+    """True when a report is stratified by insurance status, i.e. the run listed `insured_states` in
+    outputs.classes (the insurance feature on).
+
+    The claims-footed quantities are then measured on the rows with insured_state == "insured". A run
+    with the feature on and nobody uninsured has empty uninsured rows and scores identically to one
+    with it off (the identity check of work record §19.34).
+    """
+    return "insured_state" in df.columns
+
+
+def run_pop_scale(base_scale, stats):
+    """The statewide scale for one run: 13,704 / (insured share x N) (2026-10-24, work record §19.34).
+
+    The 13,704 F11-diagnosed members are the INSURED part of the cohort -- the claims database sees
+    no one else -- so the whole simulated cohort of N agents stands for 13,704 / insured_frac people
+    and RIDOH's statewide counts are compared with every agent's events at that scale.
+    `insured_frac` is the run's own post-burn mean insured share (parse_basic_report); a run without
+    the feature carries none and keeps the file's scale. One owner for the rule: every consumer of
+    `pop_scale` (the scorer, validate_candidates' displays, phase7_contrast) goes through here.
+    """
+    f = stats.get("insured_frac")
+    if f is None:
+        return float(base_scale)
+    f = float(f)
+    if not f > 0.0:
+        raise ValueError(f"insured share must be positive to scale a run, got {f!r}")
+    return float(base_scale) / f
+
+
+def targets_for_run(targets, stats):
+    """A per-run copy of the targets with `pop_scale` on the run's insured share (see run_pop_scale)."""
+    if "insured_frac" not in stats:
+        return targets
+    out = dict(targets)
+    out["pop_scale"] = run_pop_scale(targets["pop_scale"], stats)
+    return out
+
+
 def build_targets(calib):
     """
     Build the targets dict multi_error() reads, from the parsed
@@ -1889,6 +1964,8 @@ def build_targets(calib):
     # "all" (Jun's definition under test): the 13,704 are the WHOLE cohort, scale = 13,704 / N; the
     # MOUD and overdose denominators switch to all agents in parse_basic_report. Set
     # TITAN_COHORT_FOOTING=all to score on the new footing; nothing else changes.
+    # With the insurance feature on (2026-10-24), multi_error divides this by the run's insured share
+    # through targets_for_run: the 13,704 members are the insured agents (see run_pop_scale).
     if cohort_footing() == "all":
         pop_scale = hiv["population_scale"]["ri_active_oud"] / pop_size
     else:
@@ -1999,6 +2076,7 @@ def multi_error(stats, targets, bias_correct=True):
     -- was updated with this change. No study persisted before 2026-08-04 can be
     resumed against it.
     """
+    targets = targets_for_run(targets, stats)       # statewide scale on this run's insured share (§19.34)
     oud_rmse = float(np.sqrt(
         sum(
             (stats.get(k, 0) - targets["oud"][k]) ** 2

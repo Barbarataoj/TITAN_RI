@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from titan.calibration.optuna_calibration import cohort_footing
+
 from titan.calibration.optuna_calibration import (
     ANCHORED_PATHS,
     BASE_SCENARIO,
@@ -33,27 +35,38 @@ def calib():
 
 
 @pytest.mark.unit
-def test_fatal_frac_is_the_fatal_share_the_targets_imply(calib):
+def test_fatal_frac_is_the_fatal_share_the_targets_imply(calib, monkeypatch):
+    monkeypatch.delenv("TITAN_COHORT_FOOTING", raising=False)
     c = calib["calibration"]
     od = c["overdose"]
     share = c["injecting"]["injecting_pct"]
+    if cohort_footing() == "all":
+        # whole-cohort footing (work record §19.31): the targets are per cohort member-year, so the
+        # injectors are the active share times the injecting share
+        share *= c["oud_baseline"]["oud_active"]
     nonfatal = (share * od["nonfatal_rate_inj_annual"]
                 + (1 - share) * od["nonfatal_rate_noninj_annual"])
     expected = od["fatal_rate_annual"] / (od["fatal_rate_annual"] + nonfatal)
     assert derived_fatal_frac(calib) == pytest.approx(expected)
-    # The number the 2026-08-11 box [0.1755, 0.2102] and the audit's 0.15-0.18
-    # both sat below; if it moves out of this band the targets changed.
-    assert 0.19 < derived_fatal_frac(calib) < 0.21
+    # The number the 2026-08-11 box [0.1755, 0.2102] and the audit's 0.15-0.18 both sat below on the
+    # active footing; the whole-cohort footing weights the nonfatal side by fewer injectors and so sits
+    # higher. If it moves out of its band the targets changed.
+    lo, hi = {"active": (0.19, 0.21), "all": (0.21, 0.23)}[cohort_footing()]
+    assert lo < derived_fatal_frac(calib) < hi
 
 
 @pytest.mark.unit
-def test_fatal_frac_tracks_the_targets():
+def test_fatal_frac_tracks_the_targets(monkeypatch):
+    monkeypatch.delenv("TITAN_COHORT_FOOTING", raising=False)
     calib = {"calibration": {
         "injecting": {"injecting_pct": 0.5},
+        "oud_baseline": {"oud_active": 0.5},
         "overdose": {"fatal_rate_annual": 0.02, "nonfatal_rate_inj_annual": 0.10,
                      "nonfatal_rate_noninj_annual": 0.06},
     }}
-    assert derived_fatal_frac(calib) == pytest.approx(0.02 / (0.02 + 0.08))
+    share = 0.5 * (0.5 if cohort_footing() == "all" else 1.0)
+    nonfatal = share * 0.10 + (1 - share) * 0.06
+    assert derived_fatal_frac(calib) == pytest.approx(0.02 / (0.02 + nonfatal))
 
 
 @pytest.mark.unit

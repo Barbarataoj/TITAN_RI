@@ -1,0 +1,37 @@
+insurance:
+  # Insurance status as agent state (2026-10-24, work record §19.34). The claims database the model is
+  # fitted to sees only insured people; this feature carries the uninsured part of the population so that
+  # the simulated cohort is "all Rhode Island adults with a diagnosed OUD" and the scorer can compare the
+  # insured agents with the claims and all agents with RIDOH's statewide counts. Uninsured agents keep the
+  # same OUD, injecting and HIV dynamics; they visit care less (care_seeking.setting.*.visit_mult_uninsured),
+  # accept MOUD and PrEP offers less often (the multipliers below), and their activity is not billed to a
+  # payer in the cash flow. The reports split every stat by insurance status when `insured_states` is listed
+  # in outputs.classes. Every value here is an assumption pending RIHRSS / RIDOH insurance data.
+  init_uninsured_prob_inj:
+    default: 0.0
+    description: "Share of agents whose drug_type is Inj that is uninsured at initialisation and at entry, and the share the monthly churn keeps stationary. 0 (default) makes everyone insured, which reproduces the model without this feature."
+    type: float
+    min: 0.0
+    max: 1.0
+  init_uninsured_prob_noninj:
+    default: 0.0
+    description: "Share of agents whose drug_type is NonInj that is uninsured at initialisation and at entry, and the share the monthly churn keeps stationary."
+    type: float
+    min: 0.0
+    max: 1.0
+  gain_prob_per_month:
+    default: 0.0
+    description: "Monthly probability that an uninsured agent gains coverage. The loss probability is not a parameter: it is derived per drug type as gain x u / (1 - u), the value that keeps the uninsured share u stationary (Insurance.lose_prob)."
+    type: float
+    min: 0.0
+    max: 1.0
+  moud_acceptance_mult:
+    default: 1.0
+    description: "Multiplier on moud.acceptance for an offer made to an uninsured agent (1.0 = no effect)."
+    type: float
+    min: 0.0
+  prep_acceptance_mult:
+    default: 1.0
+    description: "Multiplier on prep.acceptance for any PrEP start by an uninsured agent -- bundle, referral, independent offer or programme restart (1.0 = no effect). Stands for the access barrier; assistance programmes keep it above zero."
+    type: float
+    min: 0.0

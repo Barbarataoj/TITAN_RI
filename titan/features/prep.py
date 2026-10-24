@@ -3,6 +3,7 @@ from typing import Dict, ClassVar, Optional
 import numpy as np  # type: ignore
 
 from . import base_feature
+from .insurance import Insurance
 from .. import agent
 from .. import population
 from .. import model
@@ -334,6 +335,7 @@ class Prep(base_feature.BaseFeature):
             # a reached agent who stopped PrEP may restart without a new offer
             # (post-initiation support: care_seeking reach_prep_restart_prob)
             restart = getattr(self.agent, "care_reach", {}).get("prep_restart_prob", 0.0)
+            restart *= Insurance.acceptance_mult(self.agent, model.params, "prep")   # same barrier as every other start
             if getattr(self, "ever", False) and restart > 0 and model.run_random.random() < restart:
                 self.enroll(model.run_random, model.time)
                 self.started_restart_this_step = True
@@ -342,6 +344,7 @@ class Prep(base_feature.BaseFeature):
             return
         acceptance = getattr(self.agent.location.params.prep, "acceptance", 1.0)
         acceptance = min(1.0, acceptance * getattr(self.agent, "care_offer_mult", {}).get("prep", 1.0))
+        acceptance = min(1.0, acceptance * Insurance.acceptance_mult(self.agent, model.params, "prep"))   # 2026-10-24
         if model.run_random.random() < acceptance:
             self.enroll(model.run_random, model.time)
             # attribute the start to the setting that made the offer (first
@@ -394,6 +397,7 @@ class Prep(base_feature.BaseFeature):
         params = self.agent.location.params
         acceptance = float(getattr(params.prep, "acceptance", 1.0))
         acceptance = min(1.0, acceptance * float(acceptance_mult))
+        acceptance = min(1.0, acceptance * Insurance.acceptance_mult(self.agent, model.params, "prep"))   # 2026-10-24
         if model.run_random.random() >= acceptance:
             return
         if not referral and model.run_random.random() < same_day_prob:

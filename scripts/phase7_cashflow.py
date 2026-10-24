@@ -225,12 +225,27 @@ def main():
         def diff_statewide(oc):
             return float(t.loc[oc, "diff_mean_statewide"]) if oc in t.index else 0.0
 
+        # Payer-billed activity is the INSURED agents' activity when the contrast carries it (insurance
+        # as agent state, 2026-10-24, work record §19.34): phase7_contrast writes `<outcome>_insured`
+        # for every priced activity from the insured rows of a stratified round. Programme time
+        # (chain_clinical_time_cost, the navigator, the chatbot) stays on ALL agents: staff spend it
+        # on uninsured patients too. An outcome without an insured column falls back to all agents and
+        # is listed in `billed_all_agents` so the ledger says so.
+        billed_insured, billed_all = [], []
+
+        def billed(oc):
+            if f"{oc}_insured" in t.index:
+                billed_insured.append(oc)
+                return diff_statewide(f"{oc}_insured")
+            billed_all.append(oc)
+            return diff_statewide(oc)
+
         services, smissing = service_table(costs)
         counts = {}
         for name, s in services.items():
-            n = diff_statewide(s["induced_by"])
+            n = billed(s["induced_by"])
             if s["nonbillable_from"]:
-                n -= s["nonbillable_share"] * diff_statewide(s["nonbillable_from"])
+                n -= s["nonbillable_share"] * billed(s["nonbillable_from"])
             counts[name] = n / years * s["probability"]                              # per year, statewide
         reach_visits = diff_statewide("reach_visits") / years
         reached_pm = diff_statewide("reached_person_months") / years
@@ -255,7 +270,7 @@ def main():
         # of extra long-acting injections. For navigation and CHIA this is conservative: part of
         # the conversation is the navigator's / the chatbot's, already costed, and the clinician
         # still has to prescribe.
-        extra_tests = diff_statewide("hiv_tests") / years
+        extra_tests = diff_statewide("hiv_tests") / years        # programme time: every patient, insured or not
         extra_disc = diff_statewide("prep_bundle_offers") / years
         # linkage time is priced on every extra diagnosis in the cohort; contrast files written before
         # 2026-10-21 carry only the injecting subset, which is then used and flagged in `linkage_basis`
@@ -266,6 +281,8 @@ def main():
         chain_cost, cmissing = chain_clinical_time_cost(costs, extra_tests, extra_disc, extra_dx)
         inj_cost, imissing = injectable_admin_cost(costs, extra_inj)
         ledger["extra_tests_per_year"] = extra_tests
+        ledger["billed_insured_only"] = ";".join(sorted(set(billed_insured)))
+        ledger["billed_all_agents"] = ";".join(sorted(set(billed_all)))
         ledger["extra_prep_discussions_per_year"] = extra_disc
         ledger["extra_new_diagnoses_per_year"] = extra_dx
         ledger["extra_injections_per_year"] = extra_inj

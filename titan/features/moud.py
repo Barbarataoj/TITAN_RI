@@ -2,6 +2,7 @@ from typing import Dict, ClassVar
 import logging
 
 from . import base_feature
+from .insurance import Insurance
 from .. import agent
 from .. import population
 from .. import model
@@ -224,6 +225,8 @@ class MOUD(base_feature.BaseFeature):
                         1.0,
                         acceptance * getattr(self.agent, "care_offer_mult", {}).get("moud", 1.0),
                     )
+                    # insurance as agent state (2026-10-24): uninsured agents accept less often
+                    acceptance = min(1.0, acceptance * Insurance.acceptance_mult(self.agent, model.params, "moud"))
                     if model.run_random.random() < acceptance:
                         # Same 30-day linkage diagnostic as STEP 4 below; until
                         # 2026-10-02 only the care-off path set it, so

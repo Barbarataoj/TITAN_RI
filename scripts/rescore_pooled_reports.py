@@ -37,7 +37,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from titan.calibration.optuna_calibration import (  # noqa: E402
-    CALIB_YAML, build_targets, load_yaml, multi_error, parse_basic_report, scoring_t_max,
+    CALIB_YAML, build_targets, load_yaml, multi_error, parse_basic_report, scoring_t_max, targets_for_run,
 )
 from titan.calibration.validate_candidates import OBJECTIVES, build_row, load_targets  # noqa: E402
 
@@ -59,7 +59,7 @@ def _score(args):
     raw = tuple(float(e) for e in multi_error(stats, targets, bias_correct=False))
     row = build_row(trial, "pooled", stats, targets, errs)
     row["oud_active_target"] = float(targets["oud"]["oud_active"])
-    row["pop_scale"] = float(targets["pop_scale"])
+    row["pop_scale"] = float(targets_for_run(targets, stats)["pop_scale"])    # the scale the row was scored at
     for i, e in enumerate(raw):
         row[f"raw_{i}"] = e
     for i, (_, gate) in enumerate(OBJECTIVES):

@@ -220,3 +220,14 @@ classes:
       2:
         min_age: 55
         max_age: 9999
+  insured_states:
+    type: definition
+    description: "Insurance status strata for the reports (insurance feature, 2026-10-24, work record §19.34). Listing `insured_states` in outputs.classes splits every reported stat by agent.insured_state, so the insured agents' counts -- what a claims database sees -- can be read for any stat without a second copy of it. Only meaningful with features.insurance on; otherwise every agent is 'insured'."
+    fields:
+      insured:
+        type: boolean
+    default:
+      insured:
+        insured: true
+      uninsured:
+        insured: false

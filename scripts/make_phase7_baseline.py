@@ -198,7 +198,8 @@ def overlay_care_layer(scenario):
     # them too. Lever fields are arm-only and never in the source.
     always = ("intensity_prep", "intensity_hiv_test",
               "prep_bundle_prob", "prep_same_day_prob", "prep_deferred_return_prob",
-              "prep_referral_prob", "prep_referral_return_prob")
+              "prep_referral_prob", "prep_referral_return_prob",
+              "visit_mult_uninsured")        # insurance layer (2026-10-24): an input, never fitted
     for name, fields in settings_src.items():
         target = settings.setdefault(name, {})
         for k, v in fields.items():
@@ -220,6 +221,17 @@ def overlay_care_layer(scenario):
     testing_src = src.get("hiv_testing", {}) or {}
     if "nonclinical_annual_noninj" in testing_src:
         scenario.setdefault("hiv_testing", {})["nonclinical_annual_noninj"] = testing_src["nonclinical_annual_noninj"]
+    # Insurance as agent state (2026-10-24, work record §19.34): the block and its feature switch are
+    # inputs (assumptions pending RIHRSS), so today's source always wins; a pick written before the
+    # feature existed gets it here.
+    if "insurance" in src:
+        scenario["insurance"] = copy.deepcopy(src["insurance"])
+        on = bool((src.get("features", {}) or {}).get("insurance", False))
+        scenario.setdefault("features", {})["insurance"] = on
+        # the reports split by insurance status exactly when the feature is on (outputs.classes insured_states)
+        classes = list((scenario.get("outputs", {}) or {}).get("classes") or ["races", "sex_types", "drug_types"])
+        classes = [c for c in classes if c != "insured_states"] + (["insured_states"] if on else [])
+        scenario.setdefault("outputs", {})["classes"] = classes
     return scenario
 
 

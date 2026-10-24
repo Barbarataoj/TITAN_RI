@@ -36,6 +36,7 @@ outputs:
       - drug_types
       - locations
       - components
+      - insured_states
   logging:
     destination:
       default: stdout

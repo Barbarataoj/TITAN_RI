@@ -252,7 +252,11 @@ def test_hiv_correction_removes_the_bias_in_expectation(targets):
         corrected.append(ridoh_hiv_rmse(*args, idu_by_run=idu_runs, pwid_by_run=pwid_runs))
     raw, corrected = np.array(raw), np.array(corrected)
     assert np.all(corrected <= raw + 1e-12)
-    assert raw.mean() > 0.6                     # the uncorrected floor is real
+    # The uncorrected floor is real. Its size scales with the square root of the statewide scale
+    # (the window means are Poisson counts per run times `scale`), and the 0.6 was measured at the
+    # pre-2026-10-23 footing's scale of 49.83 (13,704 / (0.55 x 500)); the whole-cohort footing
+    # (27.41 at 500 agents) sits lower by that root.
+    assert raw.mean() > 0.6 * np.sqrt(scale / 49.83)
     assert corrected.mean() < 0.5 * raw.mean()  # and the correction removes most of it
     # The correction fixes the EXPECTATION, not the spread: with windows of
     # ~7 events the variance estimate is itself noisy, so a perfect model still

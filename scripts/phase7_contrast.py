@@ -107,7 +107,7 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
     # Activity the cash-flow layer prices (2026-10-02): counts summed over the
     # window per run; `prep` and `care_reached` are per-step stocks, so their
     # sums are person-months.
-    for col, name in (("hiv_tests", "hiv_tests"), ("care_encounters_primary_care", "pc_visits"),
+    activity = [("hiv_tests", "hiv_tests"), ("care_encounters_primary_care", "pc_visits"),
                       # test-and-offer bundle and workload counts (2026-10-09)
                       ("prep_bundle_offers", "prep_bundle_offers"), ("prep_new_bundled", "prep_starts_bundled"),
                       ("prep_new_same_day", "prep_starts_same_day"), ("prep_new_deferred", "prep_starts_deferred"),
@@ -120,15 +120,49 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
                       ("care_offer_primary_care_prep", "pc_prep_offers"),
                       ("prep_new", "prep_starts"), ("prep", "prep_person_months"),
                       ("prep_monitoring_visits", "prep_monitoring_visits"),
-                      ("care_reach_visits", "reach_visits"), ("care_reached", "reached_person_months")):
+                      ("care_reach_visits", "reach_visits"), ("care_reached", "reached_person_months")]
+    # per-product PrEP person-months and injections (prep.use_products)
+    activity += [(col, col) for col in df.columns
+                 if col.startswith("prep_injection") or (col.startswith("prep_") and col[5:] in ("oral", "cab_la", "lenacapavir"))]
+    for col, name in activity:
         if col in df:
             out[name] = by_run_all[col].sum()
-    # per-product PrEP person-months and injections (prep.use_products)
-    for col in df.columns:
-        if col.startswith("prep_injection") or (col.startswith("prep_") and col[5:] in ("oral", "cab_la", "lenacapavir")):
-            out[col] = by_run_all[col].sum()
+    # Insurance as agent state (2026-10-24, work record §19.34). A round with the feature on is
+    # stratified by insured_state: the run's insured share puts the statewide scale on
+    # 13,704 / (insured share x N) (optuna_calibration.run_pop_scale, one owner), and every activity
+    # above is also summed over the insured rows as `<name>_insured` -- the activity a payer is billed
+    # for, which phase7_cashflow uses when the contrast carries it.
+    if "insured_state" in df:
+        claims = df[df["insured_state"] == "insured"]
+        by_run_claims = claims.groupby("run_id")
+        out["insured_frac"] = by_run_claims["agents"].sum() / by_run_all["agents"].sum()
+        for col, name in activity:
+            if col in df:
+                out[f"{name}_insured"] = by_run_claims[col].sum()
+        out["overdose_events_insured"] = by_run_claims["overdose_events"].sum()
     out["n_steps"] = df.groupby("run_id")["t"].nunique()
     return out
+
+
+def insured_scale(scale, reps, baseline, member=None):
+    """The statewide scale on the baseline arm's insured share (work record §19.34).
+
+    A round whose runs carry the insurance feature reports `insured_frac` per replicate; the 13,704
+    members are the insured agents, so the scale is 13,704 / (insured share x N). Measured on the
+    baseline arm (the strategies do not change who is insured) and, with --split-members, per member.
+    Rounds without the feature keep `scale` unchanged.
+    """
+    if "insured_frac" not in reps:
+        return scale
+    base = reps[reps["arm"] == baseline]
+    if member is not None:
+        base = base[base["member"] == member]
+    f = base["insured_frac"].mean()
+    if not np.isfinite(f):
+        return scale
+    sys.path.insert(0, str(REPO))
+    from titan.calibration.optuna_calibration import run_pop_scale  # noqa: E402
+    return run_pop_scale(scale, {"insured_frac": float(f)})
 
 
 def _one(args):
@@ -171,7 +205,13 @@ def ensemble_contrasts(reps, outcomes, args):
     parts = reps["arm"].str.split("__", n=1, expand=True)
     reps = reps.assign(member=parts[0], arm=parts[1])
     scale = pop_scale()
-    scale_of = member_scales(getattr(args, "member_scale", None), scale)
+    listed = member_scales(getattr(args, "member_scale", None), scale)
+    scale_cache = {}
+
+    def scale_of(member):       # the member's own scale, on its baseline insured share
+        if member not in scale_cache:
+            scale_cache[member] = insured_scale(listed(member), reps, args.baseline, member)
+        return scale_cache[member]
     years = reps.groupby(["arm"])["n_steps"].mean().div(args.steps_per_year)
     seed_mean = reps.groupby(["member", "arm", "seed"])[outcomes].mean()
     base = seed_mean.xs(args.baseline, level="arm")
@@ -220,8 +260,10 @@ def ensemble_contrasts(reps, outcomes, args):
             })
     table = pd.DataFrame(pooled)
     pd.set_option("display.width", 250); pd.set_option("display.max_rows", 500)
+    member_scales_used = {m: round(scale_of(m), 2) for m in sorted(set(reps.member))}
     print(f"window: model steps {args.t_min}..{args.t_max if args.t_max is not None else 'end'}; "
-          f"members: {sorted(set(reps.member))}; baseline: {args.baseline}; pop_scale {scale:.2f}")
+          f"members: {sorted(set(reps.member))}; baseline: {args.baseline}; pop_scale {scale:.2f} (file); "
+          f"per member on its baseline insured share: {member_scales_used}")
     print(table.round(4).to_string(index=False))
     if args.out:
         table.to_csv(args.out, index=False)
@@ -273,6 +315,8 @@ def main():
                             "prep_injections", "prep_injections_cab_la", "prep_injections_lenacapavir", "prep_injection_visits",
                             "prep_cab_la", "prep_lenacapavir", "prep_oral",
                             "survivor_any_moud_30d") if c in reps]
+    # insured-only activity (`<outcome>_insured`), present when the round carries the insurance feature
+    outcomes += sorted(c for c in reps.columns if c.endswith("_insured") and c[:-8] in outcomes)
     if args.split_members:
         return ensemble_contrasts(reps, outcomes, args)
     seed_mean = reps.groupby(["arm", "seed"])[outcomes].mean()
@@ -280,7 +324,7 @@ def main():
         print(f"baseline arm '{args.baseline}' not found; arms present: {sorted(set(seed_mean.index.get_level_values(0)))}")
         return 1
     base = seed_mean.xs(args.baseline, level="arm")
-    scale = pop_scale()
+    scale = insured_scale(pop_scale(), reps, args.baseline)
     years = reps.groupby(["arm", "seed"])["n_steps"].mean().div(args.steps_per_year)
 
     rows = []

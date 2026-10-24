@@ -438,6 +438,7 @@ scenario:
         visit_mult_inj: 2.33
         visit_mult_moud: 0.55
         visit_mult_hiv_positive: 1.784
+        visit_mult_uninsured: 1.25  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
         n_providers_ri: 2145
         panel_skew: 0.16
         attrition_annual: 0.5
@@ -461,6 +462,7 @@ scenario:
         visit_mult_inj: 1.23
         visit_mult_moud: 0.9
         visit_mult_hiv_positive: 1.09
+        visit_mult_uninsured: 0.35  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
         n_providers_ri: 1833
         panel_skew: 0.47
         attrition_annual: 0.3
@@ -484,6 +486,7 @@ scenario:
         visit_mult_inj: 1.85
         visit_mult_moud: 1.81
         visit_mult_hiv_positive: 0.672
+        visit_mult_uninsured: 0.6  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
         n_providers_ri: 253
         panel_skew: 0.15
         attrition_annual: 0.6
@@ -507,6 +510,7 @@ scenario:
         visit_mult_inj: 1.7
         visit_mult_moud: 0.68
         visit_mult_hiv_positive: 1.306
+        visit_mult_uninsured: 0.4  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
         n_providers_ri: 1928
         panel_skew: 0.19
         attrition_annual: 0.39
@@ -525,6 +529,11 @@ scenario:
         prep_referral_prob: 0.1
         prep_referral_return_prob: 0.25
   # <<< care_seeking <<<
+  outputs:
+    # insured_states (2026-10-24, work record §19.34): every reported stat is split by insurance status so the
+    # scorer, the contrast and the cash flow can read the insured agents' counts. Paired with features.insurance
+    # (tests/scenario_source_test.py); make_phase7_baseline.overlay_care_layer keeps the pair on built picks.
+    classes: [races, sex_types, drug_types, insured_states]
   classes:
     sex_types:
       HF:
@@ -552,6 +561,7 @@ scenario:
         - MSM
         - MSMW
   features:
+    insurance: true  # insurance layer (2026-10-24, work record §19.34): a share of agents is uninsured
     care_seeking: true  # care_seeking layer (scripts/make_care_seeking_params.py): the care-setting layer is on; MOUD, testing and PrEP run through encounters
     agent_zero: false
     exit_enter: true
@@ -609,6 +619,18 @@ scenario:
     post_relapse_mult: 2.5
     pwid_mult: 3.0
     start_time: -9999
+  insurance:
+    # Insurance as agent state (2026-10-24, work record §19.34). ASSUMPTIONS pending RIHRSS / RIDOH insurance
+    # data: RI adults 4.2 % uninsured (ACS 2022); people with OUD higher; people who inject higher still
+    # (national NHBS-PWID 2018 about 17 % uninsured). The monthly loss probability is derived in code
+    # (Insurance.lose_prob = gain x u / (1 - u)), so the shares stay stationary whatever they are set to.
+    # Access multipliers: MOUD 0.5, PrEP 0.3 (assistance programmes keep PrEP possible). Sensitivity range
+    # for the shares: 0.5-2x. The reports split every stat by insurance status (outputs.classes below).
+    init_uninsured_prob_inj: 0.12
+    init_uninsured_prob_noninj: 0.06
+    gain_prob_per_month: 0.06
+    moud_acceptance_mult: 0.5
+    prep_acceptance_mult: 0.3
   incar:
     haart:
       adherence: 0.21

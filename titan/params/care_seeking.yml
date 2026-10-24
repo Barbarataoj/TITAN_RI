@@ -110,6 +110,11 @@ care_seeking:
         description: "Multiplier on visit_rate_annual for agents with active HIV in this setting. Part of the APCD-requested stratification by HIV status; 1.0 (default) means no adjustment."
         default: 1.0
         min: 0.0
+      visit_mult_uninsured:
+        type: float
+        description: "Multiplier on visit_rate_annual for agents who are uninsured (features.insurance on and agent.insured False) in this setting; 1.0 (default) means no adjustment. 2026-10-24."
+        default: 1.0
+        min: 0.0
       acceptance_mult_hiv_test:
         type: float
         description: |

@@ -1,5 +1,6 @@
 # makes src a package
 from .base_feature import *
+from .insurance import *  # first: other features read agent.insured, and its update_pop (churn) runs before CareSeeking.update_pop rolls the month's visits
 from .haart import *  # import HAART
 from .high_risk import *
 from .incar import *

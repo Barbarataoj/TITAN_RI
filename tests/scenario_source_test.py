@@ -235,3 +235,13 @@ def test_missing_sentinel_is_not_a_plausible_value(source):
         assert value != MISSING, f"sentinel leaked into {path}"
         if isinstance(value, list):
             assert MISSING not in value, f"sentinel leaked into {path}"
+
+
+def test_insurance_feature_pairs_with_the_insured_states_output_class():
+    """Insurance as agent state (2026-10-24, work record §19.34): the reports split by insurance status exactly
+    when the feature is on, and the loss probability is derived in code rather than stored beside the gain."""
+    src = yaml.safe_load(SOURCE.read_text())["scenario"]
+    on = bool((src.get("features") or {}).get("insurance", False))
+    classes = (src.get("outputs") or {}).get("classes") or []
+    assert on == ("insured_states" in classes)
+    assert not any(k.startswith("lose_prob") for k in (src.get("insurance") or {}))

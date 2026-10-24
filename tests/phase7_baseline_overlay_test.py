@@ -49,3 +49,23 @@ def test_overlay_carries_prep_persistence_and_monitoring_into_an_old_pick():
     # (reach_*, acceptance_mult_*) are not in the source and are left to paraml
     assert pc["visit_prob_after_overdose"] == 0.0 and "intensity_hiv_test" in pc
     assert "reach_prob" not in pc
+
+
+def test_overlay_pairs_the_insurance_switch_with_the_report_strata():
+    """Insurance as agent state (2026-10-24, work record §19.34): a pick written before the feature existed
+    gets the block, the switch, the per-setting visit multiplier and the insured_states report class, which is
+    present exactly when the feature is on."""
+    src = yaml.safe_load(open(REPO / "titan" / "calibration" / "scenario_source.yml"))["scenario"]
+    pick = {
+        "prep": {"acceptance": 0.6, "cap": 0.015},
+        "care_seeking": {"setting": {"primary_care": {"visit_rate_annual": 5.0, "p_willing_prep": 0.079}}},
+        "demographics": {"white_nonhispanic": {"sex_type": {"HM": {
+            "prep": {"adherence": 0.1, "discontinue": 0.1},
+            "drug_type": {"Inj": {"prep": {}}, "NonInj": {"prep": {}}}}}}},
+    }
+    out = mod.overlay_care_layer(pick)
+    assert out["insurance"] == src["insurance"]
+    assert out["features"]["insurance"] == src["features"]["insurance"]
+    assert ("insured_states" in out["outputs"]["classes"]) == src["features"]["insurance"]
+    pc = out["care_seeking"]["setting"]["primary_care"]
+    assert pc["visit_mult_uninsured"] == src["care_seeking"]["setting"]["primary_care"]["visit_mult_uninsured"]

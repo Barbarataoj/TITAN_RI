@@ -756,6 +756,9 @@ class CareSeeking(base_feature.BaseFeature):
             time step (the Poisson mean `roll_visits` draws from)
         """
         annual_rate = setting.visit_rate_annual * self.stratified_multiplier(setting)
+        if not getattr(self.agent, "insured", True):
+            # insurance as agent state (2026-10-24): the uninsured visit less (or, in the ED, more)
+            annual_rate *= float(getattr(setting, "visit_mult_uninsured", 1.0))
         return (annual_rate / steps_per_year) * self.visit_frailty.get(setting_name, 1.0)
 
     def stratified_multiplier(self, setting: "ObjMap") -> float:
