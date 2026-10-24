@@ -438,7 +438,7 @@ scenario:
         visit_mult_inj: 2.33
         visit_mult_moud: 0.55
         visit_mult_hiv_positive: 1.784
-        visit_mult_uninsured: 1.25  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
+        visit_mult_uninsured: 1.25
         n_providers_ri: 2145
         panel_skew: 0.16
         attrition_annual: 0.5
@@ -462,7 +462,7 @@ scenario:
         visit_mult_inj: 1.23
         visit_mult_moud: 0.9
         visit_mult_hiv_positive: 1.09
-        visit_mult_uninsured: 0.35  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
+        visit_mult_uninsured: 0.35
         n_providers_ri: 1833
         panel_skew: 0.47
         attrition_annual: 0.3
@@ -470,7 +470,7 @@ scenario:
         p_willing_prep: 0.0794
         p_willing_moud: 1.0
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.09591
+        intensity_hiv_test: 0.19904
         intensity_prep: 0.01282
         intensity_moud: 0.75
         intensity_counseling: 0.0
@@ -486,7 +486,7 @@ scenario:
         visit_mult_inj: 1.85
         visit_mult_moud: 1.81
         visit_mult_hiv_positive: 0.672
-        visit_mult_uninsured: 0.6  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
+        visit_mult_uninsured: 0.6
         n_providers_ri: 253
         panel_skew: 0.15
         attrition_annual: 0.6
@@ -494,7 +494,7 @@ scenario:
         p_willing_prep: 0.125
         p_willing_moud: 0.9688
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.06264
+        intensity_hiv_test: 0.31234
         intensity_prep: 0.00089
         intensity_moud: 1.0
         intensity_counseling: 0.0
@@ -510,7 +510,7 @@ scenario:
         visit_mult_inj: 1.7
         visit_mult_moud: 0.68
         visit_mult_hiv_positive: 1.306
-        visit_mult_uninsured: 0.4  # insurance layer (2026-10-24): ASSUMPTION pending RIHRSS/MEPS; uninsured adults use primary and specialty care less and the ED more
+        visit_mult_uninsured: 0.4
         n_providers_ri: 1928
         panel_skew: 0.19
         attrition_annual: 0.39
@@ -518,7 +518,7 @@ scenario:
         p_willing_prep: 0.109
         p_willing_moud: 0.9981
         p_willing_counseling: 0.0
-        intensity_hiv_test: 0.02905
+        intensity_hiv_test: 0.06574
         intensity_prep: 0.00556
         intensity_moud: 0.75
         intensity_counseling: 0.0
@@ -607,7 +607,7 @@ scenario:
     start_time: -999
   hiv_testing:
     nonclinical_annual_noninj: 0.2  # care_seeking layer (scripts/make_care_seeking_params.py): people with OUD who do not inject (2026-10-12): 0.20 (0.10-0.30) gives ~0.32 tests/yr with the clinic route (~27 % tested in a year): Medicaid MOUD initiators tested for HIV within 90 days 20 % (2016) -> 25 % (2019), 11 states (Ahrens 2023, PMID 36594172); past-year tested 33 % oxycodone vs 71 % heroin (Meade 2009, PMID 19444732); OTP clients 17-41 % (NDATSS); replaced by the APCD any-claim table when delivered
-    nonclinical_annual: 0.38  # care_seeking layer (scripts/make_care_seeking_params.py): PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07
+    nonclinical_annual: 0.31  # care_seeking layer (scripts/make_care_seeking_params.py): PINNED (anchored_parameters): 0.31 since 2026-10-24 (work record §19.37; clinics at job 7a's any-claim level supply ~0.24 tests/PWID-yr, this route -ln(1-0.31) = 0.37, total 0.604 measured vs NHBS 0.60); 0.38 from 2026-10-07 to 10-24; unidentified by the objective, was fitted 2026-10-01 to 10-07
     acceptance: 0.55  # care_seeking layer (scripts/make_care_seeking_params.py): RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)
     base_prob_annual: 0.3
     high_risk_mult: 2.0

@@ -24,7 +24,7 @@ class HIVTesting(base_feature.BaseFeature):
     """
 
     name = "hiv_testing"
-    stats = ["hiv_tests"]
+    stats = ["hiv_tests", "hiv_tests_clinical", "hiv_tests_nonclinical", "hiv_tested_this_year", "hiv_tested_this_year_clinical"]
 
     # Optional class-level counts by race / sex_type
     test_counts: ClassVar[Dict] = {}
@@ -35,6 +35,9 @@ class HIVTesting(base_feature.BaseFeature):
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
         self.tests_this_step = 0
+        self.clinical_tests_this_step = 0
+        self.last_test_time = None               # model step of the agent's most recent test (reporting only)
+        self.last_clinical_test_time = None      # ... of the most recent test at a care encounter (claims-visible)
 
     @classmethod
     def init_class(cls, params: ObjMap):
@@ -130,6 +133,12 @@ class HIVTesting(base_feature.BaseFeature):
         # Test occurred
         self.tests_this_step += 1
         self.test_counts[self.agent.race][self.agent.sex_type] += 1
+        # Route (reporting only, 2026-10-24): with the care layer on, encounter_prob tests through an offer
+        # when one was made this step and through the non-clinical route otherwise, so a test in a step with
+        # an offer is a clinic-billed test -- the unit the claims see (job 3b, job 7a).
+        if model.params.features.care_seeking and getattr(self.agent, "care_offer", {}).get("hiv_test", False):
+            self.clinical_tests_this_step += 1
+            self.last_clinical_test_time = model.time
 
         # =================================================
         # Diagnosis logic (delegated to HIV exposure)
@@ -348,4 +357,18 @@ class HIVTesting(base_feature.BaseFeature):
     def set_stats(self, stats: Dict[str, int], time: int):
         if self.tests_this_step > 0:
             stats["hiv_tests"] += self.tests_this_step
+            stats["hiv_tests_clinical"] += self.clinical_tests_this_step
+            stats["hiv_tests_nonclinical"] += self.tests_this_step - self.clinical_tests_this_step
+            self.last_test_time = time
+        # People tested so far in the calendar year (t = 1 is January 2012; analysis/model_calendar.py):
+        # the December value is the share of people with a test in the year, the unit of the claims'
+        # receipt tables; `_clinical` counts only tests at care encounters, which is what job 7a sees
+        # (any claim line). Added 2026-10-24 for the receipt check; reporting only.
+        spy = int(getattr(getattr(getattr(self.agent.location.params, "model", None), "time", None), "steps_per_year", 12) or 12)
+        year = (time - 1) // spy
+        if self.last_test_time is not None and (self.last_test_time - 1) // spy == year:
+            stats["hiv_tested_this_year"] += 1
+        if self.last_clinical_test_time is not None and (self.last_clinical_test_time - 1) // spy == year:
+            stats["hiv_tested_this_year_clinical"] += 1
         self.tests_this_step = 0
+        self.clinical_tests_this_step = 0

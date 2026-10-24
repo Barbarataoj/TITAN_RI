@@ -984,8 +984,8 @@ calibration:
     # TO REPLACE with RI data: Mofan's any-claim HIV-testing table (request of
     # 2026-10-06, stratified by injection_proxy) gives the RI level directly.
     - path: "hiv_testing.nonclinical_annual"
-      value: 0.38
-      source: "NHBS-PWID 2022 45% tested in the past year = 0.60 tests/PWID-yr; annual probability p gives -ln(1-p) = 0.48 from this route + ~0.14 from clinic encounters = 0.62, confirmed by B1 job 7098444 (0.61-0.62); RI any-claim table pending"
+      value: 0.31
+      source: "NHBS-PWID 2022 45% tested in the past year = 0.60 tests/PWID-yr. Re-derived 2026-10-24 (work record §19.37) after the care layer was re-solved to job 7a's any-claim level: clinic encounters now supply ~0.24 tests/PWID-yr, so this route carries -ln(1-0.31) = 0.37; measured 0.604 (SE 0.008) on members 391/423/448, 8 x 10, job 7903584. Was 0.38 (0.48 from this route + ~0.14 from clinics) from 2026-10-07 to 2026-10-24."
 
     # Overdose survivors re-engage with MOUD LESS than other members, not more.
     # RI APCD job 2b (docs/apcd_incoming/ABM_2/job2b_medication_after_overdose.csv):

@@ -50,7 +50,7 @@ Intensity (`intensity_*`, the per-visit offer rate among willing providers):
                    the 2026-10-01 smoke run)
   counseling       0 everywhere. Nothing in the engine consumes counseling.
 
-HIV-test receipt correction (2026-10-02). job3a counts a test only when it is
+HIV-test receipt correction (2026-10-02; the level comes from job 7a since 2026-10-24). job3a counts a test only when it is
 billed on the same claim as the visit. The ED bills its own laboratory work and
 its per-visit rate matches the published figure (0.75% vs 0.8%), but the other
 three settings send specimens to reference laboratories that bill separately,
@@ -296,8 +296,13 @@ MOUD_ACCEPTANCE_INITIAL = 0.75          # placeholder; the search fits it (smoke
 # monitoring setting). Starts are people (one test each). APPROXIMATION until a
 # distinct-people-per-year stat exists; the exact value lies between 1.74 and 3.83 people.
 FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00338 + 0.00029 + 0.00073, "sud_treatment": 0.00006, "mental_health": 0.00087}
+# Insurance as agent state (2026-10-24, work record §19.34; PARAMETER_REGISTRY "Insurance status as agent
+# state"): an uninsured agent's annual visit rate per setting is multiplied by these. ASSUMPTIONS pending
+# RIHRSS / RIDOH -- uninsured adults make far fewer office visits and somewhat more ED visits. The generator
+# owns the care_seeking block, so the values live here, not in scenario_source.yml by hand.
+VISIT_MULT_UNINSURED = {"ED": 1.25, "primary_care": 0.35, "sud_treatment": 0.60, "mental_health": 0.40}
 NONCLINICAL_TESTING_NONINJ = 0.20        # 2026-10-12 (Jun): past-year testing ~27 % with the clinic route; Ahrens 2023 PMID 36594172 (Medicaid MOUD initiators, 11 states: HIV test within 90 days 20 % 2016 -> 25 % 2019), Meade 2009 PMID 19444732 (33 % non-injecting vs 71 % injecting); range 0.10-0.30; -1 = PWID rate
-NONCLINICAL_TESTING_INITIAL = 0.38      # PINNED 2026-10-07 (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation): annual probability, -ln(1-0.38) = 0.48 tests/PWID-yr from this route + ~0.14 from clinics = 0.62 vs NHBS 0.60 (B1 job 7098444). Was a fitted placeholder 0.4 from 2026-10-01
+NONCLINICAL_TESTING_INITIAL = 0.31      # PINNED (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation). 0.31 since 2026-10-24 (work record §19.37): with the care layer at job 7a's any-claim level the clinics supply ~0.24 tests/PWID-yr, this route -ln(1-0.31) = 0.37, total 0.604 measured vs NHBS 0.60. Was 0.38 (2026-10-07 to 10-24: 0.48 + ~0.14 = 0.62)
 
 
 def read_csv(name):
@@ -395,7 +400,21 @@ def derive(verbose=True, test_linked=None):
         for r in e22.itertuples()
     }
     rate_whole_extract = sum(mix[p] / mix_total * rate_by_payer[p] for p in mix)
-    expected_tested = rate_whole_extract * COHORT_2022
+    expected_proxy = rate_whole_extract * COHORT_2022      # the pre-job7a proxy, reported for comparison
+    # Job 7a (2026-10-24, docs/calibration_log/apcd_job7_review_2026-10-24.md §1): the cohort's HIV tests
+    # counted on ANY claim line -- professional, facility or laboratory, no visit claim required --
+    # measured directly, by year and by injection proxy, HIV-negative at the time of service. The people
+    # tested in 2022 (1,499 of 12,774, 11.7 %) replace the whole-extract proxy (1,013) as the level the
+    # office settings' receipt is solved to; the ED keeps its same-claim count (it bills its own labs).
+    import pandas as pd
+    j7a = read_csv("job7a_hiv_test_any_claim.csv")
+    j7a = j7a[(j7a.year == YEAR) & (j7a.group.isin(["overall", "injection_proxy"]))]
+    any_claim = {str(r.group_value): float(pd.to_numeric(r.n_tested_any_claim, errors="coerce")) for r in j7a.itertuples()}
+    any_claim_n = {str(r.group_value): float(r.n_cohort) for r in j7a.itertuples()}
+    if abs(any_claim_n["all"] - COHORT_2022) > 0.5:
+        raise RuntimeError(f"job7a's 2022 cohort ({any_claim_n['all']:.0f}) is not COHORT_2022 ({COHORT_2022})")
+    expected_tested = any_claim["all"]
+    any_claim_share = {k: any_claim[k] / any_claim_n[k] for k in any_claim}
     same_claim_any = int(b22[b22.stratum_type == "overall"].n_with_lab_test_any_setting.iloc[0])
     j3_22 = j3[j3.year == YEAR]
     ed_tested = int(j3_22[j3_22.setting == "ED"].lab_test.iloc[0])
@@ -413,10 +432,13 @@ def derive(verbose=True, test_linked=None):
         ", ".join(f"{p} {r:.4f}" for p, r in sorted(rate_by_payer.items()))))
     say("  cohort insurance mix (%s users): %s" % (INSURANCE_PROXY_SETTING,
         ", ".join(f"{p} {v / mix_total:.3f}" for p, v in sorted(mix.items()))))
-    say(f"  weighted rate {rate_whole_extract:.4f} x cohort {COHORT_2022} = {expected_tested:.0f} people expected tested;"
+    say(f"  people tested on ANY claim {YEAR} (job7a) = {expected_tested:.0f} of {COHORT_2022} ({any_claim_share['all']:.3f});"
+        f" the pre-job7a proxy was the weighted rate {rate_whole_extract:.4f} x cohort = {expected_proxy:.0f};"
         f" same-claim any-setting {same_claim_any} (job3b); ED same-claim {ed_tested} kept (bills its own labs)")
     say(f"  factor on primary_care / sud_treatment / mental_health receipt = ({expected_tested:.0f} - {ed_tested}) / {non_ed_tested} = {test_factor:.2f}"
-        "  [assumption: missing tests allocated in proportion to same-claim counts; job3e counting unit unconfirmed; sensitivity x0.5 / x2]\n")
+        "  [assumption: any-claim tests carry no setting; the office settings share the remainder in proportion to their same-claim counts; sensitivity x0.5 / x2]")
+    say(f"  receipt-check targets (any claim, {YEAR}, people tested / cohort): injecting {any_claim_share['injection']:.3f}, non-injecting {any_claim_share['non_injection']:.3f}"
+        "  [measured on the insured agents in December: hiv_tested_this_year / agents by drug_type]\n")
     for s in SETTINGS:
         say(f"=== {s} ===")
         c = counts[(counts.year == YEAR) & (counts.setting == s)].iloc[0]
@@ -450,6 +472,7 @@ def derive(verbose=True, test_linked=None):
         e_mult *= cohort_comp["hiv_status"] * mult_hiv + (1 - cohort_comp["hiv_status"])
         rate = cohort_rate / e_mult
         say(f"visit_rate_annual (reference group) = {cohort_rate:.3f} / E[multiplier over the cohort] {e_mult:.3f} = {rate:.3f}")
+        say(f"visit_mult_uninsured = {VISIT_MULT_UNINSURED[s]}  [assumption, insurance layer 2026-10-24; registry]")
 
         n_prov = int(q1[(q1.year == YEAR) & (q1.setting == s)].n_providers.iloc[0])
         say(f"n_providers_ri = {n_prov}  [APCD job4_q1]")
@@ -490,6 +513,7 @@ def derive(verbose=True, test_linked=None):
             "visit_mult_inj": REGISTRY_7_2["visit_mult_inj"][s],
             "visit_mult_moud": REGISTRY_7_2["visit_mult_moud"][s],
             "visit_mult_hiv_positive": round(mult_hiv, 3),
+            "visit_mult_uninsured": VISIT_MULT_UNINSURED[s],
             "n_providers_ri": n_prov,
             "panel_skew": REGISTRY_7_2["panel_skew"][s],
             "attrition_annual": REGISTRY_7_2["attrition_annual"][s],
@@ -541,7 +565,7 @@ SCALARS = [
     # (top-level key under scenario:, field, value, comment)
     ("features", "care_seeking", "true", "the care-setting layer is on; MOUD, testing and PrEP run through encounters"),
     ("hiv_testing", "acceptance", ACCEPT_HIV_TEST, "RI ED drug-using patients accepting an offered test: 0.645 / 0.45 (PMIDs 25125271, 26036465)"),
-    ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters, 2026-10-07): annual probability; -ln(1-0.38) = 0.48 tests/PWID-yr + clinic ~0.14 = 0.62 vs NHBS 0.60 (B1 job 7098444); unidentified by the objective, was fitted 2026-10-01 to 10-07"),
+    ("hiv_testing", "nonclinical_annual", NONCLINICAL_TESTING_INITIAL, "PINNED (anchored_parameters): 0.31 since 2026-10-24 (work record §19.37; clinics at job 7a's any-claim level supply ~0.24 tests/PWID-yr, this route -ln(1-0.31) = 0.37, total 0.604 measured vs NHBS 0.60); 0.38 from 2026-10-07 to 10-24; unidentified by the objective, was fitted 2026-10-01 to 10-07"),
     ("hiv_testing", "nonclinical_annual_noninj", NONCLINICAL_TESTING_NONINJ, "people with OUD who do not inject (2026-10-12): 0.20 (0.10-0.30) gives ~0.32 tests/yr with the clinic route (~27 % tested in a year): Medicaid MOUD initiators tested for HIV within 90 days 20 % (2016) -> 25 % (2019), 11 states (Ahrens 2023, PMID 36594172); past-year tested 33 % oxycodone vs 71 % heroin (Meade 2009, PMID 19444732); OTP clients 17-41 % (NDATSS); replaced by the APCD any-claim table when delivered"),
     ("moud", "acceptance", MOUD_ACCEPTANCE_INITIAL, "FITTED (parameters_to_optimize), replaces reinit_prob as the level lever; placeholder"),
     ("prep", "acceptance", ACCEPT_PREP, "starts once discussed: clinical review 2026-10-07 (25-50 %), was 0.60 (registry 7.6); sensitivity 0.25-0.60"),

@@ -310,3 +310,27 @@ def test_bundle_same_day_share_uses_the_programme_value_when_reached(make_model,
     b.hiv_testing.update_agent(model)
     assert b.prep.active and b.prep.started_bundled_this_step == "same_day"
     model.params.features.care_seeking = False
+
+
+
+def test_people_tested_this_year_counts_an_agent_once_per_calendar_year():
+    """hiv_tested_this_year (2026-10-24, reporting only): an agent with a test in the calendar year counts in
+    every later step of that year and not in the next (t = 1 is January; 12 steps a year)."""
+    from types import SimpleNamespace
+    agent = SimpleNamespace(location=SimpleNamespace(params=SimpleNamespace(model=SimpleNamespace(time=SimpleNamespace(steps_per_year=12)))))
+    t = HIVTesting(agent)
+    stats = {k: 0 for k in HIVTesting.stats}
+    t.set_stats(stats, 3)
+    assert sum(stats.values()) == 0
+    t.tests_this_step = 2                        # two tests this step, none at a care encounter
+    t.set_stats(stats, 5)
+    assert stats["hiv_tests"] == 2 and stats["hiv_tests_nonclinical"] == 2 and stats["hiv_tests_clinical"] == 0
+    assert stats["hiv_tested_this_year"] == 1 and stats["hiv_tested_this_year_clinical"] == 0 and t.tests_this_step == 0
+    t.set_stats(stats, 12)                       # December of the same year: still counted, no new test
+    assert stats["hiv_tested_this_year"] == 2 and stats["hiv_tests"] == 2
+    t.set_stats(stats, 13)                       # January of the next year: not counted
+    assert stats["hiv_tested_this_year"] == 2
+    t.tests_this_step = t.clinical_tests_this_step = 1      # a clinic-billed test in the new year
+    t.last_clinical_test_time = 14
+    t.set_stats(stats, 14)
+    assert stats["hiv_tests_clinical"] == 1 and stats["hiv_tested_this_year_clinical"] == 1 and stats["hiv_tested_this_year"] == 3
