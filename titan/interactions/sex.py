@@ -1,4 +1,5 @@
 from . import base_interaction
+from .. import features
 from ..distributions import poisson
 from .. import model
 from .. import agent
@@ -46,6 +47,13 @@ class Sex(base_interaction.BaseInteraction):
                 1 - model.params.hiv.dx.risk_reduction.sex
             )
             p_safe_sex = 1 - p_unsafe_sex
+
+        # Hardship index (SDH feature, 2026-10-24): condomless sex more likely with hardship (assumption, relative,
+        # mean-preserving); sex work itself leaves condom use unchanged (NHBS 2018).
+        hardship_mult = (features.SDH.risk_mult(rel.agent1, model.params, "condomless_sex")
+                         * features.SDH.risk_mult(rel.agent2, model.params, "condomless_sex"))
+        if hardship_mult != 1.0:
+            p_safe_sex = max(0.0, 1.0 - (1.0 - p_safe_sex) * hardship_mult)
 
         # Reduction of risk acts between partners for condom usage
         unsafe_sex_acts = total_sex_acts

@@ -301,6 +301,10 @@ FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00338 + 0.00029 +
 # RIHRSS / RIDOH -- uninsured adults make far fewer office visits and somewhat more ED visits. The generator
 # owns the care_seeking block, so the values live here, not in scenario_source.yml by hand.
 VISIT_MULT_UNINSURED = {"ED": 1.25, "primary_care": 0.35, "sud_treatment": 0.60, "mental_health": 0.40}
+# Hardship index (SDH feature, 2026-10-24, work record §19.39): per index point (0-3), applied as m^k. ASSUMPTIONS:
+# direction from Aidala 2016 (housing and HIV care use) and the ALIVE cohort (ED admissions about 2.5x during
+# homelessness, Drug Alcohol Depend 2026); three points give office visits x0.61 and ED visits x2.46.
+VISIT_MULT_HARDSHIP = {"ED": 1.35, "primary_care": 0.85, "sud_treatment": 0.85, "mental_health": 0.85}
 NONCLINICAL_TESTING_NONINJ = 0.20        # 2026-10-12 (Jun): past-year testing ~27 % with the clinic route; Ahrens 2023 PMID 36594172 (Medicaid MOUD initiators, 11 states: HIV test within 90 days 20 % 2016 -> 25 % 2019), Meade 2009 PMID 19444732 (33 % non-injecting vs 71 % injecting); range 0.10-0.30; -1 = PWID rate
 NONCLINICAL_TESTING_INITIAL = 0.31      # PINNED (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation). 0.31 since 2026-10-24 (work record §19.37): with the care layer at job 7a's any-claim level the clinics supply ~0.24 tests/PWID-yr, this route -ln(1-0.31) = 0.37, total 0.604 measured vs NHBS 0.60. Was 0.38 (2026-10-07 to 10-24: 0.48 + ~0.14 = 0.62)
 
@@ -473,6 +477,7 @@ def derive(verbose=True, test_linked=None):
         rate = cohort_rate / e_mult
         say(f"visit_rate_annual (reference group) = {cohort_rate:.3f} / E[multiplier over the cohort] {e_mult:.3f} = {rate:.3f}")
         say(f"visit_mult_uninsured = {VISIT_MULT_UNINSURED[s]}  [assumption, insurance layer 2026-10-24; registry]")
+        say(f"visit_mult_hardship_per_point = {VISIT_MULT_HARDSHIP[s]}  [assumption, SDH layer 2026-10-24; registry]")
 
         n_prov = int(q1[(q1.year == YEAR) & (q1.setting == s)].n_providers.iloc[0])
         say(f"n_providers_ri = {n_prov}  [APCD job4_q1]")
@@ -514,6 +519,7 @@ def derive(verbose=True, test_linked=None):
             "visit_mult_moud": REGISTRY_7_2["visit_mult_moud"][s],
             "visit_mult_hiv_positive": round(mult_hiv, 3),
             "visit_mult_uninsured": VISIT_MULT_UNINSURED[s],
+            "visit_mult_hardship_per_point": VISIT_MULT_HARDSHIP[s],
             "n_providers_ri": n_prov,
             "panel_skew": REGISTRY_7_2["panel_skew"][s],
             "attrition_annual": REGISTRY_7_2["attrition_annual"][s],

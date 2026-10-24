@@ -1,0 +1,64 @@
+sdh:
+  # Social determinants of health as agent state (2026-10-24, work record §19.39; proposal Table 2 "key SDH").
+  # Two states beyond insurance (titan/params/insurance.yml) and incarceration (incar.yml):
+  #   * a HARDSHIP INDEX 0-3 = count of unstable housing, food insecurity and unemployment, drawn from one
+  #     latent propensity per agent (Gaussian copula, correlation `rho`) so the three correlate as they do in
+  #     NHBS-PWID, with episodes that end at `episode_end_prob_per_month` and are re-drawn (marginals stay
+  #     exact, correlation persists). Effects are multiplicative per index point on office visits (care_seeking
+  #     setting `visit_mult_hardship_per_point`), MOUD and PrEP discontinuation and ART adherence transitions.
+  #   * SEX WORK (exchange sex in the past year), by sex type and injecting, on the same latent: raises the
+  #     sexual partner number at initialisation and is a PrEP indication (prep.target_model `sex_work`).
+  # Every default is neutral (no one in hardship, no sex work, multipliers 1), which reproduces the model
+  # without this feature. Values live in scenario_source.yml and PARAMETER_REGISTRY.md ("SDH as agent state").
+  hardship:
+    rho:
+      default: 0.0
+      description: "Latent correlation between the three hardship components (and sex work) in the Gaussian copula. 0 = independent."
+      type: float
+      min: 0.0
+      max: 0.99
+    episode_end_prob_per_month:
+      default: 0.0
+      description: "Monthly probability that a component's episode ends and its state is re-drawn against its marginal (mean episode length = 1 / this). 0 = states fixed at entry."
+      type: float
+      min: 0.0
+      max: 1.0
+    prob_inj:
+      housing: {default: 0.0, type: float, min: 0.0, max: 1.0, description: "Share of agents whose drug_type is Inj with unstable housing (past-year homelessness)."}
+      food: {default: 0.0, type: float, min: 0.0, max: 1.0, description: "Share with food insecurity."}
+      employment: {default: 0.0, type: float, min: 0.0, max: 1.0, description: "Share unemployed."}
+    prob_noninj:
+      housing: {default: 0.0, type: float, min: 0.0, max: 1.0, description: "As prob_inj, for agents whose drug_type is NonInj."}
+      food: {default: 0.0, type: float, min: 0.0, max: 1.0}
+      employment: {default: 0.0, type: float, min: 0.0, max: 1.0}
+    risk_mult_per_point:
+      # Risk behaviours (Jun, 2026-10-24: the determinants must reach sexual behaviour, injecting and HIV, not
+      # only care). Each is a RELATIVE multiplier per index point, m^k, divided by the population mean of m^k
+      # each month (mean-preserving), so the calibrated or anchored population average of the behaviour is
+      # kept and the determinants decide who carries the risk.
+      sharing: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the per-act probability of unsafe (shared) injection."}
+      condomless_sex: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the per-act probability of condomless sex."}
+      inject_start: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the monthly probability that a non-injecting agent in active use starts injecting."}
+      overdose: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the monthly overdose probability."}
+    mean_preserving:
+      default: true
+      description: "Divide each risk multiplier by its current population mean so the population average is unchanged (true, the default) or apply it raw (false; the fit then moves)."
+      type: boolean
+    mult_per_point:
+      moud_discontinue: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the monthly MOUD discontinuation probability per index point (applied as m^k)."}
+      prep_discontinue: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the monthly PrEP discontinuation probability per index point."}
+      art_nonadherence: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the adherent -> non-adherent ART transition per index point."}
+      art_readherence: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the non-adherent -> adherent ART transition per index point (below 1 slows re-adherence)."}
+  sex_work:
+    prob:
+      type: sub-dict
+      description: "Share of agents of each sex type reporting exchange sex in the past year, by injecting status."
+      keys: [sex_types]
+      default:
+        inj: {default: 0.0, type: float, min: 0.0, max: 1.0}
+        noninj: {default: 0.0, type: float, min: 0.0, max: 1.0}
+    partner_mult:
+      default: 1.0
+      description: "Multiplier on the mean number of sexual partners of an agent in sex work, applied once at initialisation to agents who have any sexual partnerships."
+      type: float
+      min: 0.0

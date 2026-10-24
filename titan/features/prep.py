@@ -4,6 +4,7 @@ import numpy as np  # type: ignore
 
 from . import base_feature
 from .insurance import Insurance
+from .sdh import SDH
 from .. import agent
 from .. import population
 from .. import model
@@ -551,6 +552,7 @@ class Prep(base_feature.BaseFeature):
             if late_after > 0 and self.time is not None and model.time - self.time >= late_after:
                 discontinue *= getattr(prep_params, "discontinue_late_mult", 1.0)
             discontinue *= getattr(self.agent, "care_reach", {}).get("prep_discontinue_mult", 1.0)
+            discontinue *= SDH.mult(self.agent, model.params, "prep_discontinue")       # hardship index (2026-10-24)
             if model.run_random.random() < discontinue:
                 self.discontinue()
             else:
@@ -674,6 +676,11 @@ class Prep(base_feature.BaseFeature):
 
         if "pwid_sex" in target_model:
             if self.agent.drug_type == "Inj" and self.cdc_eligible():
+                return True
+
+        # exchange sex in the past year (SDH feature, 2026-10-24): a CDC indication for PrEP
+        if "sex_work" in target_model:
+            if getattr(self.agent, "sex_work", False):
                 return True
 
         if "pwid" in target_model:

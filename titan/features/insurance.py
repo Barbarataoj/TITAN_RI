@@ -31,6 +31,11 @@ class Insurance(base_feature.BaseFeature):
 
     name = "insurance"
     stats: List[str] = []      # reported through the insured_states output class instead
+    uninsured_share_now: float = 0.0    # population uninsured share, refreshed each month: the ART multipliers' normaliser
+
+    @classmethod
+    def init_class(cls, params):
+        cls.uninsured_share_now = 0.0
 
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
@@ -72,8 +77,12 @@ class Insurance(base_feature.BaseFeature):
         """Monthly churn for every agent, before the care layer rolls the month's visits."""
         params = model.params.insurance
         gain = float(getattr(params, "gain_prob_per_month", 0.0))
+        n = unins = 0
         for a in model.pop.all_agents:
             a.insurance.churn(model, params, gain)
+            n += 1
+            unins += 0 if a.insured else 1
+        cls.uninsured_share_now = unins / n if n else 0.0
 
     def churn(self, model: "model.TITAN", params, gain: float):
         """One agent's monthly draw: the insured may lose coverage, the uninsured may regain it."""
@@ -84,9 +93,24 @@ class Insurance(base_feature.BaseFeature):
         elif gain > 0.0 and model.run_random.random() < gain:
             self.set_status(True)
 
+    @classmethod
+    def art_mult(cls, agent: "agent.Agent", params, hook: str) -> float:
+        """Relative multiplier on ART initiation (`art_start`) or the adherent -> non-adherent transition
+        (`art_nonadherence`) for an uninsured agent, divided by the population mean (1 - u + u m) so the solved
+        continuum rates keep their population average; 1.0 when the feature is off or the multiplier is 1."""
+        feats = getattr(params, "features", None)
+        if not getattr(feats, "insurance", False):
+            return 1.0
+        m = float(getattr(getattr(params, "insurance", None), f"{hook}_mult", 1.0) or 1.0)
+        if m == 1.0:
+            return 1.0
+        u = cls.uninsured_share_now
+        raw = m if not getattr(agent, "insured", True) else 1.0
+        return raw / (1.0 - u + u * m)
+
     @staticmethod
     def acceptance_mult(agent: "agent.Agent", params, service: str) -> float:
         """Multiplier the other features apply to an offer's acceptance: 1.0 for insured agents or when the feature is off."""
-        if getattr(agent, "insured", True) or not getattr(params.features, "insurance", False):
+        if getattr(agent, "insured", True) or not getattr(getattr(params, "features", None), "insurance", False):
             return 1.0
         return float(getattr(params.insurance, f"{service}_acceptance_mult", 1.0))

@@ -3,6 +3,7 @@ import logging
 
 from . import base_feature
 from .insurance import Insurance
+from .sdh import SDH
 from .. import agent
 from .. import population
 from .. import model
@@ -300,6 +301,7 @@ class MOUD(base_feature.BaseFeature):
                 discontinue_prob = float(moud_global.discontinue_per_month)
             else:
                 discontinue_prob = moud_params.discontinue
+            discontinue_prob *= SDH.mult(self.agent, model.params, "moud_discontinue")   # hardship index (2026-10-24)
 
             if model.run_random.random() < discontinue_prob:
                 self.active = False

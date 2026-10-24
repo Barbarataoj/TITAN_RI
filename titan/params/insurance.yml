@@ -25,6 +25,16 @@ insurance:
     type: float
     min: 0.0
     max: 1.0
+  art_start_mult:
+    default: 1.0
+    description: "Relative multiplier on the monthly ART initiation probability of an uninsured diagnosed agent (1.0 = no effect); mean-preserving over the population like the SDH risk multipliers. Rhode Island's ADAP keeps it near 1."
+    type: float
+    min: 0.0
+  art_nonadherence_mult:
+    default: 1.0
+    description: "Relative multiplier on the adherent -> non-adherent ART transition of an uninsured agent (1.0 = no effect); mean-preserving."
+    type: float
+    min: 0.0
   moud_acceptance_mult:
     default: 1.0
     description: "Multiplier on moud.acceptance for an offer made to an uninsured agent (1.0 = no effect)."

@@ -199,7 +199,8 @@ def overlay_care_layer(scenario):
     always = ("intensity_prep", "intensity_hiv_test",
               "prep_bundle_prob", "prep_same_day_prob", "prep_deferred_return_prob",
               "prep_referral_prob", "prep_referral_return_prob",
-              "visit_mult_uninsured")        # insurance layer (2026-10-24): an input, never fitted
+              "visit_mult_uninsured",        # insurance layer (2026-10-24): an input, never fitted
+              "visit_mult_hardship_per_point")   # SDH layer (2026-10-24): likewise
     for name, fields in settings_src.items():
         target = settings.setdefault(name, {})
         for k, v in fields.items():
@@ -232,6 +233,11 @@ def overlay_care_layer(scenario):
         classes = list((scenario.get("outputs", {}) or {}).get("classes") or ["races", "sex_types", "drug_types"])
         classes = [c for c in classes if c != "insured_states"] + (["insured_states"] if on else [])
         scenario.setdefault("outputs", {})["classes"] = classes
+    # Social determinants as agent state (2026-10-24, §19.39): the block and its switch are inputs; today's
+    # source wins, as for insurance.
+    if "sdh" in src:
+        scenario["sdh"] = copy.deepcopy(src["sdh"])
+        scenario.setdefault("features", {})["sdh"] = bool((src.get("features", {}) or {}).get("sdh", False))
     return scenario
 
 

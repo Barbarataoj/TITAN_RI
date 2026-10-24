@@ -79,6 +79,10 @@ features:
     default: false
     description: "Whether agents seek care in clinical settings (primary care, emergency department, substance use treatment, mental health) and are attached to providers who may or may not offer HIV prevention services."
     type: boolean
+  sdh:
+    default: false
+    description: "Whether social determinants are agent state: a hardship index (unstable housing, food insecurity, unemployment) that lowers office visits and raises ED visits, MOUD/PrEP discontinuation and ART non-adherence, and a sex-work state that raises sexual partner numbers and is a PrEP indication (2026-10-24, work record §19.39)."
+    type: boolean
   insurance:
     default: false
     description: "Whether insurance status is agent state: a share of agents is uninsured, visits care less, accepts MOUD and PrEP less often and is not billed to a payer; insured-only counts are reported for the claims-footed calibration targets (2026-10-24)."

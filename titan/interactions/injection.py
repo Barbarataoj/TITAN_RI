@@ -75,6 +75,12 @@ class Injection(base_interaction.BaseInteraction):
         p_unsafe_injection *= moud_mult
         # ===== END MOUD block =====
 
+        # Hardship index (SDH feature, 2026-10-24): homeless PWID share more (NHBS 2018 aPR 1.26); each partner's
+        # relative multiplier, mean-preserving over the population, so the anchored sharing level is kept.
+        p_unsafe_injection *= (features.SDH.risk_mult(rel.agent1, model.params, "sharing")
+                               * features.SDH.risk_mult(rel.agent2, model.params, "sharing"))
+        p_unsafe_injection = min(1.0, p_unsafe_injection)
+
         # Diagnosis risk reduction for a diagnosed source is applied once, as a
         # per-act transmission-probability reduction, in
         # HIV.get_transmission_probability() (hiv.dx.risk_reduction.injection).

@@ -1,4 +1,5 @@
 from . import base_feature
+from .sdh import SDH
 import logging
 import math
 
@@ -435,7 +436,8 @@ class OUDState(base_feature.BaseFeature):
                     self.agent.drug_type = "NonInj"
             else:
                 self.agent.time_injecting = 0
-                if model.run_random.random() < p_inject_start:
+                # hardship raises the chance of starting to inject (SDH feature, 2026-10-24; relative, mean-preserving)
+                if model.run_random.random() < p_inject_start * SDH.risk_mult(self.agent, model.params, "inject_start"):
                     self.agent.drug_type = "Inj"
                     self.agent.ever_injected = True
 

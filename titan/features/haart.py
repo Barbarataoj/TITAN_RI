@@ -1,6 +1,8 @@
 from typing import Dict, ClassVar
 
 from . import base_feature
+from .sdh import SDH
+from .insurance import Insurance
 from .. import agent
 from .. import population
 from .. import model
@@ -100,16 +102,19 @@ class HAART(base_feature.BaseFeature):
                     self.active = False
                     self.adherent = False
                     self.remove_agent(self.agent)
-                # Become non-adherent
+                # Become non-adherent (the hardship index raises it: SDH feature, 2026-10-24)
                 elif (
                     self.adherent
-                    and model.run_random.random() < haart_params.adherence.discontinue
+                    and model.run_random.random()
+                    < haart_params.adherence.discontinue * SDH.mult(self.agent, model.params, "art_nonadherence")
+                    * Insurance.art_mult(self.agent, model.params, "art_nonadherence")
                 ):
                     self.adherent = False
-                # Become adherent
+                # Become adherent (the hardship index slows it)
                 elif (
                     not self.adherent
-                    and model.run_random.random() < haart_params.adherence.become
+                    and model.run_random.random()
+                    < haart_params.adherence.become * SDH.mult(self.agent, model.params, "art_readherence")
                 ):
                     self.adherent = True
 
@@ -225,8 +230,11 @@ class HAART(base_feature.BaseFeature):
             model: the instance of TITAN currently being run
             haart_params: the HAART demographic params for this agent
         """
+        # Insurance as agent state (2026-10-24): the uninsured start (and restart) ART less often; relative,
+        # mean-preserving against the solved continuum rates (Insurance.art_mult).
+        art_start = Insurance.art_mult(self.agent, model.params, "art_start")
         if self.ever and self.agent.location.params.haart.use_reinit:
-            if model.run_random.random() < haart_params.reinit.prob:
+            if model.run_random.random() < haart_params.reinit.prob * art_start:
                 self.initiate(model.run_random, haart_params, "prob")
         else:
             # Find enroll probability based on time since diagnosis
@@ -237,7 +245,7 @@ class HAART(base_feature.BaseFeature):
                     enroll_prob = i.prob * model.calibration.haart.coverage
                     break
 
-            if model.run_random.random() < (enroll_prob):
+            if model.run_random.random() < enroll_prob * art_start:
                 self.initiate(model.run_random, haart_params, "prob")
 
     def initiate(self, rand_gen, haart_params: ObjMap, init_or_prob: str):

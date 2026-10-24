@@ -4,6 +4,7 @@ import logging
 import numpy as np
 
 from . import base_feature
+from .sdh import SDH
 from .. import agent, population, model
 
 
@@ -212,6 +213,11 @@ class Overdose(base_feature.BaseFeature):
             and self.agent.syringe_services.active
         ):
             prob *= getattr(params, "ssp_rr", 1.0)
+
+        # ---------- Hardship index (SDH feature, 2026-10-24) ----------
+        # Homeless PWID overdose more (NHBS 2018 aPR 1.64); relative and mean-preserving, so the fitted
+        # overdose level is kept and hardship decides who carries it.
+        prob *= SDH.risk_mult(self.agent, model.params, "overdose")
 
         prob = max(0.0, min(1.0, prob))
 

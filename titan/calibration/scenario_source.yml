@@ -439,6 +439,7 @@ scenario:
         visit_mult_moud: 0.55
         visit_mult_hiv_positive: 1.784
         visit_mult_uninsured: 1.25
+        visit_mult_hardship_per_point: 1.35
         n_providers_ri: 2145
         panel_skew: 0.16
         attrition_annual: 0.5
@@ -463,6 +464,7 @@ scenario:
         visit_mult_moud: 0.9
         visit_mult_hiv_positive: 1.09
         visit_mult_uninsured: 0.35
+        visit_mult_hardship_per_point: 0.85
         n_providers_ri: 1833
         panel_skew: 0.47
         attrition_annual: 0.3
@@ -487,6 +489,7 @@ scenario:
         visit_mult_moud: 1.81
         visit_mult_hiv_positive: 0.672
         visit_mult_uninsured: 0.6
+        visit_mult_hardship_per_point: 0.85
         n_providers_ri: 253
         panel_skew: 0.15
         attrition_annual: 0.6
@@ -511,6 +514,7 @@ scenario:
         visit_mult_moud: 0.68
         visit_mult_hiv_positive: 1.306
         visit_mult_uninsured: 0.4
+        visit_mult_hardship_per_point: 0.85
         n_providers_ri: 1928
         panel_skew: 0.19
         attrition_annual: 0.39
@@ -529,6 +533,40 @@ scenario:
         prep_referral_prob: 0.1
         prep_referral_return_prob: 0.25
   # <<< care_seeking <<<
+  sdh:
+    # Social determinants as agent state (2026-10-24, work record §19.39; proposal Table 2). Hardship index =
+    # count of unstable housing, food insecurity, unemployment on one latent (rho); sex work on the same latent.
+    # Marginals for people who inject: NHBS-PWID 2022, 20 cities (SSR 35): 69 % homeless in the past year, 52 %
+    # unemployed, 78 % at or below poverty (food insecurity itself is not asked; 0.60 ASSUMED, range 0.5-0.7);
+    # people who do not inject: ASSUMED lower (0.25 / 0.40 / 0.45; Rhode Island's RAPIDS cohort of people who use
+    # drugs, 59 % homeless in the prior month, to be verified). rho 0.35 from NHBS 2018 (unemployed 57 % vs 34 %
+    # by housing). Episodes end at 1/12 per month (mean one year, ASSUMED). Effects per index point: MOUD
+    # discontinuation x1.2 (unstable housing: 90-day retention OR 0.59, Damian 2017; cessation HR 1.09, Bharat
+    # 2021), PrEP discontinuation x1.2 (qualitative; Guy 2022 review), ART non-adherence x1.15 / re-adherence x0.85
+    # (food insecurity: viral suppression OR 0.71, Aibibula 2017). Sex work (exchange sex, past year): women who
+    # inject 0.31 (NHBS 2022; 36 % in 2018), MSM who inject 0.35 (NHBS 2018), other men who inject 0.08 (Walters
+    # 2021); non-injecting women 0.19 / men 0.06 (NHBS heterosexual cycle, Lipira 2023) ASSUMED for OUD;
+    # partner_mult 1.5 ASSUMED from the shift in partner numbers (4+ condomless partners 7.5 % vs 0.7 %, women);
+    # condom use unchanged (NHBS). Sensitivity: marginals and multipliers x0.5 / x2.
+    hardship:
+      rho: 0.35
+      episode_end_prob_per_month: 0.0833
+      prob_inj: {housing: 0.69, food: 0.60, employment: 0.52}
+      prob_noninj: {housing: 0.25, food: 0.40, employment: 0.45}
+      mult_per_point: {moud_discontinue: 1.2, prep_discontinue: 1.2, art_nonadherence: 1.15, art_readherence: 0.85}
+      # risk behaviours (Jun, 2026-10-24): relative per index point, mean-preserving. Sharing 1.15 (homeless PWID
+      # receptive sharing aPR 1.26 for one component), condomless sex 1.10 (ASSUMED), starting to inject 1.20
+      # (ASSUMED), overdose 1.25 (homeless PWID non-fatal overdose aPR 1.64 for one component). Sensitivity x0.5 / x2
+      # on the log scale, and mean_preserving false as a structural sensitivity.
+      risk_mult_per_point: {sharing: 1.15, condomless_sex: 1.10, inject_start: 1.20, overdose: 1.25}
+      mean_preserving: true
+    sex_work:
+      prob:
+        HF: {inj: 0.31, noninj: 0.19}
+        HM: {inj: 0.08, noninj: 0.06}
+        MSM: {inj: 0.35, noninj: 0.10}
+        MSMW: {inj: 0.35, noninj: 0.10}
+      partner_mult: 1.5
   outputs:
     # insured_states (2026-10-24, work record §19.34): every reported stat is split by insurance status so the
     # scorer, the contrast and the cash flow can read the insured agents' counts. Paired with features.insurance
@@ -562,6 +600,7 @@ scenario:
         - MSMW
   features:
     insurance: true  # insurance layer (2026-10-24, work record §19.34): a share of agents is uninsured
+    sdh: true  # SDH layer (2026-10-24, work record §19.39): hardship index (housing, food, employment) and sex work
     care_seeking: true  # care_seeking layer (scripts/make_care_seeking_params.py): the care-setting layer is on; MOUD, testing and PrEP run through encounters
     agent_zero: false
     exit_enter: true
@@ -626,11 +665,18 @@ scenario:
     # (Insurance.lose_prob = gain x u / (1 - u)), so the shares stay stationary whatever they are set to.
     # Access multipliers: MOUD 0.5, PrEP 0.3 (assistance programmes keep PrEP possible). Sensitivity range
     # for the shares: 0.5-2x. The reports split every stat by insurance status (outputs.classes below).
-    init_uninsured_prob_inj: 0.12
-    init_uninsured_prob_noninj: 0.06
+    # Rhode Island first (2026-10-24, later): the harm reduction surveillance system found 95 % of people who use
+    # drugs insured (RIHRSS 2021-22, N = 393, PMID 38153310), against 17 % uninsured nationally (NHBS-PWID 2022);
+    # Rhode Island adults 4.2 % (ACS 2022). Set to the Rhode Island figure; range 0.03-0.12.
+    init_uninsured_prob_inj: 0.06
+    init_uninsured_prob_noninj: 0.05
     gain_prob_per_month: 0.06
     moud_acceptance_mult: 0.5
     prep_acceptance_mult: 0.3
+    # ART (Jun, 2026-10-24): the uninsured start ART less and lapse more; relative and mean-preserving against the
+    # solved continuum rates. ASSUMED 0.8 / 1.15; Rhode Island's ADAP keeps the gap small. Sensitivity x0.5 / x2.
+    art_start_mult: 0.8
+    art_nonadherence_mult: 1.15
   incar:
     haart:
       adherence: 0.21
@@ -780,7 +826,7 @@ scenario:
     #     (PMID 23769234): 48.9% (9.6-72.2) overall, 70% (2.3-90.6) with
     #     detectable drug (case-control), 73.5% post hoc. 0.70 for consistent
     #     users; sensitivity 0.56-0.74.
-    target_model: [pwid, cdc_msm, cdc_women]
+    target_model: [pwid, cdc_msm, cdc_women, sex_work]  # sex_work: SDH layer, 2026-10-24
     efficacy:
       adherent: 0.99
       non_adherent: 0.0

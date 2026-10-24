@@ -759,6 +759,10 @@ class CareSeeking(base_feature.BaseFeature):
         if not getattr(self.agent, "insured", True):
             # insurance as agent state (2026-10-24): the uninsured visit less (or, in the ED, more)
             annual_rate *= float(getattr(setting, "visit_mult_uninsured", 1.0))
+        hardship = int(getattr(self.agent, "hardship", 0) or 0)
+        if hardship:
+            # hardship index (2026-10-24): each point multiplies the rate (office settings down, ED up)
+            annual_rate *= float(getattr(setting, "visit_mult_hardship_per_point", 1.0)) ** hardship
         return (annual_rate / steps_per_year) * self.visit_frailty.get(setting_name, 1.0)
 
     def stratified_multiplier(self, setting: "ObjMap") -> float:

@@ -71,6 +71,7 @@ prep:
       - oud_active
       - Racial
       - ssp
+      - sex_work
       - ssp_sex
     description: >-
       which models to use to determine who is enrolled in PrEP. Added
