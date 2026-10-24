@@ -187,7 +187,11 @@ ACCEPT_PREP = 0.40       # starts once discussed. Clinical review 2026-10-07 (Ph
 # agents per race x sex x drug stratum, weighted by the setting's encounters.
 # Cohort share 0.357 (all who inject; 26 % of those who do not, through a
 # partner who injects, is MSM or is diagnosed). Re-measure if the rule changes.
-PREP_INDICATED_SHARE = {"ED": 0.473, "primary_care": 0.384, "sud_treatment": 0.375, "mental_health": 0.430}
+# RE-MEASURED 2026-10-24 with `sex_work` in prep.target_model (SDH feature, work record §19.39): members
+# 391/423/448 status quo with insurance and SDH on, job 7907494, 8 populations x 10 replicates, 2022, same
+# recipe. Cohort share 0.438 (was 0.362 on the same runs with the old rule). Old values: ED 0.473,
+# primary care 0.384, SUD 0.375, mental health 0.430.
+PREP_INDICATED_SHARE = {"ED": 0.538, "primary_care": 0.462, "sud_treatment": 0.500, "mental_health": 0.489}
 # Test-and-offer bundle (2026-10-09, Jun / clinical review): PrEP raised at the
 # visit where an HIV test comes back negative, for a patient with an indication.
 #   PREP_BUNDLE_PROB_WILLING   P(PrEP raised | negative test, provider prescribes PrEP).
