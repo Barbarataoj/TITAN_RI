@@ -107,12 +107,13 @@ def test_visit_rate_uninsured_multiplier():
     assert cs.visit_rate(setting, "primary_care", 12) == pytest.approx(0.35 * insured_rate)
 
 
-def test_art_multipliers_are_relative_and_mean_preserving():
-    """ART hooks (Jun, 2026-10-24): the uninsured start ART less and lapse more, with the population average kept."""
+def test_art_multipliers_are_relative_and_mean_preserving(monkeypatch):
+    """ART hooks (Jun, 2026-10-24): the uninsured start ART less and lapse more, with the average among the
+    diagnosed (the agents the hooks act on) kept."""
     p = _params(init_uninsured_prob_inj=0.1)
     p.insurance.art_start_mult = 0.8
     p.insurance.art_nonadherence_mult = 1.15
-    Insurance.uninsured_share_now = 0.1
+    monkeypatch.setattr(Insurance, "uninsured_share_dx", 0.1)
     ins, un = _agent("Inj", p), _agent("Inj", p)
     un.insurance.set_status(False)
     norm = 0.9 + 0.1 * 0.8
@@ -121,4 +122,3 @@ def test_art_multipliers_are_relative_and_mean_preserving():
     assert 0.9 * Insurance.art_mult(ins, p, "art_start") + 0.1 * Insurance.art_mult(un, p, "art_start") == pytest.approx(1.0)
     assert Insurance.art_mult(un, p, "art_nonadherence") == pytest.approx(1.15 / (0.9 + 0.1 * 1.15))
     assert Insurance.art_mult(un, SimpleNamespace(features=SimpleNamespace(insurance=False), insurance=p.insurance), "art_start") == 1.0
-    Insurance.uninsured_share_now = 0.0

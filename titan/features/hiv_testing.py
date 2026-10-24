@@ -28,6 +28,7 @@ class HIVTesting(base_feature.BaseFeature):
 
     # Optional class-level counts by race / sex_type
     test_counts: ClassVar[Dict] = {}
+    steps_per_year: ClassVar[int] = 12      # cached in init_class for the stats hot path
 
     # =====================================================
     # Initialization
@@ -45,6 +46,7 @@ class HIVTesting(base_feature.BaseFeature):
             race: {sex: 0 for sex in params.classes.sex_types}
             for race in params.classes.races
         }
+        cls.steps_per_year = int(getattr(getattr(getattr(params, "model", None), "time", None), "steps_per_year", 12) or 12)
 
         testing_params = getattr(params, "hiv_testing", None)
         if testing_params is None:
@@ -364,7 +366,7 @@ class HIVTesting(base_feature.BaseFeature):
         # the December value is the share of people with a test in the year, the unit of the claims'
         # receipt tables; `_clinical` counts only tests at care encounters, which is what job 7a sees
         # (any claim line). Added 2026-10-24 for the receipt check; reporting only.
-        spy = int(getattr(getattr(getattr(self.agent.location.params, "model", None), "time", None), "steps_per_year", 12) or 12)
+        spy = self.steps_per_year
         year = (time - 1) // spy
         if self.last_test_time is not None and (self.last_test_time - 1) // spy == year:
             stats["hiv_tested_this_year"] += 1

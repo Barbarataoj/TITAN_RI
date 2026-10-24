@@ -1081,6 +1081,12 @@ def parse_basic_report(path, steps_per_year=STEPS_PER_YEAR, score_t_max=None):
     pwid_agents = pwid_last["agents"].sum()
     if pwid_agents > 0:
         stats["hiv_prevalence_pwid"] = float(pwid_last["hiv"].sum() / pwid_agents)
+    # APCD #25 is a claims prevalence (reported, not scored): on the insured rows when the feature is on.
+    # The injection share (RIHRSS, a community survey) and the RIDOH quantities stay on every row.
+    if ins:
+        claims_last = claims[(claims["t"] == last_t) & (claims["drug_type"] == "Inj")]
+        if claims_last["agents"].sum() > 0:
+            stats["hiv_prevalence_pwid"] = float(claims_last["hiv"].sum() / claims_last["agents"].sum())
 
     # ---------- NonInj MSM HIV prevalence (validation) ----------
     # Mean over the scored window. Added 2026-09-29 after the HIV grid found the

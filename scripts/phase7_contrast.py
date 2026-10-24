@@ -135,13 +135,25 @@ def per_rep_outcomes(report_path, t_min=1, t_max=None):
     if "insured_state" in df:
         claims = df[df["insured_state"] == "insured"]
         by_run_claims = claims.groupby("run_id")
-        out["insured_frac"] = by_run_claims["agents"].sum() / by_run_all["agents"].sum()
+        # the insured share on the scorer's definition (post-burn to the end of the calibration window), not
+        # the contrast window's: the scale maps the members the validator certified
+        cal = df[(df["t"] >= 1) & (df["t"] <= _calibration_t_max())]
+        out["insured_frac"] = (cal[cal["insured_state"] == "insured"].groupby("run_id")["agents"].sum()
+                               / cal.groupby("run_id")["agents"].sum())
         for col, name in activity:
             if col in df:
                 out[f"{name}_insured"] = by_run_claims[col].sum()
         out["overdose_events_insured"] = by_run_claims["overdose_events"].sum()
+        out["hiv_dx_new_insured"] = by_run_claims["hiv_dx_new"].sum()
+        out["hiv_dx_new_pwid_insured"] = claims[claims["drug_type"] == "Inj"].groupby("run_id")["hiv_dx_new"].sum()
     out["n_steps"] = df.groupby("run_id")["t"].nunique()
     return out
+
+
+def _calibration_t_max():
+    sys.path.insert(0, str(REPO))
+    from titan.calibration.optuna_calibration import CALIB_YAML, load_yaml, scoring_t_max  # noqa: E402
+    return int(scoring_t_max(load_yaml(CALIB_YAML)))
 
 
 def insured_scale(scale, reps, baseline, member=None):

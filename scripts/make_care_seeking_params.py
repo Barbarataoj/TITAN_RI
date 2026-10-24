@@ -410,13 +410,14 @@ def derive(verbose=True, test_linked=None):
     # measured directly, by year and by injection proxy, HIV-negative at the time of service. The people
     # tested in 2022 (1,499 of 12,774, 11.7 %) replace the whole-extract proxy (1,013) as the level the
     # office settings' receipt is solved to; the ED keeps its same-claim count (it bills its own labs).
-    import pandas as pd
     j7a = read_csv("job7a_hiv_test_any_claim.csv")
     j7a = j7a[(j7a.year == YEAR) & (j7a.group.isin(["overall", "injection_proxy"]))]
     any_claim = {str(r.group_value): float(pd.to_numeric(r.n_tested_any_claim, errors="coerce")) for r in j7a.itertuples()}
     any_claim_n = {str(r.group_value): float(r.n_cohort) for r in j7a.itertuples()}
     if abs(any_claim_n["all"] - COHORT_2022) > 0.5:
         raise RuntimeError(f"job7a's 2022 cohort ({any_claim_n['all']:.0f}) is not COHORT_2022 ({COHORT_2022})")
+    if any(v != v for v in any_claim.values()):        # a suppressed cell reads as NaN: refuse, never write NaN intensities
+        raise RuntimeError(f"job7a {YEAR} has a suppressed cell in n_tested_any_claim: {any_claim}")
     expected_tested = any_claim["all"]
     any_claim_share = {k: any_claim[k] / any_claim_n[k] for k in any_claim}
     same_claim_any = int(b22[b22.stratum_type == "overall"].n_with_lab_test_any_setting.iloc[0])

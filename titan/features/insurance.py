@@ -31,11 +31,11 @@ class Insurance(base_feature.BaseFeature):
 
     name = "insurance"
     stats: List[str] = []      # reported through the insured_states output class instead
-    uninsured_share_now: float = 0.0    # population uninsured share, refreshed each month: the ART multipliers' normaliser
+    uninsured_share_dx: float = 0.0     # uninsured share among diagnosed agents, refreshed monthly: the ART multipliers' normaliser
 
     @classmethod
     def init_class(cls, params):
-        cls.uninsured_share_now = 0.0
+        cls.uninsured_share_dx = 0.0
 
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
@@ -80,9 +80,11 @@ class Insurance(base_feature.BaseFeature):
         n = unins = 0
         for a in model.pop.all_agents:
             a.insurance.churn(model, params, gain)
-            n += 1
-            unins += 0 if a.insured else 1
-        cls.uninsured_share_now = unins / n if n else 0.0
+            hiv = getattr(a, "hiv", None)
+            if hiv is not None and getattr(hiv, "dx", False):       # the ART hooks act on diagnosed agents
+                n += 1
+                unins += 0 if a.insured else 1
+        cls.uninsured_share_dx = unins / n if n else 0.0
 
     def churn(self, model: "model.TITAN", params, gain: float):
         """One agent's monthly draw: the insured may lose coverage, the uninsured may regain it."""
@@ -104,7 +106,7 @@ class Insurance(base_feature.BaseFeature):
         m = float(getattr(getattr(params, "insurance", None), f"{hook}_mult", 1.0) or 1.0)
         if m == 1.0:
             return 1.0
-        u = cls.uninsured_share_now
+        u = cls.uninsured_share_dx
         raw = m if not getattr(agent, "insured", True) else 1.0
         return raw / (1.0 - u + u * m)
 

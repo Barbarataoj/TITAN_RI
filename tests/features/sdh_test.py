@@ -16,8 +16,11 @@ def _params(rho=0.0, q=0.0, inj=None, noninj=None, sw=None, mults=None, partner_
                                                              ("moud_discontinue", "prep_discontinue", "art_nonadherence", "art_readherence")}))
     prob = {st: SimpleNamespace(inj=sw.get(st, (0.0, 0.0))[0], noninj=sw.get(st, (0.0, 0.0))[1]) for st in ("HF", "HM", "MSM", "MSMW")}
     bonds = {"Sex": SimpleNamespace(acts_allowed=["sex"]), "Inj": SimpleNamespace(acts_allowed=["injection"])}
+    hard.risk_mult_per_point = SimpleNamespace(sharing=1.0, condomless_sex=1.0, inject_start=1.0, overdose=1.0)
+    hard.mean_preserving = True
     return SimpleNamespace(sdh=SimpleNamespace(hardship=hard, sex_work=SimpleNamespace(prob=prob, partner_mult=partner_mult)),
-                           features=SimpleNamespace(sdh=on), classes=SimpleNamespace(bond_types=bonds))
+                           features=SimpleNamespace(sdh=on), classes=SimpleNamespace(bond_types=bonds),
+                           care_seeking=SimpleNamespace(setting={}))
 
 
 def _agent(drug_type="Inj", sex_type="HF", params=None, partners=2):
@@ -86,32 +89,58 @@ def test_churn_moves_states_but_keeps_the_marginals():
     assert sum(a.sex_work for a in agents) / len(agents) == pytest.approx(0.31, abs=0.015)
 
 
-def test_multipliers_compound_per_point_and_vanish_when_off():
+def test_care_multipliers_are_relative_within_the_treated_group():
     p = _params(mults={"moud_discontinue": 1.2, "art_readherence": 0.85})
-    a = _agent(params=p); a.hardship = 2
-    assert SDH.mult(a, p, "moud_discontinue") == pytest.approx(1.44)
-    assert SDH.mult(a, p, "art_readherence") == pytest.approx(0.85 ** 2)
-    assert SDH.mult(a, p, "prep_discontinue") == 1.0
-    assert SDH.mult(a, _params(mults={"moud_discontinue": 1.2}, on=False), "moud_discontinue") == 1.0
+    agents = [_agent(params=p) for _ in range(4)]
+    for a, k, on_moud in zip(agents, [0, 1, 2, 3], [True, True, True, False]):
+        a.hardship = k; a.moud = SimpleNamespace(active=on_moud)
+    SDH.refresh_norms(agents, p)
+    norm = (1.2 ** 0 + 1.2 ** 1 + 1.2 ** 2) / 3          # over the three agents on MOUD only
+    assert SDH.mult(agents[2], p, "moud_discontinue") == pytest.approx(1.44 / norm)
+    assert SDH.mult(agents[0], p, "moud_discontinue") == pytest.approx(1 / norm)
+    assert SDH.mult(agents[2], p, "prep_discontinue") == 1.0                     # multiplier 1: no effect
+    p.sdh.hardship.mean_preserving = False
+    assert SDH.mult(agents[2], p, "moud_discontinue") == pytest.approx(1.44)
+    assert SDH.mult(agents[2], _params(mults={"moud_discontinue": 1.2}, on=False), "moud_discontinue") == 1.0
 
 
-def test_sex_work_scales_sexual_partners_once_at_entry():
+def test_sex_work_scales_sexual_partners_while_the_state_holds():
     p = _params(sw={"HF": (1.0, 1.0)}, partner_mult=1.5)
     a = _agent("Inj", "HF", p, partners=2); a.sdh.init_agent(Pop(1), 0)
     assert a.sex_work and a.mean_num_partners["Sex"] == 3 and a.target_partners["Sex"] == 3 and a.mean_num_partners["Inj"] == 1
     b = _agent("Inj", "HF", p, partners=0); b.sdh.init_agent(Pop(1), 0)
     assert b.sex_work and b.mean_num_partners["Sex"] == 0
+    # stochastic rounding: one partner x 1.5 is 1 or 2, averaging 1.5
+    ns = []
+    for seed in range(400):
+        c = _agent("Inj", "HF", p, partners=1); c.sdh.init_agent(Pop(seed), 0); ns.append(c.mean_num_partners["Sex"])
+    assert set(ns) == {1, 2} and sum(ns) / len(ns) == pytest.approx(1.5, abs=0.08)
+    # leaving sex work restores the base; re-entering scales again
+    q = _params(sw={"HF": (0.5, 0.5)}, partner_mult=2.0, q=1.0, rho=0.0)
+    d = _agent("Inj", "HF", q, partners=2); d.sdh.init_agent(Pop(5), 0)
+    seen = {d.sex_work: d.mean_num_partners["Sex"]}
+    model = SimpleNamespace(params=q, run_random=random.Random(9), pop=SimpleNamespace(all_agents=[d]))
+    for _ in range(40):
+        SDH.update_pop(model); seen[d.sex_work] = d.mean_num_partners["Sex"]
+    assert seen == {True: 4, False: 2}
 
 
-def test_visit_rate_hardship_multiplier():
+def test_visit_rate_hardship_multiplier_is_relative_within_insured_agents_of_the_drug_type():
     setting = SimpleNamespace(visit_rate_annual=12.0, visit_mult_hardship_per_point=0.85, visit_mult_uninsured=1.0,
                               visit_mult_moud=1.0, visit_mult_inj=1.0, visit_mult_hiv_positive=1.0)
-    a = SimpleNamespace(drug_type="NonInj", insured=True, hardship=0, hiv=SimpleNamespace(active=False), moud=SimpleNamespace(active=False),
-                        location=SimpleNamespace(params=SimpleNamespace(care_seeking=SimpleNamespace(setting={"primary_care": setting}))))
-    cs = CareSeeking(a); cs.visit_frailty = {"primary_care": 1.0}
-    base = cs.visit_rate(setting, "primary_care", 12)
-    a.hardship = 3
-    assert cs.visit_rate(setting, "primary_care", 12) == pytest.approx(0.85 ** 3 * base)
+    p = _params(); p.care_seeking = SimpleNamespace(setting={"primary_care": setting})
+    def mk(k, insured=True, dt="NonInj"):
+        return SimpleNamespace(drug_type=dt, insured=insured, hardship=k, hiv=SimpleNamespace(active=False),
+                               moud=SimpleNamespace(active=False), location=SimpleNamespace(params=p))
+    agents = [mk(0), mk(2), mk(3, insured=False), mk(3, dt="Inj")]
+    SDH.refresh_norms(agents, p)
+    norm = (0.85 ** 0 + 0.85 ** 2) / 2                 # insured NonInj agents only
+    cs = CareSeeking(agents[1]); cs.visit_frailty = {"primary_care": 1.0}
+    rate_k2 = cs.visit_rate(setting, "primary_care", 12)
+    cs0 = CareSeeking(agents[0]); cs0.visit_frailty = {"primary_care": 1.0}
+    rate_k0 = cs0.visit_rate(setting, "primary_care", 12)
+    assert rate_k2 / rate_k0 == pytest.approx(0.85 ** 2)
+    assert rate_k0 == pytest.approx(1.0 / norm)          # 12 a year / 12 steps, divided by the group mean
 
 
 def test_stats_count_levels_and_sex_work():
@@ -125,18 +154,21 @@ def test_registered_after_insurance_and_before_the_care_layer():
     assert subs.index(Insurance) < subs.index(SDH) < subs.index(CareSeeking)
 
 
-def test_risk_multipliers_are_relative_and_mean_preserving():
-    """Risk hooks (Jun, 2026-10-24): m^k over the population mean of m^k, so the average behaviour is unchanged."""
+def test_risk_multipliers_are_relative_and_mean_preserving_within_the_drug_type():
+    """Risk hooks (Jun, 2026-10-24): m^k over the mean of m^k in the agent's drug type, so the average behaviour of
+    the group the hook acts on is unchanged."""
     p = _params(inj={"housing": 0.69})
     p.sdh.hardship.risk_mult_per_point = SimpleNamespace(sharing=1.15, condomless_sex=1.0, inject_start=1.2, overdose=1.25)
     p.sdh.hardship.mean_preserving = True
-    agents = [_agent(params=p) for _ in range(10)]
-    for a, k in zip(agents, [0, 0, 0, 1, 1, 1, 2, 2, 3, 3]):
+    agents = [_agent(params=p) for _ in range(10)] + [_agent("NonInj", params=p) for _ in range(3)]
+    for a, k in zip(agents, [0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 0, 0, 3]):
         a.hardship = k
     SDH.refresh_norms(agents, p)
-    mults = [SDH.risk_mult(a, p, "sharing") for a in agents]
-    assert sum(mults) / len(mults) == pytest.approx(1.0)
+    mults = [SDH.risk_mult(a, p, "sharing") for a in agents[:10]]
+    assert sum(mults) / len(mults) == pytest.approx(1.0)                     # within Inj
     assert mults[9] / mults[0] == pytest.approx(1.15 ** 3)
+    non = [SDH.risk_mult(a, p, "inject_start") for a in agents[10:]]
+    assert sum(non) / len(non) == pytest.approx(1.0)                         # within NonInj, its own mean
     assert SDH.risk_mult(agents[9], p, "condomless_sex") == 1.0           # multiplier 1: no effect, no normalisation
     p.sdh.hardship.mean_preserving = False
     assert SDH.risk_mult(agents[9], p, "overdose") == pytest.approx(1.25 ** 3)
