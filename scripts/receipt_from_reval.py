@@ -6,7 +6,7 @@ every member. Nothing here is fitted.
 
   clinic_tested_insured   clinic-visible people tested in 2022 on the insured rows   job 7a 0.117
   tests_per_pwid_yr       HIV tests per injecting person-year                        NHBS 0.60
-  insured_frac, dx_among_hiv                                                         0.949 / CDC 0.96
+  insured_frac, dx_among_hiv                                                         0.949 / RIDOH all PWH 0.932 (CDC PWID national 0.96)
   housing_share, housing_share_pwid   agent-months with the housing component        TEDS-A RI 15.5 % inj / 6.9 % non-inj at admission (upper), SUDORS-derived 2-4 %
   od_deaths_homeless_share   overdose deaths of agents homeless at the time          RI SUDORS 2020-22: 5.4 % of opioid decedents
   hiv_acq_ratio_pwid      new infections per person-month, homeless vs housed PWID   Arum 2021 aRR 1.39 (crude 1.55)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     print(f"\nper member ({len(per)} members; counts summed over draws and populations): median [min, max]; pooled over members")
     for c in per.columns:
         print(f"  {c:26s} {per[c].median():.4f} [{per[c].min():.4f}, {per[c].max():.4f}]   pooled {pooled[c]:.4f}")
-    print("targets: clinic_tested_insured 0.117; tests_per_pwid_yr 0.60; insured 0.949; dx_among_hiv 0.96; od_deaths_homeless_share 0.054 (SUDORS);"
+    print("targets: clinic_tested_insured 0.117; tests_per_pwid_yr 0.60; insured 0.949; dx_among_hiv 0.932 (RIDOH, all PWH; CDC PWID national 0.96); od_deaths_homeless_share 0.054 (SUDORS);"
           " hiv_acq_ratio_pwid 1.39 (Arum aRR; crude 1.55); adherent_or_housing ~0.38 (suppression OR); housing_share_pwid 0.02-0.155")
     print("\nSE over member ratios (sd/sqrt(n)):"); print((per.std(ddof=1) / np.sqrt(len(per))).round(4).to_string())
     per.to_csv(f"{OUT}/receipt_by_member.csv"); counts.to_csv(f"{OUT}/receipt_counts_by_member.csv"); r.to_csv(f"{OUT}/receipt_per_run.csv", index=False)
