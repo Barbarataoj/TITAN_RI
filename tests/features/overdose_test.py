@@ -275,7 +275,14 @@ def test_nonfatal_event_records_survivor_moud_status():
     on.overdose.set_stats(stats, 7)
     off.overdose.set_stats(stats, 7)
     assert stats == {"overdose_events": 2, "overdose_deaths": 0,
-                     "od_survivors_on_moud": 1, "od_survivors_off_moud": 1}
+                     "od_survivors_on_moud": 1, "od_survivors_off_moud": 1,
+                     "overdose_events_housing": 0, "overdose_deaths_housing": 0}
+    # the housing receipt counts the events of agents homeless at the time (SDH feature)
+    on.hardship_on = ("housing",)
+    stats = {k: 0 for k in Overdose.stats}
+    on.overdose.set_stats(stats, 7)
+    off.overdose.set_stats(stats, 7)
+    assert stats["overdose_events_housing"] == 1 and stats["overdose_deaths_housing"] == 0 and stats["overdose_events"] == 2
 
 
 @pytest.mark.unit

@@ -29,7 +29,10 @@ class Overdose(base_feature.BaseFeature):
              # Nonfatal events split by the survivor's MOUD status at the event,
              # added 2026-10-01 for the post-overdose linkage diagnostic (APCD
              # job 2b: 13-20% of RI survivors have any MOUD within 30 days).
-             "od_survivors_on_moud", "od_survivors_off_moud"]
+             "od_survivors_on_moud", "od_survivors_off_moud",
+             # Events and deaths of agents homeless at the time (SDH feature; housing receipt against RI SUDORS
+             # 5.4 % of opioid decedents homeless, work record §19.47). Zero when the feature is off.
+             "overdose_events_housing", "overdose_deaths_housing"]
 
     # Class-level cumulative counts
     event_counts: ClassVar[Dict] = {}
@@ -261,6 +264,9 @@ class Overdose(base_feature.BaseFeature):
             stats["overdose_events"] += self.events_this_step
         if self.deaths_this_step:
             stats["overdose_deaths"] += self.deaths_this_step
+        if "housing" in getattr(self.agent, "hardship_on", ()):
+            stats["overdose_events_housing"] += self.events_this_step
+            stats["overdose_deaths_housing"] += self.deaths_this_step
         if getattr(self, "survivors_on_moud_this_step", 0):
             stats["od_survivors_on_moud"] += self.survivors_on_moud_this_step
         if getattr(self, "survivors_off_moud_this_step", 0):

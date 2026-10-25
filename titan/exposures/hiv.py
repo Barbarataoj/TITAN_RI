@@ -22,6 +22,9 @@ class HIV(base_exposure.BaseExposure):
         "hiv_dx_new_sex",
         "hiv_new_background",
         "hiv_dx_new_background",
+        # New infections of agents homeless at the time (SDH feature; housing receipt against the Arum 2021
+        # acquisition ratio among PWID, with hardship_housing as the person-months; work record §19.47).
+        "hiv_new_housing",
         # Expected infections (2026-10-09): the sum, over every exposure of a
         # susceptible agent this step, of the probability of conversion the
         # engine then rolled -- the hazard, before the coin flip. Its total
@@ -409,6 +412,8 @@ class HIV(base_exposure.BaseExposure):
                 stats["hiv_new"] += 1
                 if suffix:
                     stats[f"hiv_new{suffix}"] += 1
+                if "housing" in getattr(self.agent, "hardship_on", ()):
+                    stats["hiv_new_housing"] += 1
             if self.aids:
                 stats["hiv_aids"] += 1
             if self.dx:

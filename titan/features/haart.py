@@ -15,7 +15,8 @@ class HAART(base_feature.BaseFeature):
     """
 
     name = "haart"
-    stats = ["haart", "haart_adherent"]
+    stats = ["haart", "haart_adherent",
+             "haart_housing", "haart_adherent_housing"]
     """
         HAART collects the following stats:
 
@@ -147,6 +148,10 @@ class HAART(base_feature.BaseFeature):
             stats["haart"] += 1
             if self.adherent:
                 stats["haart_adherent"] += 1
+            if "housing" in getattr(self.agent, "hardship_on", ()):      # housing receipt (work record §19.47)
+                stats["haart_housing"] += 1
+                if self.adherent:
+                    stats["haart_adherent_housing"] += 1
 
     def get_transmission_risk_multiplier(self, time: int, interaction_type: str, adherent=None):
         """
