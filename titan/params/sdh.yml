@@ -5,7 +5,8 @@ sdh:
   #     latent propensity per agent (Gaussian copula, correlation `rho`) so the three correlate as they do in
   #     NHBS-PWID, with episodes that end at `episode_end_prob_per_month` and are re-drawn (marginals stay
   #     exact, correlation persists). Effects are multiplicative per index point on office visits (care_seeking
-  #     setting `visit_mult_hardship_per_point`), MOUD and PrEP discontinuation and ART adherence transitions.
+  #     setting `visit_mult_hardship_<component>`), MOUD and PrEP discontinuation and ART adherence transitions; since 2026-10-25
+  #     (work record §19.46) each component carries its own multiplier per behaviour (product form).
   #   * SEX WORK (exchange sex in the past year), by sex type and injecting, on the same latent: raises the
   #     sexual partner number at initialisation and is a PrEP indication (prep.target_model `sex_work`).
   # Every default is neutral (no one in hardship, no sex work, multipliers 1), which reproduces the model
@@ -31,24 +32,50 @@ sdh:
       housing: {default: 0.0, type: float, min: 0.0, max: 1.0, description: "As prob_inj, for agents whose drug_type is NonInj."}
       food: {default: 0.0, type: float, min: 0.0, max: 1.0}
       employment: {default: 0.0, type: float, min: 0.0, max: 1.0}
-    risk_mult_per_point:
+    risk_mult:
       # Risk behaviours (Jun, 2026-10-24: the determinants must reach sexual behaviour, injecting and HIV, not
-      # only care). Each is a RELATIVE multiplier per index point, m^k, divided by the population mean of m^k
-      # each month (mean-preserving), so the calibrated or anchored population average of the behaviour is
-      # kept and the determinants decide who carries the risk.
-      sharing: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the per-act probability of unsafe (shared) injection."}
-      condomless_sex: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the per-act probability of condomless sex."}
-      inject_start: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the monthly probability that a non-injecting agent in active use starts injecting."}
-      overdose: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier per index point on the monthly overdose probability."}
+      # only care). Component-specific since 2026-10-25 (work record §19.46): an agent's multiplier is the PRODUCT
+      # over the components present of that component's m (housing, food, employment), divided each month by the
+      # mean of the product over the agents the hook acts on (mean_preserving), so the calibrated or anchored
+      # population average of the behaviour is kept and the determinants decide who carries the risk. With equal
+      # m across components the form is the former m^k per index point. 1.0 = no evidence for that cell.
+      housing:
+        sharing: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the per-act probability of unsafe (shared) injection while homeless."}
+        condomless_sex: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the per-act probability of condomless sex while homeless."}
+        inject_start: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly probability that a non-injecting agent in active use starts injecting while homeless."}
+        overdose: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly overdose probability while homeless."}
+      food:
+        sharing: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the per-act probability of unsafe (shared) injection while food insecure."}
+        condomless_sex: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the per-act probability of condomless sex while food insecure."}
+        inject_start: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly probability that a non-injecting agent in active use starts injecting while food insecure."}
+        overdose: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly overdose probability while food insecure."}
+      employment:
+        sharing: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the per-act probability of unsafe (shared) injection while unemployed."}
+        condomless_sex: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the per-act probability of condomless sex while unemployed."}
+        inject_start: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly probability that a non-injecting agent in active use starts injecting while unemployed."}
+        overdose: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly overdose probability while unemployed."}
     mean_preserving:
       default: true
       description: "Divide each risk multiplier by its current population mean so the population average is unchanged (true, the default) or apply it raw (false; the fit then moves)."
       type: boolean
-    mult_per_point:
-      moud_discontinue: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the monthly MOUD discontinuation probability per index point (applied as m^k)."}
-      prep_discontinue: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the monthly PrEP discontinuation probability per index point."}
-      art_nonadherence: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the adherent -> non-adherent ART transition per index point."}
-      art_readherence: {default: 1.0, type: float, min: 0.0, description: "Multiplier on the non-adherent -> adherent ART transition per index point (below 1 slows re-adherence)."}
+    care_mult:
+      # Care transitions, same product form and normalisation as risk_mult (over the agents on the treatment;
+      # adherent / non-adherent agents on ART for the two ART transitions).
+      housing:
+        moud_discontinue: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly MOUD discontinuation probability while homeless."}
+        prep_discontinue: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly PrEP discontinuation probability while homeless."}
+        art_nonadherence: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the adherent -> non-adherent ART transition while homeless."}
+        art_readherence: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the non-adherent -> adherent ART transition (below 1 slows re-adherence) while homeless."}
+      food:
+        moud_discontinue: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly MOUD discontinuation probability while food insecure."}
+        prep_discontinue: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly PrEP discontinuation probability while food insecure."}
+        art_nonadherence: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the adherent -> non-adherent ART transition while food insecure."}
+        art_readherence: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the non-adherent -> adherent ART transition (below 1 slows re-adherence) while food insecure."}
+      employment:
+        moud_discontinue: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly MOUD discontinuation probability while unemployed."}
+        prep_discontinue: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the monthly PrEP discontinuation probability while unemployed."}
+        art_nonadherence: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the adherent -> non-adherent ART transition while unemployed."}
+        art_readherence: {default: 1.0, type: float, min: 0.0, description: "Relative multiplier on the non-adherent -> adherent ART transition (below 1 slows re-adherence) while unemployed."}
   sex_work:
     prob:
       type: sub-dict
@@ -62,3 +89,8 @@ sdh:
       description: "Relative partner-number multiplier for sex work: an agent in sex work has partner_mult times the sexual partners of one who is not, within the unchanged mean of its sex type x injecting group (factor m / (1 + p (m - 1)) in sex work, 1 / (1 + p (m - 1)) otherwise, p the group marginal; stochastic rounding on the agent's drawn base). 1.0 = no redistribution."
       type: float
       min: 0.0
+    prep_indication_months:
+      default: 12
+      description: "Months after an agent's last month in sex work during which it counts as a PrEP indication (`sex_work` in prep.target_model, flag agent.sex_work_recent refreshed monthly by the SDH feature): 12 = exchange sex in the past year, as the NHBS item and the CDC indication are defined; 1 = the current month only (the 2026-10-24 rule)."
+      type: int
+      min: 0

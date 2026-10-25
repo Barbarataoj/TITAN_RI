@@ -678,9 +678,10 @@ class Prep(base_feature.BaseFeature):
             if self.agent.drug_type == "Inj" and self.cdc_eligible():
                 return True
 
-        # exchange sex in the past year (SDH feature, 2026-10-24): a CDC indication for PrEP
+        # exchange sex in the past sdh.sex_work.prep_indication_months months (SDH feature, 2026-10-24; the window
+        # since 2026-10-25, work record §19.46): a CDC indication for PrEP. The SDH feature refreshes the flag monthly.
         if "sex_work" in target_model:
-            if getattr(self.agent, "sex_work", False):
+            if getattr(self.agent, "sex_work_recent", False):
                 return True
 
         if "pwid" in target_model:

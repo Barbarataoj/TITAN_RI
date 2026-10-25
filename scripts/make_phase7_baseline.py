@@ -200,7 +200,7 @@ def overlay_care_layer(scenario):
               "prep_bundle_prob", "prep_same_day_prob", "prep_deferred_return_prob",
               "prep_referral_prob", "prep_referral_return_prob",
               "visit_mult_uninsured",        # insurance layer (2026-10-24): an input, never fitted
-              "visit_mult_hardship_per_point")   # SDH layer (2026-10-24): likewise
+              "visit_mult_hardship_housing", "visit_mult_hardship_food", "visit_mult_hardship_employment")   # SDH layer (2026-10-24/25): likewise
     for name, fields in settings_src.items():
         target = settings.setdefault(name, {})
         for k, v in fields.items():

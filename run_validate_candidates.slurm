@@ -35,7 +35,14 @@ module load python/3.9
 
 source /oscar/data/jtao9/envs/titan_env/bin/activate
 
-cd /oscar/data/jtao9/TITAN_RI
+# Run from the directory the job was submitted from (the FROZEN WORKTREE of a committed revision, process rule of
+# 2026-10-24), never from a hard-coded repository path: with `python -m` the current directory is first on sys.path,
+# so the code that runs is the code in the worktree. Until 2026-10-25 this line was `cd /oscar/data/jtao9/TITAN_RI`,
+# which made every "worktree" validation run the main tree; edits there broke 9 of 16 re-validation shards
+# (work record §19.47) and the 2026-10-24 re-validation before it.
+cd "${TITAN_RUN_DIR:-${SLURM_SUBMIT_DIR}}"
+echo "Running from $(pwd) ($(git rev-parse --short HEAD 2>/dev/null))"
+python -c "import titan, sys; print('titan from', titan.__file__)"
 
 export TITAN_VAL_TRIALS=${TITAN_VAL_TRIALS:-3404,349,1988,2945,3087,1628,1126,2439,2811,2181,2812,988,3178,2256,1330,934,1429,2401,3374,3709}
 export TITAN_VAL_SEEDS=${TITAN_VAL_SEEDS:-5}

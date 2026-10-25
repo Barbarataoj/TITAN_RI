@@ -309,10 +309,15 @@ FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00338 + 0.00029 +
 # Finkelstein, Health Aff 2017, doi:10.1377/hlthaff.2017.0218); office ratio about a third (MEPS); SUD and
 # mental-health values are assumptions bracketed by x0.5 / x2 (registry).
 VISIT_MULT_UNINSURED = {"ED": 1.0, "primary_care": 0.35, "sud_treatment": 0.60, "mental_health": 0.40}
-# Hardship index (SDH feature, 2026-10-24, work record §19.39): per index point (0-3), applied as m^k. ASSUMPTIONS:
-# direction from Aidala 2016 (housing and HIV care use) and the ALIVE cohort (ED admissions about 2.5x during
-# homelessness, Drug Alcohol Depend 2026); three points give office visits x0.61 and ED visits x2.46.
-VISIT_MULT_HARDSHIP = {"ED": 1.35, "primary_care": 0.85, "sud_treatment": 0.85, "mental_health": 0.85}
+# Hardship components (SDH feature, 2026-10-24; component-specific 2026-10-25, work record §19.46): relative
+# multipliers on the setting's visit rate while homeless / food insecure / unemployed, product form, mean-preserving
+# over the insured agents of the drug type. Housing: ED visits about 2.5x during homelessness (ALIVE cohort, Drug
+# Alcohol Depend 2026; registry) -> 2.49; office settings 0.85 (ASSUMPTION, direction from Aidala 2016; sensitivity
+# 0.7-1.0). Food and employment 1.0: no quantitative evidence for visit rates.
+VISIT_MULT_HARDSHIP = {"ED": {"housing": 2.49, "food": 1.0, "employment": 1.0},
+                       "primary_care": {"housing": 0.85, "food": 1.0, "employment": 1.0},
+                       "sud_treatment": {"housing": 0.85, "food": 1.0, "employment": 1.0},
+                       "mental_health": {"housing": 0.85, "food": 1.0, "employment": 1.0}}
 NONCLINICAL_TESTING_NONINJ = 0.20        # 2026-10-12 (Jun): past-year testing ~27 % with the clinic route; Ahrens 2023 PMID 36594172 (Medicaid MOUD initiators, 11 states: HIV test within 90 days 20 % 2016 -> 25 % 2019), Meade 2009 PMID 19444732 (33 % non-injecting vs 71 % injecting); range 0.10-0.30; -1 = PWID rate
 NONCLINICAL_TESTING_INITIAL = 0.31      # PINNED (calibration_targets.yml anchored_parameters; set_anchored_parameters overwrites this at every materialisation). 0.31 since 2026-10-24 (work record §19.37): with the care layer at job 7a's any-claim level the clinics supply ~0.24 tests/PWID-yr, this route -ln(1-0.31) = 0.37, total 0.604 measured vs NHBS 0.60. Was 0.38 (2026-10-07 to 10-24: 0.48 + ~0.14 = 0.62)
 
@@ -486,7 +491,7 @@ def derive(verbose=True, test_linked=None):
         rate = cohort_rate / e_mult
         say(f"visit_rate_annual (reference group) = {cohort_rate:.3f} / E[multiplier over the cohort] {e_mult:.3f} = {rate:.3f}")
         say(f"visit_mult_uninsured = {VISIT_MULT_UNINSURED[s]}  [literature-bounded, insurance layer 2026-10-24/25; registry]")
-        say(f"visit_mult_hardship_per_point = {VISIT_MULT_HARDSHIP[s]}  [assumption, SDH layer 2026-10-24; registry]")
+        say(f"visit_mult_hardship = {VISIT_MULT_HARDSHIP[s]}  [SDH layer; housing ALIVE 2.5x ED, office 0.85 assumption; registry]")
 
         n_prov = int(q1[(q1.year == YEAR) & (q1.setting == s)].n_providers.iloc[0])
         say(f"n_providers_ri = {n_prov}  [APCD job4_q1]")
@@ -528,7 +533,7 @@ def derive(verbose=True, test_linked=None):
             "visit_mult_moud": REGISTRY_7_2["visit_mult_moud"][s],
             "visit_mult_hiv_positive": round(mult_hiv, 3),
             "visit_mult_uninsured": VISIT_MULT_UNINSURED[s],
-            "visit_mult_hardship_per_point": VISIT_MULT_HARDSHIP[s],
+            **{f"visit_mult_hardship_{c}": v for c, v in VISIT_MULT_HARDSHIP[s].items()},
             "n_providers_ri": n_prov,
             "panel_skew": REGISTRY_7_2["panel_skew"][s],
             "attrition_annual": REGISTRY_7_2["attrition_annual"][s],

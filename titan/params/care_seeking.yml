@@ -110,9 +110,19 @@ care_seeking:
         description: "Multiplier on visit_rate_annual for agents with active HIV in this setting. Part of the APCD-requested stratification by HIV status; 1.0 (default) means no adjustment."
         default: 1.0
         min: 0.0
-      visit_mult_hardship_per_point:
+      visit_mult_hardship_housing:
         default: 1.0
-        description: "Multiplier on the annual visit rate per hardship-index point (applied as m^k, k = 0..3; insurance and SDH layers, 2026-10-24). Below 1 for office settings, above 1 for the ED."
+        description: "Relative multiplier on the annual visit rate in this setting while homeless (product form with visit_mult_hardship_food / _employment; mean-preserving over the insured agents of the drug type; SDH layer 2026-10-24, component-specific 2026-10-25). Above 1 for the ED, below 1 for office settings."
+        type: float
+        min: 0.0
+      visit_mult_hardship_food:
+        default: 1.0
+        description: "As visit_mult_hardship_housing, while food insecure."
+        type: float
+        min: 0.0
+      visit_mult_hardship_employment:
+        default: 1.0
+        description: "As visit_mult_hardship_housing, while unemployed."
         type: float
         min: 0.0
       visit_mult_uninsured:

@@ -11,6 +11,13 @@ RISK_HOOKS = ("sharing", "condomless_sex", "inject_start", "overdose")
 CARE_HOOKS = ("moud_discontinue", "prep_discontinue", "art_nonadherence", "art_readherence")
 
 
+class _Table:
+    """A small attribute bag (component -> value) for the visit multipliers read off a setting."""
+
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
 def _phi(z: float) -> float:
     """Standard normal CDF."""
     return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
@@ -28,8 +35,11 @@ class SDH(base_feature.BaseFeature):
     the correlation persists through z0. Sex work (`agent.sex_work`) is a fourth component on the same
     latent with its own marginal by sex type and injecting status.
 
-    Every effect is a RELATIVE multiplier per index point, m^k, divided each month by the mean of m^k
-    over the agents the hook acts on (`mean_preserving`): risk hooks by drug type (sharing, condomless
+    Every effect is a RELATIVE multiplier: the product, over the components the agent has, of that
+    component's multiplier for the behaviour (`risk_mult`, `care_mult`, the settings' `visit_mult_hardship_<component>`;
+    component-specific since 2026-10-25, work record §19.46 -- with equal values it is the former m^k per
+    index point), divided each month by the mean of the product over the agents the hook acts on
+    (`mean_preserving`): risk hooks by drug type (sharing, condomless
     sex, starting to inject, overdose); the visit multiplier over the INSURED agents of the drug type,
     per setting (the claims-solved rates describe insured members); MOUD and PrEP discontinuation over
     the agents on them; the ART transitions over the adherent / non-adherent agents on ART. The
@@ -39,14 +49,16 @@ class SDH(base_feature.BaseFeature):
     so an agent in sex work has `partner_mult` times the partners of one who is not, within the group's
     unchanged mean -- factor m / (1 + p (m - 1)) in sex work and 1 / (1 + p (m - 1)) otherwise, with p
     the group's sex-work marginal (sex type x injecting status), stochastic rounding on the agent's drawn
-    base -- and sex work is a PrEP indication (`sex_work` in prep.target_model).
+    base -- and sex work in the past `sex_work.prep_indication_months` months is a PrEP indication
+(`sex_work` in prep.target_model; `agent.sex_work_recent`, refreshed every month by this feature).
 
     With every marginal at 0 (the defaults) no random number is drawn and every multiplier is exactly
     1, so a run with the feature on and nobody affected is identical to one with it off.
     """
 
     name = "sdh"
-    stats: List[str] = ["hardship_0", "hardship_1", "hardship_2", "hardship_3", "sex_work"]
+    stats: List[str] = ["hardship_0", "hardship_1", "hardship_2", "hardship_3", "sex_work",
+                        "hardship_housing", "hardship_food", "hardship_employment"]   # agents with the component (2026-10-25)
     norm: Dict[Tuple, float] = {}       # (hook, group) -> mean of m^k over that group, refreshed monthly
 
     @classmethod
@@ -60,8 +72,11 @@ class SDH(base_feature.BaseFeature):
         self.components: Dict[str, bool] = {c: False for c in COMPONENTS}
         self.partner_base: Dict[str, int] = {}      # the agent's drawn partner numbers, the base the factor acts on
         self.last_drug: Optional[str] = None        # drug type the states were last drawn against
+        self.sex_work_last: Optional[int] = None    # last step the agent was in sex work (the PrEP indication window)
         self.agent.hardship = 0
+        self.agent.hardship_on: Tuple[str, ...] = ()   # the components present, read by the hooks
         self.agent.sex_work = False
+        self.agent.sex_work_recent = False          # in sex work within the past prep_indication_months months
 
     # ------------------------------------------------------------------ marginals and the latent
     @staticmethod
@@ -96,6 +111,7 @@ class SDH(base_feature.BaseFeature):
         for k in (*COMPONENTS, "sex_work"):
             self.eps[k] = pop.pop_random.gauss(0.0, 1.0)
         self._apply(params, rho, pop.pop_random)
+        self._stamp(params, time)
 
     def _latent(self, k: str, rho: float) -> float:
         return math.sqrt(rho) * self.z0 + math.sqrt(1.0 - rho) * self.eps[k]
@@ -105,6 +121,7 @@ class SDH(base_feature.BaseFeature):
         for c in COMPONENTS:
             self.components[c] = _phi(self._latent(c, rho)) < p[c]
         self.agent.hardship = sum(1 for v in self.components.values() if v)
+        self.agent.hardship_on = tuple(c for c in COMPONENTS if self.components[c])
         sex_work = _phi(self._latent("sex_work", rho)) < p["sex_work"]
         drug = getattr(self.agent, "drug_type", "NonInj")
         first = self.last_drug is None
@@ -113,6 +130,14 @@ class SDH(base_feature.BaseFeature):
         if sex_work != self.agent.sex_work or group_changed or first:
             self.agent.sex_work = sex_work
             self._set_partners(params, rng, p["sex_work"])
+
+    def _stamp(self, params, time: int):
+        """Record this month if the agent is in sex work and refresh the PrEP-indication flag: in sex work in any of
+        the past `prep_indication_months` months, this one included (window 1 = the current state only)."""
+        if self.agent.sex_work:
+            self.sex_work_last = time
+        w = int(params.sdh.sex_work.prep_indication_months)
+        self.agent.sex_work_recent = self.sex_work_last is not None and 0 <= time - self.sex_work_last < w
 
     @staticmethod
     def partner_factor(params, sex_work: bool, p_sw: float) -> float:
@@ -169,15 +194,54 @@ class SDH(base_feature.BaseFeature):
                     changed = True
         if changed or self.last_drug != getattr(self.agent, "drug_type", "NonInj"):
             self._apply(params, rho, model.run_random)      # a drug-type change re-reads the states against its marginals
+        self._stamp(params, model.time)
+
+    # ------------------------------------------------------------------ the product form
+    @staticmethod
+    def product(table, hook: Optional[str], on) -> float:
+        """Product over the agent's components present (`on`) of the component's multiplier: table.<component>.<hook>,
+        or table.<component> itself when `hook` is None (the settings' visit table). 1.0 when the table is missing."""
+        if table is None:
+            return 1.0
+        w = 1.0
+        for c in on:
+            block = getattr(table, c, None)
+            if block is None:
+                continue
+            v = block if hook is None else getattr(block, hook, 1.0)
+            w *= float(v if v is not None else 1.0)
+        return w
+
+    @staticmethod
+    def active(table, hook: Optional[str]) -> bool:
+        """Whether any component's multiplier for `hook` differs from 1 (an inert hook has no normaliser and no effect)."""
+        if table is None:
+            return False
+        for c in COMPONENTS:
+            block = getattr(table, c, None)
+            if block is None:
+                continue
+            v = block if hook is None else getattr(block, hook, 1.0)
+            if float(v if v is not None else 1.0) != 1.0:
+                return True
+        return False
+
+    @staticmethod
+    def visit_table(setting):
+        """The setting's hardship multipliers as a component table (fields visit_mult_hardship_<component>)."""
+        return _Table(**{c: float(getattr(setting, f"visit_mult_hardship_{c}", 1.0) or 1.0) for c in COMPONENTS})
 
     @classmethod
     def refresh_norms(cls, agents, params):
-        """Mean of m^hardship per hook over the agents the hook acts on (see the class docstring)."""
+        """Mean of the product multiplier per hook over the agents the hook acts on (see the class docstring)."""
         h = params.sdh.hardship
-        risk = {k: float(getattr(getattr(h, "risk_mult_per_point", None), k, 1.0) or 1.0) for k in RISK_HOOKS}
-        care = {k: float(getattr(getattr(h, "mult_per_point", None), k, 1.0) or 1.0) for k in CARE_HOOKS}
+        risk_t = getattr(h, "risk_mult", None)
+        care_t = getattr(h, "care_mult", None)
+        risk_on = {k: cls.active(risk_t, k) for k in RISK_HOOKS}
+        care_on = {k: cls.active(care_t, k) for k in CARE_HOOKS}
         settings = getattr(getattr(params, "care_seeking", None), "setting", None) or {}
-        visit = {s: float(getattr(st, "visit_mult_hardship_per_point", 1.0) or 1.0) for s, st in settings.items()}
+        visit_t = {s: cls.visit_table(st) for s, st in settings.items()}
+        visit_on = {s: cls.active(t, None) for s, t in visit_t.items()}
         sums: Dict[Tuple, float] = {}
         cnt: Dict[Tuple, int] = {}
 
@@ -186,36 +250,36 @@ class SDH(base_feature.BaseFeature):
             cnt[key] = cnt.get(key, 0) + 1
 
         for a in agents:
-            k = int(getattr(a, "hardship", 0) or 0)
+            on = getattr(a, "hardship_on", ())
             dt = getattr(a, "drug_type", "NonInj")
-            for hook, m in risk.items():
-                if m != 1.0:
-                    add((hook, dt), m ** k)
+            for hook in RISK_HOOKS:
+                if risk_on[hook]:
+                    add((hook, dt), cls.product(risk_t, hook, on))
             if getattr(a, "insured", True):
-                for s, m in visit.items():
-                    if m != 1.0:
-                        add(("visit", s, dt), m ** k)
+                for s, t in visit_t.items():
+                    if visit_on[s]:
+                        add(("visit", s, dt), cls.product(t, None, on))
             moud = getattr(a, "moud", None)
-            if care["moud_discontinue"] != 1.0 and moud is not None and getattr(moud, "active", False):
-                add(("moud_discontinue", None), care["moud_discontinue"] ** k)
+            if care_on["moud_discontinue"] and moud is not None and getattr(moud, "active", False):
+                add(("moud_discontinue", None), cls.product(care_t, "moud_discontinue", on))
             prep = getattr(a, "prep", None)
-            if care["prep_discontinue"] != 1.0 and prep is not None and getattr(prep, "active", False):
-                add(("prep_discontinue", None), care["prep_discontinue"] ** k)
+            if care_on["prep_discontinue"] and prep is not None and getattr(prep, "active", False):
+                add(("prep_discontinue", None), cls.product(care_t, "prep_discontinue", on))
             haart = getattr(a, "haart", None)
             if haart is not None and getattr(haart, "active", False):
                 if getattr(haart, "adherent", False):
-                    if care["art_nonadherence"] != 1.0:
-                        add(("art_nonadherence", None), care["art_nonadherence"] ** k)
-                elif care["art_readherence"] != 1.0:
-                    add(("art_readherence", None), care["art_readherence"] ** k)
+                    if care_on["art_nonadherence"]:
+                        add(("art_nonadherence", None), cls.product(care_t, "art_nonadherence", on))
+                elif care_on["art_readherence"]:
+                    add(("art_readherence", None), cls.product(care_t, "art_readherence", on))
         cls.norm = {key: sums[key] / cnt[key] for key in sums if cnt[key]}
 
     # ------------------------------------------------------------------ hooks read by the other features
     @classmethod
-    def _relative(cls, params, m: float, k: int, key: Tuple) -> float:
-        if m == 1.0 or k <= 0 and not getattr(params.sdh.hardship, "mean_preserving", True):
+    def _relative(cls, params, table, hook: Optional[str], agent, key: Tuple) -> float:
+        if not cls.active(table, hook):
             return 1.0
-        raw = m ** k
+        raw = cls.product(table, hook, getattr(agent, "hardship_on", ()))
         if getattr(params.sdh.hardship, "mean_preserving", True):
             return raw / cls.norm.get(key, 1.0)
         return raw
@@ -225,10 +289,8 @@ class SDH(base_feature.BaseFeature):
         """Relative multiplier on a risk behaviour (`hook` in RISK_HOOKS), normalised within the agent's drug type."""
         if not getattr(getattr(params, "features", None), "sdh", False):
             return 1.0
-        mults = getattr(getattr(getattr(params, "sdh", None), "hardship", None), "risk_mult_per_point", None)
-        m = float(getattr(mults, hook, 1.0) or 1.0) if mults is not None else 1.0
-        k = int(getattr(agent, "hardship", 0) or 0)
-        return cls._relative(params, m, k, (hook, getattr(agent, "drug_type", "NonInj")))
+        table = getattr(getattr(getattr(params, "sdh", None), "hardship", None), "risk_mult", None)
+        return cls._relative(params, table, hook, agent, (hook, getattr(agent, "drug_type", "NonInj")))
 
     @classmethod
     def mult(cls, agent: "agent.Agent", params, hook: str) -> float:
@@ -236,21 +298,19 @@ class SDH(base_feature.BaseFeature):
         that treatment (adherent / non-adherent for the ART transitions)."""
         if not getattr(getattr(params, "features", None), "sdh", False):
             return 1.0
-        mults = getattr(getattr(getattr(params, "sdh", None), "hardship", None), "mult_per_point", None)
-        m = float(getattr(mults, hook, 1.0) or 1.0) if mults is not None else 1.0
-        k = int(getattr(agent, "hardship", 0) or 0)
-        return cls._relative(params, m, k, (hook, None))
+        table = getattr(getattr(getattr(params, "sdh", None), "hardship", None), "care_mult", None)
+        return cls._relative(params, table, hook, agent, (hook, None))
 
     @classmethod
     def visit_mult(cls, agent: "agent.Agent", params, setting_name: str, setting) -> float:
         """Relative multiplier on the setting's visit rate, normalised over the insured agents of the drug type."""
         if not getattr(getattr(params, "features", None), "sdh", False):
             return 1.0
-        m = float(getattr(setting, "visit_mult_hardship_per_point", 1.0) or 1.0)
-        k = int(getattr(agent, "hardship", 0) or 0)
-        return cls._relative(params, m, k, ("visit", setting_name, getattr(agent, "drug_type", "NonInj")))
+        return cls._relative(params, cls.visit_table(setting), None, agent, ("visit", setting_name, getattr(agent, "drug_type", "NonInj")))
 
     def set_stats(self, stats: Dict[str, int], time: int):
         stats[f"hardship_{min(int(self.agent.hardship), 3)}"] += 1
         if self.agent.sex_work:
             stats["sex_work"] += 1
+        for c in getattr(self.agent, "hardship_on", ()):
+            stats[f"hardship_{c}"] += 1
