@@ -5,7 +5,8 @@
 # all shards. Differences from run_chain_sensitivity_2027.sh: members and their directory come from the environment,
 # the code runs from the worktree, and the per-member statewide scale is the whole-cohort base (13,704 / N); the
 # contrast divides it by each member's insured share itself (phase7_contrast.insured_scale).
-# Usage: W=<worktree> TITAN_MEMBERS_DIR=<dir of trial_<m>.yml> TITAN_MEMBERS_FILE=<ids> [REPS=<replicates per population, default 40>] \
+# Usage: W=<worktree> TITAN_MEMBERS_DIR=<dir of trial_<m>.yml> TITAN_MEMBERS_FILE=<ids> \
+#        [REPS=<replicates per population, 40>] [CPUS=<cores per shard, 16>] [MEM=<memory per shard, 64G>] [HOURS_PER_FILE=<1.2>] \
 #        scripts/run_round_2027.sh <name> [arms] [shards] [N] [root]
 set -euo pipefail
 NAME=$1; ARMS=${2:-pc1,pc2,pc3,pc4,pc6,pc2b,pc4b}; SHARDS=${3:-16}; N=${4:-2000}
@@ -22,10 +23,13 @@ per=$(( (${#arr[@]} + SHARDS - 1) / SHARDS )); : > $S/jobs.txt
 for ((b=0; b<SHARDS; b++)); do
   chunk=("${arr[@]:b*per:per}"); [ "${#chunk[@]}" -eq 0 ] && continue
   list=$(IFS=,; echo "${chunk[*]}")
-  hours=$(( ${#chunk[@]} * 6 / 5 + 4 ))     # ~1 h per trial file of 320 runs at 2,000 agents x 300 steps on 16 cores, plus margin
+  # ~1.2 h per trial file of 320 runs at 2,000 agents x 300 steps on 16 cores (measured 9-14 h for 12 files), plus 4 h
+  # margin; HOURS_PER_FILE overrides it (the validator runs populations serially and only replicates in parallel, so a
+  # file of 8 populations x 2 replicates at 14,704 agents takes 8 x 27 min on 2 cores whatever the core count).
+  hours=$(awk -v n=${#chunk[@]} -v h=${HOURS_PER_FILE:-1.2} 'BEGIN{x=n*h+4; printf "%d", (x==int(x))?x:int(x)+1}')
   [ $hours -gt 48 ] && hours=48
   export TITAN_VAL_TRIALS="$list" TITAN_VAL_SEEDS=8 TITAN_VAL_REPS=${REPS:-40} TITAN_VAL_CRN_BASE=700000 TITAN_VAL_TRIAL_DIR=$S/trials TITAN_VAL_OUT=$S/out
-  jid=$(sbatch --parsable --job-name=r2k_${NAME}_$b --partition=batch --cpus-per-task=16 --mem=64G --time=${hours}:00:00 \
+  jid=$(sbatch --parsable --job-name=r2k_${NAME}_$b --partition=batch --cpus-per-task=${CPUS:-16} --mem=${MEM:-64G} --time=${hours}:00:00 \
         --output=$S/logs/shard_${b}_%j.out --error=$S/logs/shard_${b}_%j.err --export=ALL \
         --wrap="module purge; module load python/3.9; source /oscar/data/jtao9/envs/titan_env/bin/activate; cd $W; python -m titan.calibration.validate_candidates > $S/logs/validate_$b.txt 2>&1; echo validate exit \$?" 2>>$S/logs/sbatch.err) || { echo "sbatch failed for shard $b"; scancel $(cat $S/jobs.txt) 2>/dev/null; exit 1; }
   echo $jid >> $S/jobs.txt
