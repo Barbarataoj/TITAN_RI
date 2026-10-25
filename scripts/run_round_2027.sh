@@ -40,7 +40,7 @@ T0=$(python -c "import sys; sys.path.insert(0,'scripts'); from make_phase7_pc_ar
 cat > $S/post.sbatch <<EOP
 #!/bin/bash
 #SBATCH -J post_r2k_$NAME
-#SBATCH -t 04:00:00
+#SBATCH -t 08:00:00
 #SBATCH -n 8
 #SBATCH --mem=64G
 #SBATCH -o $S/logs/post_%j.out
