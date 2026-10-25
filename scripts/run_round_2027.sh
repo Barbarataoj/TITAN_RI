@@ -5,7 +5,7 @@
 # all shards. Differences from run_chain_sensitivity_2027.sh: members and their directory come from the environment,
 # the code runs from the worktree, and the per-member statewide scale is the whole-cohort base (13,704 / N); the
 # contrast divides it by each member's insured share itself (phase7_contrast.insured_scale).
-# Usage: W=<worktree> TITAN_MEMBERS_DIR=<dir of trial_<m>.yml> TITAN_MEMBERS_FILE=<ids> \
+# Usage: W=<worktree> TITAN_MEMBERS_DIR=<dir of trial_<m>.yml> TITAN_MEMBERS_FILE=<ids> [REPS=<replicates per population, default 40>] \
 #        scripts/run_round_2027.sh <name> [arms] [shards] [N] [root]
 set -euo pipefail
 NAME=$1; ARMS=${2:-pc1,pc2,pc3,pc4,pc6,pc2b,pc4b}; SHARDS=${3:-16}; N=${4:-2000}
@@ -24,7 +24,7 @@ for ((b=0; b<SHARDS; b++)); do
   list=$(IFS=,; echo "${chunk[*]}")
   hours=$(( ${#chunk[@]} * 6 / 5 + 4 ))     # ~1 h per trial file of 320 runs at 2,000 agents x 300 steps on 16 cores, plus margin
   [ $hours -gt 48 ] && hours=48
-  export TITAN_VAL_TRIALS="$list" TITAN_VAL_SEEDS=8 TITAN_VAL_REPS=40 TITAN_VAL_CRN_BASE=700000 TITAN_VAL_TRIAL_DIR=$S/trials TITAN_VAL_OUT=$S/out
+  export TITAN_VAL_TRIALS="$list" TITAN_VAL_SEEDS=8 TITAN_VAL_REPS=${REPS:-40} TITAN_VAL_CRN_BASE=700000 TITAN_VAL_TRIAL_DIR=$S/trials TITAN_VAL_OUT=$S/out
   jid=$(sbatch --parsable --job-name=r2k_${NAME}_$b --partition=batch --cpus-per-task=16 --mem=64G --time=${hours}:00:00 \
         --output=$S/logs/shard_${b}_%j.out --error=$S/logs/shard_${b}_%j.err --export=ALL \
         --wrap="module purge; module load python/3.9; source /oscar/data/jtao9/envs/titan_env/bin/activate; cd $W; python -m titan.calibration.validate_candidates > $S/logs/validate_$b.txt 2>&1; echo validate exit \$?" 2>>$S/logs/sbatch.err) || { echo "sbatch failed for shard $b"; scancel $(cat $S/jobs.txt) 2>/dev/null; exit 1; }
