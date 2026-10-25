@@ -191,7 +191,12 @@ ACCEPT_PREP = 0.40       # starts once discussed. Clinical review 2026-10-07 (Ph
 # 391/423/448 status quo with insurance and SDH on, job 7907494, 8 populations x 10 replicates, 2022, same
 # recipe. Cohort share 0.438 (was 0.362 on the same runs with the old rule). Old values: ED 0.473,
 # primary care 0.384, SUD 0.375, mental health 0.430.
-PREP_INDICATED_SHARE = {"ED": 0.538, "primary_care": 0.462, "sud_treatment": 0.500, "mental_health": 0.489}
+# RE-MEASURED 2026-10-25 for the third bundle (work record §19.47): Rhode Island point marginals, sex work in the past
+# 12 months as the indication, component-specific multipliers; members 940/691/597 status quo (C_on arm of the proof,
+# jobs 7931215-7931217, worktree cbf6334b), 8 populations x 10 replicates, 2022, same recipe. Cohort share 0.399
+# (was 0.438 under the 2026-10-24 street-sample marginals). Previous values: ED 0.538, primary care 0.462, SUD 0.500,
+# mental health 0.489.
+PREP_INDICATED_SHARE = {"ED": 0.499, "primary_care": 0.423, "sud_treatment": 0.457, "mental_health": 0.460}
 # Test-and-offer bundle (2026-10-09, Jun / clinical review): PrEP raised at the
 # visit where an HIV test comes back negative, for a patient with an indication.
 #   PREP_BUNDLE_PROB_WILLING   P(PrEP raised | negative test, provider prescribes PrEP).
