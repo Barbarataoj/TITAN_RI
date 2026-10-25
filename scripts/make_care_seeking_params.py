@@ -304,7 +304,11 @@ FORCED_TESTS_PER_COHORT_PY = {"ED": 0.00069, "primary_care": 0.00338 + 0.00029 +
 # state"): an uninsured agent's annual visit rate per setting is multiplied by these. ASSUMPTIONS pending
 # RIHRSS / RIDOH -- uninsured adults make far fewer office visits and somewhat more ED visits. The generator
 # owns the care_seeking block, so the values live here, not in scenario_source.yml by hand.
-VISIT_MULT_UNINSURED = {"ED": 1.25, "primary_care": 0.35, "sud_treatment": 0.60, "mental_health": 0.40}
+# Uninsured visit multipliers (insurance layer 2026-10-24; ED set to 1.0 on 2026-10-25): the uninsured use the ED at
+# about the insured rate and well below Medicaid enrollees, and use other care much less (Zhou, Baicker, Taubman &
+# Finkelstein, Health Aff 2017, doi:10.1377/hlthaff.2017.0218); office ratio about a third (MEPS); SUD and
+# mental-health values are assumptions bracketed by x0.5 / x2 (registry).
+VISIT_MULT_UNINSURED = {"ED": 1.0, "primary_care": 0.35, "sud_treatment": 0.60, "mental_health": 0.40}
 # Hardship index (SDH feature, 2026-10-24, work record §19.39): per index point (0-3), applied as m^k. ASSUMPTIONS:
 # direction from Aidala 2016 (housing and HIV care use) and the ALIVE cohort (ED admissions about 2.5x during
 # homelessness, Drug Alcohol Depend 2026); three points give office visits x0.61 and ED visits x2.46.
@@ -481,7 +485,7 @@ def derive(verbose=True, test_linked=None):
         e_mult *= cohort_comp["hiv_status"] * mult_hiv + (1 - cohort_comp["hiv_status"])
         rate = cohort_rate / e_mult
         say(f"visit_rate_annual (reference group) = {cohort_rate:.3f} / E[multiplier over the cohort] {e_mult:.3f} = {rate:.3f}")
-        say(f"visit_mult_uninsured = {VISIT_MULT_UNINSURED[s]}  [assumption, insurance layer 2026-10-24; registry]")
+        say(f"visit_mult_uninsured = {VISIT_MULT_UNINSURED[s]}  [literature-bounded, insurance layer 2026-10-24/25; registry]")
         say(f"visit_mult_hardship_per_point = {VISIT_MULT_HARDSHIP[s]}  [assumption, SDH layer 2026-10-24; registry]")
 
         n_prov = int(q1[(q1.year == YEAR) & (q1.setting == s)].n_providers.iloc[0])

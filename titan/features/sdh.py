@@ -34,8 +34,12 @@ class SDH(base_feature.BaseFeature):
     per setting (the claims-solved rates describe insured members); MOUD and PrEP discontinuation over
     the agents on them; the ART transitions over the adherent / non-adherent agents on ART. The
     population average of each calibrated or anchored behaviour is therefore unchanged and the
-    determinants decide who carries it. Sex work multiplies the sexual partner number while the state
-    holds (stochastic rounding) and is a PrEP indication (`sex_work` in prep.target_model).
+    determinants decide who carries it. Sex work redistributes sexual partners the same way (2026-10-25,
+    work record §19.42 finding 2): the survey-anchored partner distributions already contain sex workers,
+    so an agent in sex work has `partner_mult` times the partners of one who is not, within the group's
+    unchanged mean -- factor m / (1 + p (m - 1)) in sex work and 1 / (1 + p (m - 1)) otherwise, with p
+    the group's sex-work marginal (sex type x injecting status), stochastic rounding on the agent's drawn
+    base -- and sex work is a PrEP indication (`sex_work` in prep.target_model).
 
     With every marginal at 0 (the defaults) no random number is drawn and every multiplier is exactly
     1, so a run with the feature on and nobody affected is identical to one with it off.
@@ -54,7 +58,8 @@ class SDH(base_feature.BaseFeature):
         self.z0 = 0.0
         self.eps: Dict[str, float] = {}
         self.components: Dict[str, bool] = {c: False for c in COMPONENTS}
-        self.partner_base: Dict[str, int] = {}
+        self.partner_base: Dict[str, int] = {}      # the agent's drawn partner numbers, the base the factor acts on
+        self.last_drug: Optional[str] = None        # drug type the states were last drawn against
         self.agent.hardship = 0
         self.agent.sex_work = False
 
@@ -101,31 +106,45 @@ class SDH(base_feature.BaseFeature):
             self.components[c] = _phi(self._latent(c, rho)) < p[c]
         self.agent.hardship = sum(1 for v in self.components.values() if v)
         sex_work = _phi(self._latent("sex_work", rho)) < p["sex_work"]
-        if sex_work != self.agent.sex_work:
+        drug = getattr(self.agent, "drug_type", "NonInj")
+        first = self.last_drug is None
+        group_changed = self.last_drug != drug
+        self.last_drug = drug
+        if sex_work != self.agent.sex_work or group_changed or first:
             self.agent.sex_work = sex_work
-            self._scale_partners(params, rng)
+            self._set_partners(params, rng, p["sex_work"])
 
-    def _scale_partners(self, params, rng):
-        """Entering sex work multiplies the sexual partner number (stochastic rounding, so the realised
-        multiplier equals the parameter on average); leaving it restores the base."""
+    @staticmethod
+    def partner_factor(params, sex_work: bool, p_sw: float) -> float:
+        """Relative partner-number factor: m / (1 + p (m - 1)) in sex work, 1 / (1 + p (m - 1)) otherwise, so the
+        group's mean partner number is unchanged for the parameter marginal p; 1.0 when m is 1 or nobody in the
+        group does sex work."""
         m = float(params.sdh.sex_work.partner_mult)
-        if m == 1.0:
-            return
+        if m == 1.0 or p_sw <= 0.0:
+            return 1.0
+        mean = 1.0 + p_sw * (m - 1.0)
+        return (m if sex_work else 1.0) / mean
+
+    def _set_partners(self, params, rng, p_sw: float):
+        """Set the sexual partner numbers to the agent's drawn base times the factor for its current state and group
+        (stochastic rounding, so the realised factor equals the parameter on average). The base is captured the
+        first time, before any factor is applied."""
+        f = self.partner_factor(params, self.agent.sex_work, p_sw)
         for bond, bond_def in params.classes.bond_types.items():
             if "sex" not in bond_def.acts_allowed:
                 continue
-            if self.agent.sex_work:
-                base = int(self.agent.mean_num_partners.get(bond, 0))
-                if base <= 0:
-                    continue
-                self.partner_base[bond] = base
-                x = base * m
+            if bond not in self.partner_base:
+                self.partner_base[bond] = int(self.agent.mean_num_partners.get(bond, 0))
+            base = self.partner_base[bond]
+            if base <= 0:
+                continue
+            if f == 1.0:
+                n = base
+            else:
+                x = base * f
                 n = int(math.floor(x)) + (1 if rng.random() < x - math.floor(x) else 0)
-                self.agent.mean_num_partners[bond] = n
-                self.agent.target_partners[bond] = n
-            elif bond in self.partner_base:
-                self.agent.mean_num_partners[bond] = self.partner_base.pop(bond)
-                self.agent.target_partners[bond] = self.agent.mean_num_partners[bond]
+            self.agent.mean_num_partners[bond] = n
+            self.agent.target_partners[bond] = n
 
     # ------------------------------------------------------------------ monthly step
     @classmethod
@@ -135,21 +154,21 @@ class SDH(base_feature.BaseFeature):
         params = model.params
         q = float(params.sdh.hardship.episode_end_prob_per_month)
         rho = float(params.sdh.hardship.rho)
-        if q > 0.0:
-            for a in model.pop.all_agents:
-                a.sdh.churn(model, params, q, rho)
+        for a in model.pop.all_agents:                  # every month: episodes may end, drug-type changes re-read
+            a.sdh.churn(model, params, q, rho)
         cls.refresh_norms(model.pop.all_agents, params)
 
     def churn(self, model: "model.TITAN", params, q: float, rho: float):
         if not self.eps:
             return                              # never drawn: every marginal was 0
         changed = False
-        for k in self.eps:
-            if model.run_random.random() < q:
-                self.eps[k] = model.run_random.gauss(0.0, 1.0)
-                changed = True
-        if changed:
-            self._apply(params, rho, model.run_random)
+        if q > 0.0:                                     # no random numbers consumed when episodes never end
+            for k in self.eps:
+                if model.run_random.random() < q:
+                    self.eps[k] = model.run_random.gauss(0.0, 1.0)
+                    changed = True
+        if changed or self.last_drug != getattr(self.agent, "drug_type", "NonInj"):
+            self._apply(params, rho, model.run_random)      # a drug-type change re-reads the states against its marginals
 
     @classmethod
     def refresh_norms(cls, agents, params):

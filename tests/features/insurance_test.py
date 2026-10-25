@@ -113,12 +113,13 @@ def test_art_multipliers_are_relative_and_mean_preserving(monkeypatch):
     p = _params(init_uninsured_prob_inj=0.1)
     p.insurance.art_start_mult = 0.8
     p.insurance.art_nonadherence_mult = 1.15
-    monkeypatch.setattr(Insurance, "uninsured_share_dx", 0.1)
+    monkeypatch.setattr(Insurance, "uninsured_share_art_start", 0.1)
+    monkeypatch.setattr(Insurance, "uninsured_share_art_nonadherence", 0.05)   # each hook normalises over its own group (§19.42 minor c)
     ins, un = _agent("Inj", p), _agent("Inj", p)
     un.insurance.set_status(False)
     norm = 0.9 + 0.1 * 0.8
     assert Insurance.art_mult(ins, p, "art_start") == pytest.approx(1 / norm)
     assert Insurance.art_mult(un, p, "art_start") == pytest.approx(0.8 / norm)
     assert 0.9 * Insurance.art_mult(ins, p, "art_start") + 0.1 * Insurance.art_mult(un, p, "art_start") == pytest.approx(1.0)
-    assert Insurance.art_mult(un, p, "art_nonadherence") == pytest.approx(1.15 / (0.9 + 0.1 * 1.15))
+    assert Insurance.art_mult(un, p, "art_nonadherence") == pytest.approx(1.15 / (0.95 + 0.05 * 1.15))
     assert Insurance.art_mult(un, SimpleNamespace(features=SimpleNamespace(insurance=False), insurance=p.insurance), "art_start") == 1.0

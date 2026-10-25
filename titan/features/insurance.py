@@ -31,11 +31,14 @@ class Insurance(base_feature.BaseFeature):
 
     name = "insurance"
     stats: List[str] = []      # reported through the insured_states output class instead
-    uninsured_share_dx: float = 0.0     # uninsured share among diagnosed agents, refreshed monthly: the ART multipliers' normaliser
+    # uninsured share among the agents each ART hook acts on, refreshed monthly: the multipliers' normalisers
+    uninsured_share_art_start: float = 0.0          # diagnosed, not on ART
+    uninsured_share_art_nonadherence: float = 0.0   # on ART and adherent
 
     @classmethod
     def init_class(cls, params):
-        cls.uninsured_share_dx = 0.0
+        cls.uninsured_share_art_start = 0.0
+        cls.uninsured_share_art_nonadherence = 0.0
 
     def __init__(self, agent: "agent.Agent"):
         super().__init__(agent)
@@ -77,14 +80,22 @@ class Insurance(base_feature.BaseFeature):
         """Monthly churn for every agent, before the care layer rolls the month's visits."""
         params = model.params.insurance
         gain = float(getattr(params, "gain_prob_per_month", 0.0))
-        n = unins = 0
+        n_start = u_start = n_adh = u_adh = 0
         for a in model.pop.all_agents:
             a.insurance.churn(model, params, gain)
             hiv = getattr(a, "hiv", None)
-            if hiv is not None and getattr(hiv, "dx", False):       # the ART hooks act on diagnosed agents
-                n += 1
-                unins += 0 if a.insured else 1
-        cls.uninsured_share_dx = unins / n if n else 0.0
+            if hiv is None or not getattr(hiv, "dx", False):
+                continue
+            haart = getattr(a, "haart", None)
+            on_art = haart is not None and getattr(haart, "active", False)
+            if not on_art:                                          # the start hook acts on the diagnosed not on ART
+                n_start += 1
+                u_start += 0 if a.insured else 1
+            elif getattr(haart, "adherent", False):                 # the lapse hook acts on the adherent on ART
+                n_adh += 1
+                u_adh += 0 if a.insured else 1
+        cls.uninsured_share_art_start = u_start / n_start if n_start else 0.0
+        cls.uninsured_share_art_nonadherence = u_adh / n_adh if n_adh else 0.0
 
     def churn(self, model: "model.TITAN", params, gain: float):
         """One agent's monthly draw: the insured may lose coverage, the uninsured may regain it."""
@@ -98,15 +109,16 @@ class Insurance(base_feature.BaseFeature):
     @classmethod
     def art_mult(cls, agent: "agent.Agent", params, hook: str) -> float:
         """Relative multiplier on ART initiation (`art_start`) or the adherent -> non-adherent transition
-        (`art_nonadherence`) for an uninsured agent, divided by the population mean (1 - u + u m) so the solved
-        continuum rates keep their population average; 1.0 when the feature is off or the multiplier is 1."""
+        (`art_nonadherence`) for an uninsured agent, divided by the mean (1 - u + u m) over the agents the hook acts on
+        (diagnosed not on ART; adherent on ART) so the solved continuum rates keep their average; 1.0 when the
+        feature is off or the multiplier is 1."""
         feats = getattr(params, "features", None)
         if not getattr(feats, "insurance", False):
             return 1.0
         m = float(getattr(getattr(params, "insurance", None), f"{hook}_mult", 1.0) or 1.0)
         if m == 1.0:
             return 1.0
-        u = cls.uninsured_share_dx
+        u = cls.uninsured_share_art_start if hook == "art_start" else cls.uninsured_share_art_nonadherence
         raw = m if not getattr(agent, "insured", True) else 1.0
         return raw / (1.0 - u + u * m)
 

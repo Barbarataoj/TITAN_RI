@@ -104,25 +104,48 @@ def test_care_multipliers_are_relative_within_the_treated_group():
     assert SDH.mult(agents[2], _params(mults={"moud_discontinue": 1.2}, on=False), "moud_discontinue") == 1.0
 
 
-def test_sex_work_scales_sexual_partners_while_the_state_holds():
+def test_sex_work_redistributes_partners_within_the_group_mean():
+    """2026-10-25 (§19.42 finding 2): the survey-anchored partner means already contain sex workers, so the
+    multiplier is relative -- m / (1 + p (m - 1)) in sex work, 1 / (1 + p (m - 1)) otherwise -- and the group mean
+    is unchanged."""
+    # everyone in sex work: the factor is exactly 1, partners untouched
     p = _params(sw={"HF": (1.0, 1.0)}, partner_mult=1.5)
     a = _agent("Inj", "HF", p, partners=2); a.sdh.init_agent(Pop(1), 0)
-    assert a.sex_work and a.mean_num_partners["Sex"] == 3 and a.target_partners["Sex"] == 3 and a.mean_num_partners["Inj"] == 1
-    b = _agent("Inj", "HF", p, partners=0); b.sdh.init_agent(Pop(1), 0)
-    assert b.sex_work and b.mean_num_partners["Sex"] == 0
-    # stochastic rounding: one partner x 1.5 is 1 or 2, averaging 1.5
-    ns = []
-    for seed in range(400):
-        c = _agent("Inj", "HF", p, partners=1); c.sdh.init_agent(Pop(seed), 0); ns.append(c.mean_num_partners["Sex"])
-    assert set(ns) == {1, 2} and sum(ns) / len(ns) == pytest.approx(1.5, abs=0.08)
-    # leaving sex work restores the base; re-entering scales again
-    q = _params(sw={"HF": (0.5, 0.5)}, partner_mult=2.0, q=1.0, rho=0.0)
-    d = _agent("Inj", "HF", q, partners=2); d.sdh.init_agent(Pop(5), 0)
+    assert a.sex_work and a.mean_num_partners["Sex"] == 2 and a.target_partners["Sex"] == 2 and a.mean_num_partners["Inj"] == 1
+    assert SDH.partner_factor(p, True, 1.0) == pytest.approx(1.0) and SDH.partner_factor(p, False, 0.0) == 1.0
+    # half the group in sex work, m = 2: sex workers x 4/3, the others x 2/3; the mean over many agents is preserved
+    q = _params(sw={"HF": (0.5, 0.5)}, partner_mult=2.0, rho=0.0)
+    assert SDH.partner_factor(q, True, 0.5) == pytest.approx(4 / 3) and SDH.partner_factor(q, False, 0.5) == pytest.approx(2 / 3)
+    sw, other = [], []
+    for seed in range(2000):
+        c = _agent("Inj", "HF", q, partners=3); c.sdh.init_agent(Pop(seed), 0)
+        (sw if c.sex_work else other).append(c.mean_num_partners["Sex"])
+    assert sum(sw) / len(sw) == pytest.approx(4.0, abs=0.08) and sum(other) / len(other) == pytest.approx(2.0, abs=0.08)
+    assert (sum(sw) + sum(other)) / (len(sw) + len(other)) == pytest.approx(3.0, abs=0.08)
+    assert set(sw) == {4} and set(other) == {2}      # 3 x 4/3 and 3 x 2/3 are integers: no rounding noise
+    # states follow churn: leaving sex work moves the agent to the other factor, re-entering back, from the same base
+    r = _params(sw={"HF": (0.5, 0.5)}, partner_mult=2.0, q=1.0, rho=0.0)
+    d = _agent("Inj", "HF", r, partners=3); d.sdh.init_agent(Pop(5), 0)
     seen = {d.sex_work: d.mean_num_partners["Sex"]}
-    model = SimpleNamespace(params=q, run_random=random.Random(9), pop=SimpleNamespace(all_agents=[d]))
+    model = SimpleNamespace(params=r, run_random=random.Random(9), pop=SimpleNamespace(all_agents=[d]))
     for _ in range(40):
         SDH.update_pop(model); seen[d.sex_work] = d.mean_num_partners["Sex"]
-    assert seen == {True: 4, False: 2}
+    assert seen == {True: 4, False: 2} and d.sdh.partner_base["Sex"] == 3
+    # partner_mult 1 touches nothing
+    e = _agent("Inj", "HF", _params(sw={"HF": (0.5, 0.5)}, partner_mult=1.0), partners=3); e.sdh.init_agent(Pop(2), 0)
+    assert e.mean_num_partners["Sex"] == 3
+
+
+def test_drug_type_change_rereads_the_states_against_the_new_marginals():
+    """§19.42 minor (b): an agent whose drug type changes takes the new group's marginals at the next monthly step,
+    not at the next episode end."""
+    p = _params(inj={"housing": 1.0}, noninj={"housing": 0.0}, q=0.0, rho=0.0)
+    a = _agent("Inj", "HF", p); a.sdh.init_agent(Pop(3), 0)
+    assert a.hardship == 1
+    a.drug_type = "NonInj"
+    model = SimpleNamespace(params=p, run_random=random.Random(1), pop=SimpleNamespace(all_agents=[a]))
+    SDH.update_pop(model)
+    assert a.hardship == 0 and a.sdh.last_drug == "NonInj"
 
 
 def test_visit_rate_hardship_multiplier_is_relative_within_insured_agents_of_the_drug_type():

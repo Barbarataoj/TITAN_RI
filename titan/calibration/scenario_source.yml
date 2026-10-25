@@ -438,7 +438,7 @@ scenario:
         visit_mult_inj: 2.33
         visit_mult_moud: 0.55
         visit_mult_hiv_positive: 1.784
-        visit_mult_uninsured: 1.25
+        visit_mult_uninsured: 1.0
         visit_mult_hardship_per_point: 1.35
         n_providers_ri: 2145
         panel_skew: 0.16

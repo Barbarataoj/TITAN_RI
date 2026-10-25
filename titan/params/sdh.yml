@@ -59,6 +59,6 @@ sdh:
         noninj: {default: 0.0, type: float, min: 0.0, max: 1.0}
     partner_mult:
       default: 1.0
-      description: "Multiplier on the mean number of sexual partners of an agent in sex work, applied once at initialisation to agents who have any sexual partnerships."
+      description: "Relative partner-number multiplier for sex work: an agent in sex work has partner_mult times the sexual partners of one who is not, within the unchanged mean of its sex type x injecting group (factor m / (1 + p (m - 1)) in sex work, 1 / (1 + p (m - 1)) otherwise, p the group marginal; stochastic rounding on the agent's drawn base). 1.0 = no redistribution."
       type: float
       min: 0.0
