@@ -42,3 +42,6 @@ old=$(cat "$S/post_job.txt" 2>/dev/null | tail -1)
 if [ -n "$old" ] && [ -n "$(squeue -h -j "$old" 2>/dev/null)" ]; then scancel "$old" && echo "cancelled post job $old (dependency on a failed shard)"; fi
 P=$(sbatch --parsable --dependency=afterok:$(paste -sd: "$S/jobs_rerun.txt") "$S/post.sbatch"); echo "$P" >> "$S/post_job.txt"
 echo "post job $P (afterok on the rerun shards)"
+# Newer jobs sit behind every older pending job of this user (age priority, bf_max_job_user=50), so a handful of
+# rerun shards would wait behind whole sensitivity rounds; move them and the post job to the top of this user's queue.
+scontrol top $(paste -sd, "$S/jobs_rerun.txt"),$P 2>/dev/null && echo "moved the rerun shards and the post job to the top of this user's queue"
