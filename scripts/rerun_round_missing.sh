@@ -22,7 +22,7 @@ echo "$(date '+%F %T') $S: ${#all[@]} trial files, ${#missing[@]} without a pool
 [ "${#missing[@]}" -eq 0 ] && { echo "round complete; nothing to do"; exit 0; }
 printf '  %s\n' "${missing[@]}"
 [ "$MODE" = "--check" ] && exit 0
-live=$(cat "$S/jobs.txt" "$S/jobs_rerun.txt" 2>/dev/null | paste -sd,)
+live=$(cat "$S/jobs.txt" "$S/jobs_rerun.txt" 2>/dev/null | paste -sd, || true)  # missing jobs_rerun.txt must not abort under set -e/pipefail
 if [ -n "$live" ] && [ -n "$(squeue -h -j "$live" 2>/dev/null)" ]; then
   echo "shards still queued or running ($(squeue -h -j "$live" -o %i | paste -sd,)); not submitting"; exit 2
 fi
